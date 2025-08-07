@@ -69,6 +69,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export const insertIncidentSchema = createInsertSchema(incidents).omit({
   id: true,
+  userId: true, // userId should be set server-side based on authentication
   createdAt: true,
   updatedAt: true,
 });
