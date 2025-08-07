@@ -876,7 +876,10 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                             </Badge>
                             <span className="text-xs text-gray-400 uppercase">{entity.category}</span>
                           </div>
-                          <p className="font-mono text-sm">{entity.id}</p>
+                          <p className="font-mono text-sm font-bold text-white">{entity.value || entity.id}</p>
+                          {entity.description && (
+                            <p className="text-xs text-gray-400 mt-1">{entity.description}</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -890,10 +893,15 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   {entityMapping.relationships && entityMapping.relationships.length > 0 ? (
                     <div className="space-y-2">
                       {entityMapping.relationships.map((rel: any, index: number) => (
-                        <div key={index} className="cyber-dark rounded-lg p-3 flex items-center space-x-3">
-                          <span className="font-mono text-sm text-orange-400">{rel.source}</span>
-                          <Badge className="cyber-slate-light text-white text-xs">{rel.action}</Badge>
-                          <span className="font-mono text-sm text-red-400">{rel.target}</span>
+                        <div key={index} className="cyber-dark rounded-lg p-3">
+                          <div className="flex items-center space-x-3">
+                            <span className="font-mono text-sm text-orange-400">{rel.source}</span>
+                            <Badge className="cyber-slate-light text-white text-xs">{rel.action}</Badge>
+                            <span className="font-mono text-sm text-red-400">{rel.target}</span>
+                          </div>
+                          {rel.description && (
+                            <p className="text-xs text-gray-400 mt-2">{rel.description}</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -909,12 +917,13 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                       {entityMapping.networkTopology.map((node: any, index: number) => (
                         <div key={index} className="cyber-dark rounded-lg p-3 text-center relative">
                           <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-xs font-bold ${
-                            node.risk === 3 ? 'bg-red-600' :
-                            node.risk === 2 ? 'bg-orange-600' : 'bg-green-600'
+                            node.risk === 'high' ? 'bg-red-600' :
+                            node.risk === 'medium' ? 'bg-orange-600' : 'bg-green-600'
                           }`}>
-                            {node.risk}
+                            {node.type === 'external' ? 'EXT' : 'INT'}
                           </div>
-                          <p className="text-xs font-mono text-gray-300">{node.entity}</p>
+                          <p className="text-xs font-mono text-gray-300">{node.node || node.entity}</p>
+                          <p className="text-xs text-gray-500 mt-1">{node.type}</p>
                         </div>
                       ))}
                     </div>

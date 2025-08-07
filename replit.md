@@ -85,3 +85,9 @@ Preferred communication style: Simple, everyday language.
   - Improved error handling with detailed production debugging information
   - Added port validation and comprehensive startup status logging
   - Enhanced database URL format validation and credential masking in logs
+- **Fixed Display Issues (January 7, 2025 - Latest)**:
+  - Fixed MITRE ATT&CK display showing "[object Object]" by properly handling object rendering
+  - Updated entity extraction to parse real IPs, users, processes, and domains from logs
+  - Enhanced entity relationships display to show descriptions
+  - Fixed network topology display to show correct risk levels and node types
+  - Updated compact-incident-card and incident-history components to properly display MITRE technique IDs
