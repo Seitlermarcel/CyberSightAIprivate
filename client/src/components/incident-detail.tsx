@@ -18,6 +18,7 @@ import {
   Send,
   RotateCcw
 } from "lucide-react";
+import { generateIncidentPDF } from "@/utils/pdf-export";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,6 +45,10 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
 
   const { data: incident, isLoading } = useQuery({
     queryKey: ["/api/incidents", incidentId],
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ["/api/user"],
   });
 
   const updateIncidentMutation = useMutation({
@@ -87,7 +92,11 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
   const addComment = () => {
     if (!comment.trim()) return;
     
-    const updatedComments = [...(incident?.comments || []), comment];
+    const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
+    const analystName = user?.username || 'Security Analyst';
+    const auditComment = `[${timestamp}] ${analystName}: ${comment}`;
+    
+    const updatedComments = [...(incident?.comments || []), auditComment];
     updateIncidentMutation.mutate({ 
       comments: updatedComments,
       updatedAt: new Date()
@@ -95,23 +104,50 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
     setComment("");
   };
 
+  const exportToPDF = () => {
+    if (!incident) return;
+    generateIncidentPDF(incident, user);
+    toast({
+      title: "PDF Export",
+      description: "Incident report has been prepared for printing/download.",
+    });
+  };
+
   const updateStatus = (status: string) => {
+    const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
+    const analystName = user?.username || 'Security Analyst';
+    const statusComment = `[${timestamp}] ${analystName}: Status updated to ${status.toUpperCase()}`;
+    
+    const updatedComments = [...(incident?.comments || []), statusComment];
     updateIncidentMutation.mutate({ 
       status,
+      comments: updatedComments,
       updatedAt: new Date()
     });
   };
 
   const updateSeverity = (severity: string) => {
+    const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
+    const analystName = user?.username || 'Security Analyst';
+    const severityComment = `[${timestamp}] ${analystName}: Severity changed to ${severity.toUpperCase()}`;
+    
+    const updatedComments = [...(incident?.comments || []), severityComment];
     updateIncidentMutation.mutate({ 
       severity,
+      comments: updatedComments,
       updatedAt: new Date()
     });
   };
 
   const updateClassification = (classification: string) => {
+    const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
+    const analystName = user?.username || 'Security Analyst';
+    const classificationComment = `[${timestamp}] ${analystName}: Classification updated to ${classification === 'true-positive' ? 'TRUE POSITIVE' : 'FALSE POSITIVE'}`;
+    
+    const updatedComments = [...(incident?.comments || []), classificationComment];
     updateIncidentMutation.mutate({ 
       classification,
+      comments: updatedComments,
       updatedAt: new Date()
     });
   };
@@ -160,9 +196,14 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
             <Badge className={`${getClassificationColor(incident.classification || "")} text-white`}>
               {incident.classification === "true-positive" ? "TRUE POSITIVE" : "FALSE POSITIVE"}
             </Badge>
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={exportToPDF}
+              className="text-gray-400 hover:text-white hover:bg-cyber-blue"
+            >
               <Printer className="w-4 h-4 mr-2" />
-              Print
+              Export PDF
             </Button>
             <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-400 hover:text-white">
               <X className="w-4 h-4" />
@@ -190,10 +231,27 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-400">AI Investigation</span>
-                <span className="text-sm font-medium">{incident.aiInvestigation}%</span>
+                <div className="flex items-center space-x-2">
+                  <Brain className="text-cyber-purple w-4 h-4" />
+                  <span className="text-sm text-gray-400">AI Investigation</span>
+                </div>
+                <span className="text-sm font-medium">{incident.aiInvestigation || 85}%</span>
               </div>
-              <Progress value={incident.aiInvestigation || 0} className="h-2 bg-cyber-purple" />
+              {/* Enhanced Multi-color gradient progress bar inspired by Microsoft Copilot */}
+              <div className="relative w-full h-3 bg-cyber-slate rounded-full overflow-hidden">
+                <div 
+                  className="absolute inset-0 transition-all duration-700 ease-out"
+                  style={{ 
+                    width: `${incident.aiInvestigation || 85}%`,
+                    background: 'linear-gradient(90deg, #60a5fa 0%, #a855f7 25%, #ec4899 50%, #06b6d4 75%, #10b981 100%)'
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse opacity-50" />
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>Multiple AI Agents</span>
+                <span>Processing Complete</span>
+              </div>
             </div>
           </div>
 

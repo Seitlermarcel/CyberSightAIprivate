@@ -1,0 +1,349 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Settings as SettingsIcon, Save, Brain, Monitor, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Settings, InsertSettings } from "@shared/schema";
+
+export default function Settings() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: user } = useQuery({
+    queryKey: ["/api/user"],
+  });
+
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["/api/settings", user?.id],
+    enabled: !!user?.id,
+  });
+
+  const [formData, setFormData] = useState<Partial<InsertSettings>>({});
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: Partial<InsertSettings>) => {
+      const response = await apiRequest("PATCH", `/api/settings/${user?.id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      setHasChanges(false);
+      toast({
+        title: "Settings Saved",
+        description: "Your preferences have been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSettingChange = (key: keyof InsertSettings, value: any) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const saveSettings = () => {
+    updateSettingsMutation.mutate(formData);
+  };
+
+  const getCurrentValue = (key: keyof InsertSettings) => {
+    return formData[key] !== undefined ? formData[key] : settings?.[key];
+  };
+
+  if (isLoading || !settings) {
+    return (
+      <div className="space-y-6">
+        <div className="cyber-slate rounded-xl p-8 text-center">
+          <div className="w-16 h-16 border-4 border-cyber-blue border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-12 h-12 cyber-slate rounded-lg flex items-center justify-center">
+            <SettingsIcon className="text-cyber-purple text-xl" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Settings</h1>
+            <p className="text-gray-400">Configure your CyberSight AI experience</p>
+          </div>
+        </div>
+        <Button 
+          onClick={saveSettings}
+          disabled={!hasChanges || updateSettingsMutation.isPending}
+          className="cyber-blue hover:bg-blue-600"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          {updateSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+        </Button>
+      </div>
+
+      {/* AI Analysis Configuration */}
+      <Card className="cyber-slate border-cyber-slate-light">
+        <CardHeader>
+          <div className="flex items-center space-x-2">
+            <Brain className="text-cyber-purple" />
+            <CardTitle>AI Analysis Configuration</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="analysisDepth">Analysis Depth</Label>
+              <Select 
+                value={getCurrentValue("analysisDepth") || "comprehensive"} 
+                onValueChange={(value) => handleSettingChange("analysisDepth", value)}
+              >
+                <SelectTrigger className="cyber-dark border-cyber-slate-light">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="cyber-dark border-cyber-slate-light">
+                  <SelectItem value="basic">Basic - Quick analysis</SelectItem>
+                  <SelectItem value="standard">Standard - Balanced analysis</SelectItem>
+                  <SelectItem value="comprehensive">Comprehensive - Deep analysis</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confidenceThreshold">Confidence Threshold (%)</Label>
+              <div className="px-3">
+                <Slider
+                  value={[getCurrentValue("confidenceThreshold") || 80]}
+                  onValueChange={(value) => handleSettingChange("confidenceThreshold", value[0])}
+                  max={100}
+                  min={0}
+                  step={5}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>0%</span>
+                  <span className="font-medium">{getCurrentValue("confidenceThreshold") || 80}%</span>
+                  <span>100%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="enableDualAI">Enable Dual AI Analysis</Label>
+                <div className="text-sm text-gray-400">Use two different AI analysts for enhanced accuracy</div>
+              </div>
+              <Switch
+                id="enableDualAI"
+                checked={getCurrentValue("enableDualAI") || false}
+                onCheckedChange={(checked) => handleSettingChange("enableDualAI", checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="autoSeverityAdjustment">Auto Severity Adjustment</Label>
+                <div className="text-sm text-gray-400">Allow AI to automatically adjust severity based on analysis</div>
+              </div>
+              <Switch
+                id="autoSeverityAdjustment"
+                checked={getCurrentValue("autoSeverityAdjustment") || false}
+                onCheckedChange={(checked) => handleSettingChange("autoSeverityAdjustment", checked)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="customInstructions">Custom Analysis Instructions</Label>
+            <Textarea
+              id="customInstructions"
+              placeholder="Enter any specific instructions for the AI analysis (e.g., focus on specific attack vectors, compliance requirements, etc.)"
+              value={getCurrentValue("customInstructions") || ""}
+              onChange={(e) => handleSettingChange("customInstructions", e.target.value)}
+              className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 min-h-[100px]"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* User Interface */}
+      <Card className="cyber-slate border-cyber-slate-light">
+        <CardHeader>
+          <div className="flex items-center space-x-2">
+            <Monitor className="text-cyber-cyan" />
+            <CardTitle>User Interface</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="theme">Theme</Label>
+              <Select 
+                value={getCurrentValue("theme") || "dark"} 
+                onValueChange={(value) => handleSettingChange("theme", value)}
+              >
+                <SelectTrigger className="cyber-dark border-cyber-slate-light">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="cyber-dark border-cyber-slate-light">
+                  <SelectItem value="dark">🌙 Dark Theme</SelectItem>
+                  <SelectItem value="light">☀️ Light Theme</SelectItem>
+                  <SelectItem value="auto">🔄 Auto (System)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sessionTimeout">Session Timeout (minutes)</Label>
+              <Input
+                id="sessionTimeout"
+                type="number"
+                min="30"
+                max="1440"
+                value={getCurrentValue("sessionTimeout") || 480}
+                onChange={(e) => handleSettingChange("sessionTimeout", parseInt(e.target.value))}
+                className="cyber-dark border-cyber-slate-light text-white"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="compactView">Compact View</Label>
+                <div className="text-sm text-gray-400">Show more information in less space</div>
+              </div>
+              <Switch
+                id="compactView"
+                checked={getCurrentValue("compactView") || false}
+                onCheckedChange={(checked) => handleSettingChange("compactView", checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="autoRefresh">Auto-refresh Incidents</Label>
+                <div className="text-sm text-gray-400">Automatically refresh incident list every 30 seconds</div>
+              </div>
+              <Switch
+                id="autoRefresh"
+                checked={getCurrentValue("autoRefresh") || false}
+                onCheckedChange={(checked) => handleSettingChange("autoRefresh", checked)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Security & Workflow */}
+      <Card className="cyber-slate border-cyber-slate-light">
+        <CardHeader>
+          <div className="flex items-center space-x-2">
+            <Shield className="text-green-500" />
+            <CardTitle>Security & Workflow</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="requireComments">Require Comment on Status Changes</Label>
+              <div className="text-sm text-gray-400">Force analysts to add comments when changing incident status</div>
+            </div>
+            <Switch
+              id="requireComments"
+              checked={getCurrentValue("requireComments") || false}
+              onCheckedChange={(checked) => handleSettingChange("requireComments", checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="emailNotifications">Email Notifications</Label>
+              <div className="text-sm text-gray-400">Receive email alerts for new incidents</div>
+            </div>
+            <Switch
+              id="emailNotifications"
+              checked={getCurrentValue("emailNotifications") || false}
+              onCheckedChange={(checked) => handleSettingChange("emailNotifications", checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="highSeverityAlerts">High Severity Alerts</Label>
+              <div className="text-sm text-gray-400">Immediate notifications for critical and high severity incidents</div>
+            </div>
+            <Switch
+              id="highSeverityAlerts"
+              checked={getCurrentValue("highSeverityAlerts") || false}
+              onCheckedChange={(checked) => handleSettingChange("highSeverityAlerts", checked)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Advanced Configuration */}
+      <Card className="cyber-slate border-cyber-slate-light">
+        <CardHeader>
+          <CardTitle>Advanced Configuration</CardTitle>
+          <CardDescription>
+            Expert-level settings for advanced users
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="cyber-dark rounded-lg p-4 border border-yellow-600">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+              <span className="font-medium text-yellow-400">Advanced Settings</span>
+            </div>
+            <p className="text-sm text-gray-400">
+              These settings affect core functionality. Only modify if you understand the implications.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>API Rate Limiting</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-400">Requests per minute</Label>
+                <Input
+                  type="number"
+                  value="60"
+                  disabled
+                  className="cyber-dark border-cyber-slate-light text-gray-400"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-400">Burst limit</Label>
+                <Input
+                  type="number"
+                  value="100"
+                  disabled
+                  className="cyber-dark border-cyber-slate-light text-gray-400"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
