@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Shield, FileText, Loader2, RotateCcw } from "lucide-react";
+import { Search, Shield, FileText, Loader2, RotateCcw, Eye, Calendar, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import IncidentDetail from "@/components/incident-detail";
+import { format } from "date-fns";
 import type { Incident } from "@shared/schema";
 
 const formSchema = z.object({
@@ -26,8 +28,23 @@ type FormData = z.infer<typeof formSchema>;
 
 export default function IncidentAnalysis() {
   const [analysisResult, setAnalysisResult] = useState<Incident | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
+  const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: user } = useQuery({
+    queryKey: ["/api/user"],
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings", user?.id],
+    enabled: !!user?.id,
+  });
+
+  const { data: recentIncidents } = useQuery({
+    queryKey: ["/api/incidents"],
+  });
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -263,89 +280,177 @@ export default function IncidentAnalysis() {
           </div>
         </div>
 
-        {/* Analysis Results Section */}
-        <div className="w-1/2 p-6">
-          <div className="cyber-slate rounded-xl p-6 h-full">
-            {!analysisResult ? (
-              <div className="flex flex-col items-center justify-center text-center h-full">
-                <div className="w-24 h-24 cyber-dark rounded-full flex items-center justify-center mb-6">
-                  <Shield className="text-4xl text-gray-500" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">Ready for Analysis</h3>
-                <p className="text-gray-400 max-w-sm">Enter incident details and logs to begin AI-powered security analysis</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex items-center space-x-2 mb-4">
+        {/* Analysis Results & Recent Incidents Section */}
+        <div className="w-1/2 p-6 flex flex-col">
+          {/* Latest Analysis Result */}
+          {analysisResult && (
+            <div className="cyber-slate rounded-xl p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
                   <Shield className="text-cyber-blue" />
-                  <h3 className="text-lg font-semibold">Analysis Results</h3>
+                  <h3 className="text-lg font-semibold">Latest Analysis</h3>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedIncident(analysisResult.id)}
+                  className="text-cyber-blue hover:text-white hover:bg-cyber-blue"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Details
+                </Button>
+              </div>
 
-                {/* Classification */}
+              <div className="space-y-4">
+                {/* Enhanced AI Investigation Progress */}
                 <div className="cyber-dark rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">Classification</h4>
-                    <Badge className={`${getClassificationColor(analysisResult.classification || "")} text-white`}>
-                      {analysisResult.classification === "true-positive" ? "True Positive" : "False Positive"}
-                    </Badge>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <Brain className="text-cyber-purple" />
+                      <h4 className="font-semibold">AI Investigation</h4>
+                    </div>
+                    <span className="text-sm font-medium text-white">{analysisResult.aiInvestigation || 85}%</span>
                   </div>
-                  <p className="text-sm text-gray-400">
-                    Confidence: {analysisResult.confidence}%
-                  </p>
+                  
+                  {/* Multi-color gradient progress bar inspired by Microsoft Copilot */}
+                  <div className="relative w-full h-3 bg-cyber-slate rounded-full overflow-hidden">
+                    <div 
+                      className="absolute inset-0 bg-gradient-to-r from-blue-400 via-purple-500 via-pink-500 to-cyan-400 animate-pulse transition-all duration-500"
+                      style={{ 
+                        width: `${analysisResult.aiInvestigation || 85}%`,
+                        background: 'linear-gradient(90deg, #60a5fa 0%, #a855f7 25%, #ec4899 50%, #06b6d4 75%, #10b981 100%)'
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>Analyzing</span>
+                    <span>Multiple AI Agents</span>
+                    <span>Complete</span>
+                  </div>
                 </div>
 
-                {/* Severity */}
-                {analysisResult.severity && (
-                  <div className="cyber-dark rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold">Severity</h4>
-                      <Badge className={`${getSeverityColor(analysisResult.severity)} text-white capitalize`}>
-                        {analysisResult.severity}
+                {/* Quick Results Summary */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="cyber-dark rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Classification</span>
+                      <Badge className={`${getClassificationColor(analysisResult.classification || "")} text-white text-xs`}>
+                        {analysisResult.classification === "true-positive" ? "TRUE+" : "FALSE+"}
                       </Badge>
                     </div>
                   </div>
-                )}
+                  <div className="cyber-dark rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">Confidence</span>
+                      <span className="text-sm font-medium text-white">{analysisResult.confidence}%</span>
+                    </div>
+                  </div>
+                </div>
 
-                {/* MITRE ATT&CK */}
-                {analysisResult.mitreAttack && analysisResult.mitreAttack.length > 0 && (
-                  <div className="cyber-dark rounded-lg p-4">
-                    <h4 className="font-semibold mb-2">MITRE ATT&CK</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {analysisResult.mitreAttack.map((technique, index) => (
-                        <Badge key={index} className="cyber-blue text-white">
+                {/* MITRE & IOCs Summary */}
+                <div className="cyber-dark rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-400">Techniques</span>
+                    <span className="text-xs text-gray-500">{analysisResult.mitreAttack?.length || 0} identified</span>
+                  </div>
+                  {analysisResult.mitreAttack && analysisResult.mitreAttack.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {analysisResult.mitreAttack.slice(0, 3).map((technique, index) => (
+                        <Badge key={index} variant="outline" className="text-xs text-gray-400 border-gray-600">
                           {technique}
                         </Badge>
                       ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* IOCs */}
-                {analysisResult.iocs && analysisResult.iocs.length > 0 && (
-                  <div className="cyber-dark rounded-lg p-4">
-                    <h4 className="font-semibold mb-2">Indicators of Compromise</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {analysisResult.iocs.map((ioc, index) => (
-                        <Badge key={index} variant="outline" className="text-gray-300 border-gray-600">
-                          {ioc}
+                      {analysisResult.mitreAttack.length > 3 && (
+                        <Badge variant="outline" className="text-xs text-gray-400 border-gray-600">
+                          +{analysisResult.mitreAttack.length - 3}
                         </Badge>
-                      ))}
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Incidents */}
+          <div className="cyber-slate rounded-xl p-6 flex-1">
+            <div className="flex items-center space-x-2 mb-4">
+              <Calendar className="text-green-500" />
+              <h3 className="text-lg font-semibold">Recent Analysis Results</h3>
+            </div>
+
+            {recentIncidents && recentIncidents.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {recentIncidents.slice(0, 5).map((incident: Incident) => (
+                  <div key={incident.id} className="cyber-dark rounded-lg p-4 hover:bg-gray-700 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-sm text-white truncate flex-1 mr-2">
+                        {incident.title}
+                      </h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedIncident(incident.id)}
+                        className="text-gray-400 hover:text-white p-1 h-6 w-6"
+                      >
+                        <Eye className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Badge className={`${getSeverityColor(incident.severity)} text-white text-xs`}>
+                          {incident.severity}
+                        </Badge>
+                        <Badge className={`${getClassificationColor(incident.classification || "")} text-white text-xs`}>
+                          {incident.classification === "true-positive" ? "TRUE+" : "FALSE+"}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {incident.createdAt ? format(new Date(incident.createdAt), "MMM d, HH:mm") : ""}
+                      </span>
+                    </div>
+
+                    {/* AI Investigation Mini-Progress */}
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-400">AI Investigation</span>
+                        <span className="text-xs text-gray-400">{incident.aiInvestigation || 85}%</span>
+                      </div>
+                      <div className="w-full h-1 bg-cyber-slate rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-400 via-purple-500 to-cyan-400"
+                          style={{ 
+                            width: `${incident.aiInvestigation || 85}%`,
+                            background: 'linear-gradient(90deg, #60a5fa 0%, #a855f7 50%, #06b6d4 100%)'
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                )}
-
-                {/* AI Analysis */}
-                {analysisResult.aiAnalysis && (
-                  <div className="cyber-dark rounded-lg p-4">
-                    <h4 className="font-semibold mb-2">AI Analysis</h4>
-                    <p className="text-sm text-gray-300">{analysisResult.aiAnalysis}</p>
-                  </div>
-                )}
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center py-8">
+                <div className="w-16 h-16 cyber-dark rounded-full flex items-center justify-center mb-4">
+                  <Shield className="text-2xl text-gray-500" />
+                </div>
+                <h4 className="font-semibold mb-2">No Recent Analysis</h4>
+                <p className="text-gray-400 text-sm">Start by analyzing your first incident</p>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Incident Detail Modal */}
+      {selectedIncident && (
+        <IncidentDetail
+          incidentId={selectedIncident}
+          onClose={() => setSelectedIncident(null)}
+        />
+      )}
     </div>
   );
 }
