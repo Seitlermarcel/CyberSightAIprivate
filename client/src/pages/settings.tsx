@@ -58,19 +58,32 @@ export default function Settings() {
   };
 
   const saveSettings = () => {
-    // Include all changed values, even empty strings for optional fields like customInstructions
-    const dataToSave = { ...formData };
+    // Always save whatever is in formData - all fields are optional
+    // If no changes were made, save current settings to ensure they persist
+    const dataToSave = hasChanges ? formData : {
+      analysisDepth: settings?.analysisDepth || "comprehensive",
+      confidenceThreshold: settings?.confidenceThreshold || 80,
+      enableDualAI: settings?.enableDualAI || true,
+      autoSeverityAdjustment: settings?.autoSeverityAdjustment || false,
+      customInstructions: settings?.customInstructions || "",
+      theme: settings?.theme || "dark",
+      sessionTimeout: settings?.sessionTimeout || 480,
+      compactView: settings?.compactView || false,
+      autoRefresh: settings?.autoRefresh || false,
+      requireComments: settings?.requireComments || false,
+      emailNotifications: settings?.emailNotifications || false,
+      emailAddress: settings?.emailAddress || "",
+      highSeverityAlerts: settings?.highSeverityAlerts || false,
+    };
     
     updateSettingsMutation.mutate(dataToSave, {
       onSuccess: () => {
         // Apply theme change immediately after successful save
-        if (formData.theme) {
-          const root = document.documentElement;
-          root.classList.remove("light", "dark");
-          if (formData.theme === "light") {
-            root.classList.add("light");
-          }
-          // Dark theme is default, no need to add class
+        const themeToApply = dataToSave.theme || settings?.theme || "dark";
+        const root = document.documentElement;
+        root.classList.remove("light", "dark");
+        if (themeToApply === "light") {
+          root.classList.add("light");
         }
         setHasChanges(false);
       }
@@ -79,8 +92,8 @@ export default function Settings() {
 
   const getCurrentValue = (key: keyof InsertSettings) => {
     const value = formData[key] !== undefined ? formData[key] : (settings as any)?.[key];
-    // Ensure customInstructions is never null or undefined
-    if (key === 'customInstructions' && (value === null || value === undefined)) {
+    // Ensure customInstructions and emailAddress are never null or undefined
+    if ((key === 'customInstructions' || key === 'emailAddress') && (value === null || value === undefined)) {
       return "";
     }
     return value;
@@ -112,7 +125,7 @@ export default function Settings() {
         </div>
         <Button 
           onClick={saveSettings}
-          disabled={!hasChanges || updateSettingsMutation.isPending}
+          disabled={updateSettingsMutation.isPending}
           className="cyber-blue hover:bg-blue-600"
         >
           <Save className="w-4 h-4 mr-2" />
@@ -228,7 +241,7 @@ export default function Settings() {
             <Textarea
               id="customInstructions"
               placeholder="Enter any specific instructions for the AI analysis (e.g., focus on specific attack vectors, compliance requirements, etc.)"
-              value={getCurrentValue("customInstructions") ?? ""}
+              value={getCurrentValue("customInstructions") || ""}
               onChange={(e) => handleSettingChange("customInstructions", e.target.value)}
               className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 min-h-[100px]"
             />
