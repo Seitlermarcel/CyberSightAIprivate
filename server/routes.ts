@@ -742,32 +742,101 @@ function mapEntityRelationships(content: string) {
   return { entities, relationships };
 }
 
-// Code Analysis AI Agent
+// Code Analysis AI Agent - Dynamic based on incident content
 function analyzeCodeElements(content: string) {
-  if (!content.includes('powershell') && !content.includes('cmd') && !content.includes('script')) {
-    return { summary: '', language: '', findings: [], sandboxOutput: '' };
-  }
-  
   const language = content.includes('powershell') ? 'PowerShell' : 
                    content.includes('python') ? 'Python' :
-                   content.includes('javascript') ? 'JavaScript' : 'Batch';
+                   content.includes('javascript') || content.includes('node') ? 'JavaScript' : 
+                   content.includes('bash') || content.includes('sh ') ? 'Bash' :
+                   content.includes('cmd') || content.includes('batch') ? 'Batch' :
+                   content.includes('sql') ? 'SQL' :
+                   content.includes('ruby') ? 'Ruby' :
+                   content.includes('php') ? 'PHP' : '';
+  
+  if (!language) {
+    return { 
+      summary: 'No code elements detected in this incident', 
+      language: 'None', 
+      findings: [], 
+      sandboxOutput: 'No code execution patterns identified' 
+    };
+  }
   
   const findings = [];
-  if (content.includes('-enc') || content.includes('base64')) {
-    findings.push('Encoded content detected - potential obfuscation');
+  
+  // PowerShell specific analysis
+  if (language === 'PowerShell') {
+    if (content.includes('-enc') || content.includes('-encodedcommand')) {
+      findings.push('Base64 encoded PowerShell command detected - strong obfuscation indicator');
+    }
+    if (content.includes('downloadstring') || content.includes('invoke-webrequest')) {
+      findings.push('Remote payload download capability - potential dropper behavior');
+    }
+    if (content.includes('invoke-expression') || content.includes('iex')) {
+      findings.push('Dynamic code execution via Invoke-Expression - high risk pattern');
+    }
+    if (content.includes('-nop') || content.includes('-noprofile')) {
+      findings.push('PowerShell profile bypass detected - evasion technique');
+    }
+    if (content.includes('-windowstyle hidden')) {
+      findings.push('Hidden window execution - stealth technique');
+    }
+    if (content.includes('bypass') || content.includes('-ep bypass')) {
+      findings.push('Execution policy bypass - security control evasion');
+    }
   }
-  if (content.includes('downloadstring') || content.includes('invoke-webrequest')) {
-    findings.push('Network download capability identified');
+  
+  // SQL specific analysis
+  if (language === 'SQL') {
+    if (content.includes('union select') || content.includes('union all select')) {
+      findings.push('SQL injection pattern detected - UNION-based attack');
+    }
+    if (content.includes('xp_cmdshell')) {
+      findings.push('Command execution via xp_cmdshell - critical security risk');
+    }
+    if (content.includes('drop table') || content.includes('truncate')) {
+      findings.push('Destructive SQL commands detected - data destruction risk');
+    }
   }
-  if (content.includes('invoke-expression') || content.includes('iex')) {
-    findings.push('Dynamic code execution patterns found');
+  
+  // JavaScript specific analysis
+  if (language === 'JavaScript') {
+    if (content.includes('eval(') || content.includes('Function(')) {
+      findings.push('Dynamic code execution via eval/Function - code injection risk');
+    }
+    if (content.includes('document.cookie') || content.includes('localStorage')) {
+      findings.push('Client-side data access patterns - potential data theft');
+    }
+    if (content.includes('XMLHttpRequest') || content.includes('fetch(')) {
+      findings.push('Network request capabilities - data exfiltration risk');
+    }
   }
+  
+  // Generic patterns
+  if (content.includes('exec(') || content.includes('system(') || content.includes('shell_exec')) {
+    findings.push('System command execution detected - remote code execution risk');
+  }
+  if (content.includes('base64') || content.includes('atob') || content.includes('btoa')) {
+    findings.push('Base64 encoding/decoding - potential obfuscation');
+  }
+  if (content.includes('reverse') && content.includes('shell')) {
+    findings.push('Reverse shell pattern detected - backdoor behavior');
+  }
+  
+  // Risk assessment
+  const riskLevel = findings.length === 0 ? 'Low' :
+                   findings.length <= 2 ? 'Medium' :
+                   findings.length <= 4 ? 'High' : 'Critical';
   
   return {
     language: language,
-    summary: `${language} code analysis reveals ${findings.length} security concerns`,
+    summary: findings.length > 0 ? 
+      `${language} code analysis detected ${findings.length} security concerns (Risk: ${riskLevel})` :
+      `${language} code detected but no immediate security concerns identified`,
     findings: findings,
-    sandboxOutput: findings.length > 0 ? 'ALERT: Potentially malicious code patterns detected' : 'No immediate threats identified'
+    sandboxOutput: findings.length > 0 ? 
+      `ALERT: ${riskLevel} risk - ${findings.length} malicious patterns detected. Immediate investigation required.` : 
+      'Code appears benign based on static analysis'
   };
 }
 
@@ -806,37 +875,113 @@ function generateAttackVectorAnalysis(content: string, threatAnalysis: any) {
   }];
 }
 
-// Compliance AI Agent
+// Compliance AI Agent - Dynamic based on incident analysis
 function analyzeComplianceImpact(content: string, incident: any) {
   const impacts = [];
+  const contentLower = content.toLowerCase();
   
-  if (content.includes('credential') || content.includes('password') || content.includes('personal')) {
+  // Data protection regulations
+  if (contentLower.includes('personal') || contentLower.includes('pii') || contentLower.includes('customer data')) {
     impacts.push({
       framework: 'GDPR',
-      article: 'Article 32',
+      article: 'Article 32 & 33',
+      impact: 'Critical',
+      description: 'Personal data breach detected - 72-hour notification requirement to supervisory authority'
+    });
+    
+    impacts.push({
+      framework: 'CCPA',
+      requirement: 'Section 1798.150',
       impact: 'High',
-      description: 'Potential unauthorized access to personal data requiring breach notification'
+      description: 'California residents\' data potentially exposed - breach notification and potential statutory damages'
+    });
+  }
+  
+  // Credential and authentication incidents
+  if (contentLower.includes('credential') || contentLower.includes('password') || contentLower.includes('authentication')) {
+    impacts.push({
+      framework: 'PCI-DSS',
+      requirement: 'Requirement 8.2.1',
+      impact: 'Critical',
+      description: 'Authentication credentials compromised - immediate password reset required for affected accounts'
+    });
+    
+    impacts.push({
+      framework: 'NIST 800-53',
+      control: 'IA-5',
+      impact: 'High',
+      description: 'Authenticator management controls failed - review and strengthen authentication mechanisms'
+    });
+  }
+  
+  // Financial data implications
+  if (contentLower.includes('payment') || contentLower.includes('credit card') || contentLower.includes('financial')) {
+    impacts.push({
+      framework: 'PCI-DSS',
+      requirement: 'Requirement 12.10',
+      impact: 'Critical',
+      description: 'Payment card data potentially compromised - initiate incident response plan immediately'
     });
     
     impacts.push({
       framework: 'SOX',
-      requirement: 'Section 302',
-      impact: 'Medium',
-      description: 'Security incident may affect internal controls over financial reporting'
+      requirement: 'Section 404',
+      impact: 'High',
+      description: 'Internal controls over financial reporting compromised - executive certification at risk'
     });
   }
   
-  if (incident.severity === 'critical' || incident.severity === 'high') {
+  // Healthcare data
+  if (contentLower.includes('patient') || contentLower.includes('medical') || contentLower.includes('health')) {
+    impacts.push({
+      framework: 'HIPAA',
+      requirement: '164.410',
+      impact: 'Critical',
+      description: 'Protected Health Information breach - 60-day notification requirement to affected individuals'
+    });
+  }
+  
+  // Based on severity level
+  if (incident.severity === 'critical') {
     impacts.push({
       framework: 'ISO 27001',
-      requirement: 'A.16.1.6',
+      requirement: 'A.16.1',
+      impact: 'Critical',
+      description: 'Critical security incident - immediate escalation to senior management required'
+    });
+    
+    impacts.push({
+      framework: 'COBIT',
+      requirement: 'DSS02',
       impact: 'High',
-      description: 'Security incident requires formal incident response procedures'
+      description: 'Service request and incident management process triggered - document all response actions'
+    });
+  } else if (incident.severity === 'high') {
+    impacts.push({
+      framework: 'ISO 27001',
+      requirement: 'A.16.1.4',
+      impact: 'High',
+      description: 'High severity incident - assess and decide on information security events'
     });
   }
   
+  // Industry-specific regulations
+  if (contentLower.includes('infrastructure') || contentLower.includes('scada') || contentLower.includes('ics')) {
+    impacts.push({
+      framework: 'NERC CIP',
+      requirement: 'CIP-008',
+      impact: 'Critical',
+      description: 'Critical infrastructure incident - report to E-ISAC within 1 hour'
+    });
+  }
+  
+  // Always include general recommendations
+  const severityBasedTimeframe = incident.severity === 'critical' ? 'immediately' :
+                                 incident.severity === 'high' ? 'within 24 hours' :
+                                 incident.severity === 'medium' ? 'within 72 hours' : 'within 7 days';
+  
   impacts.push({
-    recommendation: 'Implement continuous security monitoring and incident response procedures to ensure compliance with regulatory requirements'
+    recommendation: `Based on the ${incident.severity} severity and detected patterns, initiate incident response procedures ${severityBasedTimeframe}. Document all actions taken, preserve evidence for forensics, and prepare breach notifications if required. Consider engaging legal counsel for regulatory compliance assessment.`
   });
   
   return impacts;
