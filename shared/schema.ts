@@ -47,7 +47,7 @@ export const incidents = pgTable("incidents", {
 
 export const settings = pgTable("settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   analysisDepth: text("analysis_depth").default("comprehensive"),
   enableDualAI: boolean("enable_dual_ai").default(true),
   autoSeverityAdjustment: boolean("auto_severity_adjustment").default(false),
