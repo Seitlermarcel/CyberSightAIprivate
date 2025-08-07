@@ -32,6 +32,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Incident } from "@shared/schema";
+import ThreatIntelligence from "@/components/threat-intelligence";
 
 interface IncidentDetailProps {
   incidentId: string;
@@ -450,8 +451,9 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
         {/* Tab Navigation */}
         <div className="border-b border-cyber-slate-light">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-10 bg-transparent">
+            <TabsList className="grid w-full grid-cols-11 bg-transparent">
               <TabsTrigger value="workflow" className="text-xs">Workflow</TabsTrigger>
+              <TabsTrigger value="threat-intel" className="text-xs">Threat Intel</TabsTrigger>
               <TabsTrigger value="mitre" className="text-xs">MITRE</TabsTrigger>
               <TabsTrigger value="iocs" className="text-xs">IOCs</TabsTrigger>
               <TabsTrigger value="patterns" className="text-xs">Patterns</TabsTrigger>
@@ -603,6 +605,17 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   <p className="text-gray-400 text-center py-4">No comments or status changes yet</p>
                 )}
               </div>
+            </TabsContent>
+
+            {/* Threat Intelligence Tab */}
+            <TabsContent value="threat-intel" className="p-6">
+              {incident.threatIntelligence ? (
+                <ThreatIntelligence threatReport={JSON.parse(incident.threatIntelligence)} />
+              ) : (
+                <div className="cyber-slate rounded-xl p-6">
+                  <p className="text-gray-400 text-center py-8">No threat intelligence data available for this incident</p>
+                </div>
+              )}
             </TabsContent>
 
             {/* MITRE ATT&CK Tab */}
