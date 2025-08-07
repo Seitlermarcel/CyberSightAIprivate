@@ -1,10 +1,20 @@
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 import type { Incident } from '../shared/schema';
 
-// Initialize SendGrid with API key
-const apiKey = process.env.SENDGRID_API_KEY;
-if (apiKey) {
-  sgMail.setApiKey(apiKey);
+// Create reusable transporter object using Gmail SMTP
+let transporter: nodemailer.Transporter | null = null;
+
+function getTransporter() {
+  if (!transporter && process.env.GMAIL_EMAIL && process.env.GMAIL_APP_PASSWORD) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_EMAIL,
+        pass: process.env.GMAIL_APP_PASSWORD
+      }
+    });
+  }
+  return transporter;
 }
 
 interface EmailNotificationData {
@@ -15,8 +25,10 @@ interface EmailNotificationData {
 }
 
 export async function sendIncidentNotification(data: EmailNotificationData): Promise<boolean> {
-  if (!process.env.SENDGRID_API_KEY) {
-    console.log('SendGrid API key not configured, skipping email notification');
+  const transport = getTransporter();
+  
+  if (!transport) {
+    console.log('Gmail credentials not configured, skipping email notification');
     return false;
   }
 
@@ -231,20 +243,16 @@ This is an automated alert from CyberSight AI
   `.trim();
   
   try {
-    const msg = {
+    const mailOptions = {
+      from: `CyberSight AI <${process.env.GMAIL_EMAIL}>`,
       to,
-      from: process.env.SENDGRID_FROM_EMAIL || 'alerts@cybersight-ai.com',
       subject,
       text: textContent,
       html: htmlContent,
-      priority: isHighSeverity ? 'high' : 'normal',
-      headers: isHighSeverity ? {
-        'X-Priority': '1',
-        'Importance': 'high'
-      } : undefined
+      priority: isHighSeverity ? 'high' : 'normal'
     };
     
-    await sgMail.send(msg);
+    await transport.sendMail(mailOptions);
     console.log(`Email notification sent to ${to} for incident ${incident.id}`);
     return true;
   } catch (error) {
@@ -254,31 +262,37 @@ This is an automated alert from CyberSight AI
 }
 
 export async function sendTestEmail(to: string): Promise<boolean> {
-  if (!process.env.SENDGRID_API_KEY) {
-    console.log('SendGrid API key not configured');
+  const transport = getTransporter();
+  
+  if (!transport) {
+    console.log('Gmail credentials not configured');
     return false;
   }
   
   try {
-    const msg = {
+    const mailOptions = {
+      from: `CyberSight AI <${process.env.GMAIL_EMAIL}>`,
       to,
-      from: process.env.SENDGRID_FROM_EMAIL || 'alerts@cybersight-ai.com',
       subject: 'CyberSight AI - Email Notifications Activated',
       html: `
         <div style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border: 1px solid #333; padding: 30px;">
-          <h2 style="color: #00BFFF;">Email Notifications Activated</h2>
+          <h2 style="color: #00BFFF;">Email Notifications Activated ✅</h2>
           <p style="color: #ccc;">Your email notifications have been successfully configured for CyberSight AI.</p>
           <p style="color: #ccc;">You will receive alerts for:</p>
           <ul style="color: #ccc;">
             <li>New security incidents</li>
             <li>High severity alerts (if enabled)</li>
           </ul>
+          <p style="color: #999; margin-top: 20px; font-size: 12px;">
+            This confirmation email was sent from ${process.env.GMAIL_EMAIL}
+          </p>
         </div>
       `,
       text: 'Your email notifications have been successfully configured for CyberSight AI.'
     };
     
-    await sgMail.send(msg);
+    await transport.sendMail(mailOptions);
+    console.log(`Test email sent to ${to}`);
     return true;
   } catch (error) {
     console.error('Failed to send test email:', error);
