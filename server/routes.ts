@@ -106,6 +106,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/settings/:userId", async (req, res) => {
     try {
       const validatedData = insertSettingsSchema.partial().parse(req.body);
+      console.log('Updating settings for user:', req.params.userId, 'with data:', validatedData);
+      
       const settings = await storage.updateUserSettings(req.params.userId, validatedData);
       
       // Send test email when email notifications are first enabled
@@ -116,7 +118,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(settings);
     } catch (error) {
-      res.status(400).json({ error: "Invalid settings data" });
+      console.error('Settings update error:', error);
+      res.status(400).json({ error: "Invalid settings data", details: error.message });
     }
   });
 
