@@ -54,9 +54,7 @@ export default function Settings() {
 
   const handleSettingChange = (key: keyof InsertSettings, value: any) => {
     setFormData(prev => ({ ...prev, [key]: value }));
-    if (!hasChanges) {
-      setHasChanges(true);
-    }
+    setHasChanges(true);
   };
 
   const saveSettings = () => {
@@ -391,18 +389,19 @@ export default function Settings() {
           </div>
 
           {getCurrentValue("emailNotifications") && (
-            <div className="space-y-2 ml-6 border-l-2 border-cyber-blue pl-4">
-              <Label htmlFor="emailAddress">Email Address</Label>
+            <div className="space-y-2 ml-6 border-l-2 border-cyber-blue pl-4 bg-slate-800/30 p-4 rounded-lg">
+              <Label htmlFor="emailAddress" className="text-cyan-400 font-medium">Email Address *</Label>
               <Input
                 id="emailAddress"
                 type="email"
                 placeholder="Enter your email address for notifications"
                 value={getCurrentValue("emailAddress") || ""}
                 onChange={(e) => handleSettingChange("emailAddress", e.target.value)}
-                className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500"
+                className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 focus:border-cyan-400"
+                required
               />
-              <p className="text-xs text-gray-500">
-                This email will receive incident notifications with PDF reports attached
+              <p className="text-xs text-gray-400">
+                📧 This email will receive incident notifications with PDF reports attached
               </p>
             </div>
           )}
