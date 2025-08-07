@@ -11,6 +11,7 @@ export const users = pgTable("users", {
 
 export const incidents = pgTable("incidents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   title: text("title").notNull(),
   severity: text("severity").notNull(), // critical, high, medium, low, informational
   status: text("status").notNull().default("open"), // open, in-progress, closed
@@ -20,6 +21,9 @@ export const incidents = pgTable("incidents", {
   classification: text("classification"), // true-positive, false-positive
   confidence: integer("confidence"), // 0-100
   aiInvestigation: integer("ai_investigation"), // AI Investigation confidence score
+  tacticalAnalyst: text("tactical_analyst"), // Technical evidence analysis
+  strategicAnalyst: text("strategic_analyst"), // Patterns & hypotheticals analysis
+  chiefAnalyst: text("chief_analyst"), // Final synthesized verdict
   mitreAttack: text("mitre_attack").array(),
   iocs: text("iocs").array(),
   aiAnalysis: text("ai_analysis"),

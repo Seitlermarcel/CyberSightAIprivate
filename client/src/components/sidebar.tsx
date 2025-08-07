@@ -65,42 +65,54 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
       <div className="p-4">
         <h3 className="text-sm font-medium text-gray-400 mb-3">Quick Metrics</h3>
         <div className="grid grid-cols-2 gap-3">
-          <div className="cyber-dark rounded-lg p-3">
+          <button 
+            onClick={() => onViewChange("incident-history")}
+            className="cyber-dark rounded-lg p-3 hover:bg-gray-700 transition-colors cursor-pointer group"
+          >
             <div className="flex items-center space-x-2 mb-1">
-              <TriangleAlert className="text-severity-critical text-sm" />
-              <span className="text-xs text-gray-400">Active Threats</span>
+              <TriangleAlert className="text-red-600 text-sm group-hover:text-red-500" />
+              <span className="text-xs text-gray-400 group-hover:text-gray-300">Active Threats</span>
             </div>
-            <div className="text-xl font-bold text-severity-critical">
+            <div className="text-xl font-bold text-red-600 group-hover:text-red-500">
               {stats?.activeThreats || 0}
             </div>
-          </div>
-          <div className="cyber-dark rounded-lg p-3">
+          </button>
+          <button 
+            onClick={() => onViewChange("incident-history")}
+            className="cyber-dark rounded-lg p-3 hover:bg-gray-700 transition-colors cursor-pointer group"
+          >
             <div className="flex items-center space-x-2 mb-1">
-              <Clock className="text-cyber-blue text-sm" />
-              <span className="text-xs text-gray-400">Today</span>
+              <Clock className="text-cyber-blue text-sm group-hover:text-blue-400" />
+              <span className="text-xs text-gray-400 group-hover:text-gray-300">Today</span>
             </div>
-            <div className="text-xl font-bold text-cyber-blue">
+            <div className="text-xl font-bold text-cyber-blue group-hover:text-blue-400">
               {stats?.todayIncidents || 0}
             </div>
-          </div>
-          <div className="cyber-dark rounded-lg p-3">
+          </button>
+          <button 
+            onClick={() => onViewChange("incident-history")}
+            className="cyber-dark rounded-lg p-3 hover:bg-gray-700 transition-colors cursor-pointer group"
+          >
             <div className="flex items-center space-x-2 mb-1">
-              <CheckCircle className="text-green-500 text-sm" />
-              <span className="text-xs text-gray-400">True Positives</span>
+              <CheckCircle className="text-green-500 text-sm group-hover:text-green-400" />
+              <span className="text-xs text-gray-400 group-hover:text-gray-300">True Positives</span>
             </div>
-            <div className="text-xl font-bold text-green-500">
+            <div className="text-xl font-bold text-green-500 group-hover:text-green-400">
               {stats?.truePositives || 0}
             </div>
-          </div>
-          <div className="cyber-dark rounded-lg p-3">
+          </button>
+          <button 
+            onClick={() => onViewChange("incident-history")}
+            className="cyber-dark rounded-lg p-3 hover:bg-gray-700 transition-colors cursor-pointer group"
+          >
             <div className="flex items-center space-x-2 mb-1">
-              <Brain className="text-cyber-purple text-sm" />
-              <span className="text-xs text-gray-400">Avg. Confidence</span>
+              <Brain className="text-cyber-purple text-sm group-hover:text-purple-400" />
+              <span className="text-xs text-gray-400 group-hover:text-gray-300">Avg. Confidence</span>
             </div>
-            <div className="text-xl font-bold text-cyber-purple">
+            <div className="text-xl font-bold text-cyber-purple group-hover:text-purple-400">
               {stats?.avgConfidence || 0}%
             </div>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -131,7 +143,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
         </nav>
       </div>
 
-      {/* User Profile */}
+      {/* User Profile with dynamic login info */}
       <div className="p-4 border-t border-cyber-slate-light">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 cyber-purple rounded-full flex items-center justify-center text-sm font-semibold">
@@ -139,7 +151,8 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium">{user?.username || "Marcel Seiler"}</p>
-            <p className="text-xs text-gray-400">seilermarcel24@gmail.com</p>
+            <p className="text-xs text-gray-400">Security Analyst</p>
+            <p className="text-xs text-green-400">● {stats?.totalIncidents || 0} incidents tracked</p>
           </div>
         </div>
       </div>

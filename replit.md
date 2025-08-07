@@ -45,12 +45,15 @@ Preferred communication style: Simple, everyday language.
 - **Development Tools**: Replit-specific plugins for development environment integration
 
 ### Core Features
-- **Incident Analysis**: AI-powered security log analysis with MITRE ATT&CK mapping
-- **Classification System**: True/false positive detection with confidence scoring
-- **Historical Tracking**: Comprehensive incident history with filtering and search
-- **Settings Management**: Configurable AI analysis depth, confidence thresholds, and user preferences
-- **Real-time Processing**: Immediate incident analysis and feedback
-- **Responsive Design**: Mobile-friendly interface with cyber security aesthetics
+- **Multi-AI Analysis System**: 8 specialized AI agents providing comprehensive cybersecurity analysis
+- **Dual-AI Workflow**: Tactical, Strategic, and Chief Analyst roles for enhanced decision-making
+- **Investigation Metrics**: AI Investigation percentage and Confidence scoring with detailed explanations
+- **Multi-user Architecture**: User-specific incident isolation with secure database separation
+- **Enhanced Classification**: True/false positive detection with detailed cybersecurity reasoning
+- **Clickable Similar Incidents**: Real incident navigation with match percentage calculations
+- **Functional Settings**: All configuration options impact application behavior and analysis
+- **Severity Color System**: Critical (Dark Red), High (Vivid Red), Medium (Orange), Low (Yellow), Informational (Grey)
+- **Real-time Processing**: Immediate incident analysis with settings-aware AI behavior
 
 ### Design Patterns
 - **Monorepo Structure**: Shared TypeScript schemas between client and server

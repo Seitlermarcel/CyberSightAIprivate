@@ -3,13 +3,14 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Shield, FileText, Loader2, RotateCcw, Eye, Calendar, Brain } from "lucide-react";
+import { Search, Shield, FileText, Loader2, RotateCcw, Eye, Calendar, Brain, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import IncidentDetail from "@/components/incident-detail";
@@ -95,20 +96,34 @@ export default function IncidentAnalysis() {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case "critical":
-        return "bg-severity-critical";
+        return "bg-red-900"; // Dark Red
       case "high":
-        return "bg-severity-high";
+        return "bg-red-600"; // Vivid Red
       case "medium":
-        return "bg-severity-medium";
+        return "bg-orange-500"; // Orange
       case "low":
-        return "bg-severity-low";
+        return "bg-yellow-500"; // Yellow
       default:
-        return "bg-severity-info";
+        return "bg-gray-500"; // Grey for informational
     }
   };
 
   const getClassificationColor = (classification: string) => {
-    return classification === "true-positive" ? "bg-severity-high" : "bg-green-500";
+    return classification === "true-positive" ? "bg-red-600" : "bg-green-500";
+  };
+
+  const getInvestigationStatus = (percentage: number) => {
+    if (percentage >= 90) return "Complete – All logs processed";
+    if (percentage >= 70) return "Comprehensive – Minor gaps";
+    if (percentage >= 50) return "Partial – Some unclear data";
+    return "Limited – Insufficient clarity";
+  };
+
+  const getConfidenceLevel = (percentage: number) => {
+    if (percentage >= 90) return "Very High – Strong evidence";
+    if (percentage >= 70) return "High – Minor uncertainties";
+    if (percentage >= 50) return "Medium – Needs human review";
+    return "Low – Manual validation required";
   };
 
   return (

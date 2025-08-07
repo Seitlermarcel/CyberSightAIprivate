@@ -7,6 +7,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   
   getIncidents(): Promise<Incident[]>;
+  getUserIncidents(userId: string): Promise<Incident[]>;
   getIncident(id: string): Promise<Incident | undefined>;
   createIncident(incident: InsertIncident): Promise<Incident>;
   updateIncident(id: string, incident: Partial<Incident>): Promise<Incident | undefined>;
@@ -57,6 +58,7 @@ export class MemStorage implements IStorage {
     const sampleIncidents: Incident[] = [
       {
         id: "inc-1",
+        userId: "default-user",
         title: "Credential Dumping via LSASS Access and Process Injection",
         severity: "high",
         status: "open",
@@ -239,7 +241,8 @@ export class MemStorage implements IStorage {
         updatedAt: new Date("2025-08-07T07:50:00Z"),
       },
       {
-        id: "inc-2", 
+        id: "inc-2",
+        userId: "default-user",
         title: "Suspicious PowerShell Execution with Obfuscated Payload and C2 Indicators",
         severity: "high",
         status: "open",
@@ -268,6 +271,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: "inc-3",
+        userId: "default-user",
         title: "Hijack Execution Flow - DLL Side-Loading", 
         severity: "critical",
         status: "open",
@@ -296,6 +300,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: "inc-4",
+        userId: "default-user",
         title: "Malware Detected on IT Admin Workstation",
         severity: "medium",
         status: "open", 
@@ -324,6 +329,7 @@ export class MemStorage implements IStorage {
       },
       {
         id: "inc-5",
+        userId: "default-user",
         title: "Unusual PowerShell Activity from Finance Department Machine",
         severity: "critical",
         status: "open",
@@ -378,6 +384,12 @@ export class MemStorage implements IStorage {
     return Array.from(this.incidents.values()).sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
+  }
+
+  async getUserIncidents(userId: string): Promise<Incident[]> {
+    return Array.from(this.incidents.values())
+      .filter(incident => incident.userId === userId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
   async getIncident(id: string): Promise<Incident | undefined> {
