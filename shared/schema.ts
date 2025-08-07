@@ -56,6 +56,7 @@ export const settings = pgTable("settings", {
   autoRefresh: boolean("auto_refresh").default(false),
   requireComments: boolean("require_comments").default(false),
   emailNotifications: boolean("email_notifications").default(false),
+  emailAddress: text("email_address"),
   highSeverityAlerts: boolean("high_severity_alerts").default(false),
 });
 

@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertIncidentSchema, insertSettingsSchema } from "@shared/schema";
+import { sendIncidentNotification } from "./email-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Incidents routes (user-specific)
@@ -45,6 +46,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const incident = await storage.createIncident(incidentData);
+      
+      // Send email notification if enabled
+      if (userSettings?.emailNotifications && userSettings?.emailAddress) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          const isHighSeverity = ['critical', 'high'].includes(incident.severity?.toLowerCase() || '');
+          const shouldSendHighSeverityAlert = userSettings.highSeverityAlerts && isHighSeverity;
+          
+          await sendIncidentNotification({
+            incident,
+            user,
+            recipientEmail: userSettings.emailAddress,
+            isHighSeverityAlert: shouldSendHighSeverityAlert
+          });
+        }
+      }
+      
       res.status(201).json(incident);
     } catch (error) {
       res.status(400).json({ error: "Invalid incident data" });
