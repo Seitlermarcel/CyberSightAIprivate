@@ -193,9 +193,9 @@ export default function IncidentHistory({ compactView = false, requireComments =
                       )}
                       {incident.mitreAttack && incident.mitreAttack.length > 0 && (
                         <div className="flex space-x-1">
-                          {incident.mitreAttack.slice(0, 2).map((technique, index) => (
+                          {incident.mitreAttack.slice(0, 2).map((technique: any, index: number) => (
                             <Badge key={index} variant="outline" className="text-xs text-gray-400 border-gray-600">
-                              {typeof technique === 'object' ? (technique.id || technique.name || 'Unknown') : technique}
+                              {typeof technique === 'object' && technique !== null ? (technique.id || technique.name || 'Unknown') : String(technique)}
                             </Badge>
                           ))}
                           {incident.mitreAttack.length > 2 && (
