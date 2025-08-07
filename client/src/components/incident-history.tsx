@@ -8,8 +8,13 @@ import { Button } from "@/components/ui/button";
 import IncidentDetail from "@/components/incident-detail";
 import type { Incident } from "@shared/schema";
 import { format } from "date-fns";
+import { CompactIncidentCard } from "./compact-incident-card";
 
-export default function IncidentHistory() {
+interface IncidentHistoryProps {
+  compactView?: boolean;
+}
+
+export default function IncidentHistory({ compactView = false }: IncidentHistoryProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [classificationFilter, setClassificationFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
@@ -141,17 +146,24 @@ export default function IncidentHistory() {
         </div>
 
         {/* Incident List */}
-        <div className="space-y-4">
+        <div className={compactView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-4"}>
           {filteredIncidents.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="text-center py-8 col-span-full">
               <p className="text-gray-400">No incidents found matching your criteria.</p>
             </div>
           ) : (
             filteredIncidents.map((incident: Incident) => (
-              <div
-                key={incident.id}
-                className="cyber-slate rounded-xl p-6 border border-cyber-slate-light hover:border-cyber-purple transition-colors"
-              >
+              compactView ? (
+                <CompactIncidentCard
+                  key={incident.id}
+                  incident={incident}
+                  onClick={() => setSelectedIncident(incident.id)}
+                />
+              ) : (
+                <div
+                  key={incident.id}
+                  className="cyber-slate rounded-xl p-6 border border-cyber-slate-light hover:border-cyber-purple transition-colors"
+                >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
@@ -211,6 +223,7 @@ export default function IncidentHistory() {
                   </div>
                 </div>
               </div>
+              )
             ))
           )}
         </div>

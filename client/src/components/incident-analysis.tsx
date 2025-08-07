@@ -27,7 +27,11 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export default function IncidentAnalysis() {
+interface IncidentAnalysisProps {
+  compactView?: boolean;
+}
+
+export default function IncidentAnalysis({ compactView = false }: IncidentAnalysisProps) {
   const [analysisResult, setAnalysisResult] = useState<Incident | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
@@ -39,7 +43,7 @@ export default function IncidentAnalysis() {
   });
 
   const { data: settings } = useQuery({
-    queryKey: ["/api/settings", user?.id],
+    queryKey: ["/api/settings", user?.id || "default-user"],
     enabled: !!user?.id,
   });
 

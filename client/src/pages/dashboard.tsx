@@ -1,24 +1,36 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/sidebar";
 import IncidentAnalysis from "@/components/incident-analysis";
 import IncidentHistory from "@/components/incident-history";
 import Settings from "@/components/settings";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 
 type View = "incident-analysis" | "incident-history" | "settings";
 
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<View>("incident-analysis");
 
+  // Get user settings for auto-refresh and other features
+  const { data: user } = useQuery({ queryKey: ["/api/user"] });
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings", user?.id],
+    enabled: !!user?.id,
+  });
+
+  // Auto-refresh functionality
+  useAutoRefresh(settings?.autoRefresh || false);
+
   const renderView = () => {
     switch (currentView) {
       case "incident-analysis":
-        return <IncidentAnalysis />;
+        return <IncidentAnalysis compactView={settings?.compactView || false} />;
       case "incident-history":
-        return <IncidentHistory />;
+        return <IncidentHistory compactView={settings?.compactView || false} />;
       case "settings":
         return <Settings />;
       default:
-        return <IncidentAnalysis />;
+        return <IncidentAnalysis compactView={settings?.compactView || false} />;
     }
   };
 

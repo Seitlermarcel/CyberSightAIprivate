@@ -58,6 +58,15 @@ export default function Settings() {
   };
 
   const saveSettings = () => {
+    // Apply theme change immediately after save
+    if (formData.theme) {
+      const root = document.documentElement;
+      root.classList.remove("light", "dark");
+      if (formData.theme !== "dark") {
+        root.classList.add(formData.theme);
+      }
+    }
+    
     updateSettingsMutation.mutate(formData);
   };
 
@@ -237,7 +246,6 @@ export default function Settings() {
                 <SelectContent className="cyber-dark border-cyber-slate-light">
                   <SelectItem value="dark">🌙 Dark Theme</SelectItem>
                   <SelectItem value="light">☀️ Light Theme</SelectItem>
-                  <SelectItem value="auto">🔄 Auto (System)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -308,7 +316,7 @@ export default function Settings() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="emailNotifications">Email Notifications</Label>
-              <div className="text-sm text-gray-400">Receive email alerts for new incidents</div>
+              <div className="text-sm text-gray-400">Receive email alerts for new incidents with PDF reports</div>
             </div>
             <Switch
               id="emailNotifications"
@@ -316,6 +324,23 @@ export default function Settings() {
               onCheckedChange={(checked) => handleSettingChange("emailNotifications", checked)}
             />
           </div>
+
+          {getCurrentValue("emailNotifications") && (
+            <div className="space-y-2 ml-6 border-l-2 border-cyber-blue pl-4">
+              <Label htmlFor="emailAddress">Email Address</Label>
+              <Input
+                id="emailAddress"
+                type="email"
+                placeholder="security-analyst@company.com"
+                value={getCurrentValue("emailAddress") || ""}
+                onChange={(e) => handleSettingChange("emailAddress", e.target.value)}
+                className="cyber-dark border-cyber-slate-light text-white"
+              />
+              <p className="text-xs text-gray-500">
+                This email will receive incident notifications with PDF reports attached
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">

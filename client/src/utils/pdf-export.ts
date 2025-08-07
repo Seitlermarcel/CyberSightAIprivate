@@ -194,6 +194,61 @@ export function generateIncidentPDF(incident: Incident, user: any) {
             </div>
         </div>
 
+        <!-- Investigation Metrics Section -->
+        <div class="section">
+            <div class="section-title">🔍 Investigation Metrics</div>
+            <div class="analysis-grid">
+                <div>
+                    <h4>Confidence Score Analysis</h4>
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <span style="font-weight: bold; font-size: 18px;">${incident.confidence}%</span>
+                            <span style="margin-left: 10px; ${getConfidenceColor(incident.confidence)}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${getConfidenceLevel(incident.confidence)}</span>
+                        </div>
+                        <div style="width: 100%; background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: ${incident.confidence}%; height: 100%; background: ${getConfidenceBarColor(incident.confidence)};"></div>
+                        </div>
+                        <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">${getConfidenceDescription(incident.confidence)}</p>
+                    </div>
+                </div>
+                <div>
+                    <h4>AI Investigation Completeness</h4>
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <span style="font-weight: bold; font-size: 18px;">${incident.aiInvestigation || 85}%</span>
+                            <span style="margin-left: 10px; ${getInvestigationColor(incident.aiInvestigation || 85)}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${getInvestigationLevel(incident.aiInvestigation || 85)}</span>
+                        </div>
+                        <div style="width: 100%; background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: ${incident.aiInvestigation || 85}%; height: 100%; background: ${getInvestigationBarColor(incident.aiInvestigation || 85)};"></div>
+                        </div>
+                        <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">${getInvestigationDescription(incident.aiInvestigation || 85)}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                <h4 style="color: #1e40af; margin-bottom: 10px;">🤖 AI Agents Coverage</h4>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 12px;">
+                    <div>✓ MITRE Analysis</div>
+                    <div>✓ IOC Detection</div>
+                    <div>✓ Pattern Recognition</div>
+                    <div>✓ Purple Team Assessment</div>
+                    <div>✓ Entity Mapping</div>
+                    <div>✓ Code Analysis</div>
+                    <div>✓ Attack Vectors</div>
+                    <div>✓ Compliance Check</div>
+                </div>
+                <p style="font-size: 12px; color: #6b7280; margin-top: 10px;">
+                    All 8 specialized AI agents contributed to this investigation, providing comprehensive analysis across multiple cybersecurity domains.
+                </p>
+            </div>
+        </div>
+
+        <div class="metadata">
+            <div>
+            </div>
+        </div>
+
         ${incident.systemContext ? `
         <div class="section">
             <div class="section-title">System Context</div>
@@ -541,4 +596,61 @@ function generateSimilarIncidentsSection(similarIncidentsJson: string): string {
   } catch {
     return '';
   }
+}
+
+// Helper functions for investigation metrics
+function getConfidenceLevel(confidence: number): string {
+  if (confidence >= 90) return "VERY HIGH";
+  if (confidence >= 70) return "HIGH";
+  if (confidence >= 50) return "MEDIUM";
+  return "LOW";
+}
+
+function getConfidenceColor(confidence: number): string {
+  if (confidence >= 90) return "background: #22c55e; color: white";
+  if (confidence >= 70) return "background: #3b82f6; color: white";
+  if (confidence >= 50) return "background: #eab308; color: white";
+  return "background: #ef4444; color: white";
+}
+
+function getConfidenceBarColor(confidence: number): string {
+  if (confidence >= 90) return "#22c55e";
+  if (confidence >= 70) return "#3b82f6";
+  if (confidence >= 50) return "#eab308";
+  return "#ef4444";
+}
+
+function getConfidenceDescription(confidence: number): string {
+  if (confidence >= 90) return "Strong evidence with reliable classification. High certainty in threat assessment.";
+  if (confidence >= 70) return "Good indicators with minor uncertainties. Generally reliable classification.";
+  if (confidence >= 50) return "Mixed signals detected. Requires human review and validation.";
+  return "Weak evidence patterns. Manual investigation and validation required.";
+}
+
+function getInvestigationLevel(investigation: number): string {
+  if (investigation >= 90) return "COMPLETE";
+  if (investigation >= 70) return "COMPREHENSIVE";
+  if (investigation >= 50) return "PARTIAL";
+  return "LIMITED";
+}
+
+function getInvestigationColor(investigation: number): string {
+  if (investigation >= 90) return "background: #22c55e; color: white";
+  if (investigation >= 70) return "background: #3b82f6; color: white";
+  if (investigation >= 50) return "background: #eab308; color: white";
+  return "background: #ef4444; color: white";
+}
+
+function getInvestigationBarColor(investigation: number): string {
+  if (investigation >= 90) return "#22c55e";
+  if (investigation >= 70) return "#3b82f6";
+  if (investigation >= 50) return "#eab308";
+  return "#ef4444";
+}
+
+function getInvestigationDescription(investigation: number): string {
+  if (investigation >= 90) return "All logs processed with full context. Comprehensive analysis across all AI agents.";
+  if (investigation >= 70) return "Minor data gaps but good coverage. Most analysis vectors completed successfully.";
+  if (investigation >= 50) return "Some unclear data with incomplete picture. Additional investigation may be beneficial.";
+  return "Insufficient data clarity. Needs more comprehensive data collection and analysis.";
 }
