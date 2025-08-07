@@ -27,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -253,37 +253,68 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-400">Confidence Score</span>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-3 w-3 text-gray-500 hover:text-gray-300 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-sm">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                        <Info className="h-3 w-3" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="cyber-slate border-cyber-slate-light max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center space-x-2">
+                          <Shield className="h-5 w-5 text-cyber-blue" />
+                          <span>Confidence Score</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-300">
+                          Measures AI's certainty in threat classification and decision reliability
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="space-y-4">
                         <div className="space-y-3">
-                          <div>
-                            <p className="font-medium text-white">Confidence Score</p>
-                            <p className="text-xs text-gray-300">Measures AI's certainty in threat classification</p>
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <p className="text-xs font-medium text-gray-200">Scoring Ranges:</p>
-                            <div className="text-xs space-y-1 text-gray-300">
-                              <div>• <span className="text-green-400">90–100%</span> Very High – Strong evidence, reliable classification</div>
-                              <div>• <span className="text-blue-400">70–89%</span> High – Good indicators, minor uncertainties</div>
-                              <div>• <span className="text-yellow-400">50–69%</span> Medium – Mixed signals, needs human review</div>
-                              <div>• <span className="text-red-400">&lt;50%</span> Low – Weak evidence, manual validation required</div>
+                          <h4 className="text-sm font-medium text-gray-200">Scoring Ranges:</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                              <div>
+                                <span className="text-green-400 font-medium">90–100%</span>
+                                <span className="text-gray-300 ml-2">Very High – Strong evidence, reliable classification</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                              <div>
+                                <span className="text-blue-400 font-medium">70–89%</span>
+                                <span className="text-gray-300 ml-2">High – Good indicators, minor uncertainties</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                              <div>
+                                <span className="text-yellow-400 font-medium">50–69%</span>
+                                <span className="text-gray-300 ml-2">Medium – Mixed signals, needs human review</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                              <div>
+                                <span className="text-red-400 font-medium">&lt;50%</span>
+                                <span className="text-gray-300 ml-2">Low – Weak evidence, manual validation required</span>
+                              </div>
                             </div>
                           </div>
-                          
-                          <div className="border-t border-gray-600 pt-2">
-                            <p className="text-xs text-gray-400">
-                              <span className="font-medium">What it does:</span> Helps analysts prioritize incidents by showing how certain the AI is about threat classification. Higher scores indicate more reliable automated decisions.
-                            </p>
-                          </div>
                         </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                        
+                        <div className="border-t border-gray-600 pt-3">
+                          <h4 className="text-sm font-medium text-gray-200 mb-2">What it does:</h4>
+                          <p className="text-sm text-gray-300">
+                            Helps security analysts prioritize incidents by showing how certain the AI is about threat classification. 
+                            Higher scores indicate more reliable automated decisions, while lower scores signal the need for manual investigation.
+                          </p>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 <span className="text-sm font-medium">{incident.confidence}%</span>
               </div>
@@ -294,37 +325,77 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
                 <div className="flex items-center space-x-2">
                   <Brain className="text-cyber-purple w-4 h-4" />
                   <span className="text-sm text-gray-400">AI Investigation</span>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-3 w-3 text-gray-500 hover:text-gray-300 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-sm">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                        <Info className="h-3 w-3" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="cyber-slate border-cyber-slate-light max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center space-x-2">
+                          <Brain className="h-5 w-5 text-cyber-purple" />
+                          <span>AI Investigation</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-300">
+                          Measures analysis completeness across all data sources and AI agents
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="space-y-4">
                         <div className="space-y-3">
-                          <div>
-                            <p className="font-medium text-white">AI Investigation</p>
-                            <p className="text-xs text-gray-300">Measures analysis completeness across all data sources</p>
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <p className="text-xs font-medium text-gray-200">Completeness Levels:</p>
-                            <div className="text-xs space-y-1 text-gray-300">
-                              <div>• <span className="text-green-400">90–100%</span> Complete – All logs processed, full context</div>
-                              <div>• <span className="text-blue-400">70–89%</span> Comprehensive – Minor data gaps, good coverage</div>
-                              <div>• <span className="text-yellow-400">50–69%</span> Partial – Some unclear data, incomplete picture</div>
-                              <div>• <span className="text-red-400">&lt;50%</span> Limited – Insufficient data, needs more investigation</div>
+                          <h4 className="text-sm font-medium text-gray-200">Completeness Levels:</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                              <div>
+                                <span className="text-green-400 font-medium">90–100%</span>
+                                <span className="text-gray-300 ml-2">Complete – All logs processed, full context</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                              <div>
+                                <span className="text-blue-400 font-medium">70–89%</span>
+                                <span className="text-gray-300 ml-2">Comprehensive – Minor data gaps, good coverage</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                              <div>
+                                <span className="text-yellow-400 font-medium">50–69%</span>
+                                <span className="text-gray-300 ml-2">Partial – Some unclear data, incomplete picture</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                              <div>
+                                <span className="text-red-400 font-medium">&lt;50%</span>
+                                <span className="text-gray-300 ml-2">Limited – Insufficient data, needs more investigation</span>
+                              </div>
                             </div>
                           </div>
-                          
-                          <div className="border-t border-gray-600 pt-2">
-                            <p className="text-xs text-gray-400">
-                              <span className="font-medium">What it does:</span> Shows how thoroughly the 8 AI agents analyzed available data. Higher scores mean more comprehensive investigation across MITRE tactics, IOCs, patterns, and threat vectors.
-                            </p>
-                          </div>
                         </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                        
+                        <div className="border-t border-gray-600 pt-3">
+                          <h4 className="text-sm font-medium text-gray-200 mb-2">What it does:</h4>
+                          <p className="text-sm text-gray-300">
+                            Shows how thoroughly the 8 specialized AI agents analyzed available data. Higher scores mean more comprehensive 
+                            investigation across MITRE ATT&CK tactics, IOCs, behavioral patterns, and threat vectors. This helps determine 
+                            if additional data collection or analysis is needed.
+                          </p>
+                        </div>
+                        
+                        <div className="cyber-dark rounded p-3">
+                          <h5 className="text-xs font-medium text-cyber-purple mb-1">AI Agents Coverage:</h5>
+                          <p className="text-xs text-gray-400">
+                            MITRE Analysis • IOC Detection • Pattern Recognition • Purple Team Assessment • 
+                            Entity Mapping • Code Analysis • Attack Vectors • Compliance Check
+                          </p>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 <span className="text-sm font-medium">{incident.aiInvestigation || 85}%</span>
               </div>
