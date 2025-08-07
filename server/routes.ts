@@ -866,40 +866,159 @@ function generatePurpleTeamAnalysis(content: string, mitreMapping: any) {
 
 // Entity Relationship AI Agent
 function mapEntityRelationships(content: string) {
-  const entities = [];
+  const entities: any[] = [];
   const relationships = [];
   
-  // Extract potential entities
+  // Extract potential entities with actual values
   const ipRegex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
   const ips = content.match(ipRegex) || [];
-  const userRegex = /user[:\s]+([a-zA-Z0-9\\_]+)/gi;
-  const users = content.match(userRegex) || [];
-  const processRegex = /(cmd|powershell|wmic|schtasks)\.exe/gi;
+  const userRegex = /(?:user[:\s]+|username[:\s]+|admin[:\s]+|account[:\s]+)([a-zA-Z0-9\\_\-]+)/gi;
+  const userMatches = content.matchAll(userRegex);
+  const users = Array.from(userMatches, m => m[1]);
+  const processRegex = /([a-zA-Z0-9]+\.exe|[a-zA-Z0-9]+\.dll|[a-zA-Z0-9]+\.ps1)/gi;
   const processes = content.match(processRegex) || [];
+  const domainRegex = /(?:[a-zA-Z0-9]+\.)*[a-zA-Z0-9]+\.[a-zA-Z]{2,}/g;
+  const domains = content.match(domainRegex) || [];
+  const hashRegex = /\b[a-fA-F0-9]{32,64}\b/g;
+  const hashes = content.match(hashRegex) || [];
   
-  // Map entities
-  ips.slice(0, 3).forEach((ip, index) => {
-    entities.push({ id: `ip_${index}`, type: 'IP Address', category: 'Network' });
-  });
-  
-  users.slice(0, 2).forEach((user, index) => {
-    entities.push({ id: `user_${index}`, type: 'User Account', category: 'Identity' });
-  });
-  
-  processes.slice(0, 3).forEach((process, index) => {
-    entities.push({ id: `process_${index}`, type: 'Process', category: 'Execution' });
-  });
-  
-  // Create relationships
-  if (entities.length > 1) {
-    relationships.push({
-      source: entities[0].id,
-      action: 'communicates_with',
-      target: entities[1].id
+  // Map entities with actual extracted values
+  const uniqueIps = [...new Set(ips)];
+  uniqueIps.slice(0, 5).forEach(ip => {
+    entities.push({ 
+      id: `ip_${ip.replace(/\./g, '_')}`, 
+      type: 'IP Address', 
+      value: ip,
+      category: 'Network',
+      description: isPrivateIP(ip) ? 'Internal IP' : 'External IP'
     });
+  });
+  
+  const uniqueUsers = [...new Set(users)];
+  uniqueUsers.slice(0, 3).forEach(user => {
+    entities.push({ 
+      id: `user_${user.toLowerCase()}`, 
+      type: 'User Account', 
+      value: user,
+      category: 'Identity',
+      description: user.toLowerCase().includes('admin') ? 'Administrative Account' : 'Standard User'
+    });
+  });
+  
+  const uniqueProcesses = [...new Set(processes)];
+  uniqueProcesses.slice(0, 5).forEach(process => {
+    entities.push({ 
+      id: `process_${process.toLowerCase().replace(/\./g, '_')}`, 
+      type: 'Process/File', 
+      value: process,
+      category: 'Execution',
+      description: getProcessDescription(process)
+    });
+  });
+  
+  const uniqueDomains = [...new Set(domains)].filter(d => !d.includes('localhost'));
+  uniqueDomains.slice(0, 3).forEach(domain => {
+    entities.push({ 
+      id: `domain_${domain.replace(/\./g, '_')}`, 
+      type: 'Domain', 
+      value: domain,
+      category: 'Network',
+      description: 'External Domain'
+    });
+  });
+  
+  const uniqueHashes = [...new Set(hashes)];
+  uniqueHashes.slice(0, 2).forEach(hash => {
+    entities.push({ 
+      id: `hash_${hash.substring(0, 8)}`, 
+      type: 'File Hash', 
+      value: hash,
+      category: 'Indicator',
+      description: hash.length === 32 ? 'MD5 Hash' : 'SHA256 Hash'
+    });
+  });
+  
+  // Create meaningful relationships based on actual data
+  if (entities.length > 1) {
+    // Find relationships between different entity types
+    const ipEntities = entities.filter(e => e.type === 'IP Address');
+    const userEntities = entities.filter(e => e.type === 'User Account');
+    const processEntities = entities.filter(e => e.type === 'Process/File');
+    
+    // User to IP relationships
+    if (userEntities.length > 0 && ipEntities.length > 0) {
+      relationships.push({
+        source: userEntities[0].id,
+        action: 'authenticated_from',
+        target: ipEntities[0].id,
+        description: `${userEntities[0].value} authenticated from ${ipEntities[0].value}`
+      });
+    }
+    
+    // Process to IP relationships
+    if (processEntities.length > 0 && ipEntities.length > 0) {
+      const suspiciousProcesses = processEntities.filter(p => 
+        p.value.toLowerCase().includes('powershell') || 
+        p.value.toLowerCase().includes('cmd') ||
+        p.value.toLowerCase().includes('wmic')
+      );
+      
+      if (suspiciousProcesses.length > 0 && ipEntities.length > 1) {
+        relationships.push({
+          source: suspiciousProcesses[0].id,
+          action: 'connected_to',
+          target: ipEntities.find(ip => !isPrivateIP(ip.value))?.id || ipEntities[1].id,
+          description: `${suspiciousProcesses[0].value} established connection`
+        });
+      }
+    }
+    
+    // User to process relationships  
+    if (userEntities.length > 0 && processEntities.length > 0) {
+      relationships.push({
+        source: userEntities[0].id,
+        action: 'executed',
+        target: processEntities[0].id,
+        description: `${userEntities[0].value} executed ${processEntities[0].value}`
+      });
+    }
   }
   
-  return { entities, relationships };
+  // Create network topology
+  const networkTopology = entities
+    .filter(e => e.type === 'IP Address')
+    .map(e => ({
+      node: e.value,
+      type: isPrivateIP(e.value) ? 'internal' : 'external',
+      risk: e.value.startsWith('192.168') ? 'low' : 'high'
+    }));
+  
+  return { entities, relationships, networkTopology };
+}
+
+// Helper function to check if IP is private
+function isPrivateIP(ip: string): boolean {
+  const parts = ip.split('.').map(Number);
+  return (
+    parts[0] === 10 ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+    (parts[0] === 192 && parts[1] === 168)
+  );
+}
+
+// Helper function to get process description
+function getProcessDescription(process: string): string {
+  const lower = process.toLowerCase();
+  if (lower.includes('powershell')) return 'PowerShell Execution';
+  if (lower.includes('cmd')) return 'Command Prompt';
+  if (lower.includes('wmic')) return 'WMI Command Line';
+  if (lower.includes('schtasks')) return 'Task Scheduler';
+  if (lower.includes('reg')) return 'Registry Editor';
+  if (lower.includes('net')) return 'Network Command';
+  if (lower.includes('psexec')) return 'Remote Execution Tool';
+  if (lower.includes('.ps1')) return 'PowerShell Script';
+  if (lower.includes('.dll')) return 'Dynamic Link Library';
+  return 'System Process';
 }
 
 // Code Analysis AI Agent - Dynamic based on incident content with execution output
