@@ -40,12 +40,23 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
   const [activeTab, setActiveTab] = useState("workflow");
   const [comment, setComment] = useState("");
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [currentIncidentId, setCurrentIncidentId] = useState(incidentId);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: incident, isLoading } = useQuery({
-    queryKey: ["/api/incidents", incidentId],
+    queryKey: ["/api/incidents", currentIncidentId],
   });
+
+  // Function to navigate to similar incident
+  const navigateToIncident = (newIncidentId: string) => {
+    setCurrentIncidentId(newIncidentId);
+    setActiveTab("workflow"); // Reset to overview tab
+    toast({
+      title: "Navigated to Similar Incident",
+      description: `Switched to incident analysis view`,
+    });
+  };
 
   const { data: user } = useQuery({
     queryKey: ["/api/user"],
@@ -848,13 +859,31 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
                 {similarIncidents && similarIncidents.length > 0 ? (
                   <div className="space-y-4">
                     {similarIncidents.map((similar: any, index: number) => (
-                      <div key={index} className="cyber-dark rounded-lg p-4">
+                      <div 
+                        key={index} 
+                        className="cyber-dark rounded-lg p-4 hover:bg-gray-700 transition-colors cursor-pointer border border-gray-700 hover:border-cyan-500"
+                        onClick={() => navigateToIncident(similar.id)}
+                      >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
                             <Link2 className="text-green-500 w-4 h-4" />
-                            <h4 className="font-medium">{similar.title}</h4>
+                            <h4 className="font-medium hover:text-cyan-400 transition-colors">{similar.title}</h4>
                           </div>
-                          <Badge className="bg-green-600 text-white">{similar.match}</Badge>
+                          <div className="flex items-center space-x-2">
+                            <Badge className="bg-green-600 text-white">{similar.match}</Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigateToIncident(similar.id);
+                              }}
+                              className="text-gray-400 hover:text-white p-1 h-6 w-6"
+                              title="Open Similar Incident"
+                            >
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="mb-3">
