@@ -1,4 +1,6 @@
-import { type User, type InsertUser, type Incident, type InsertIncident, type Settings, type InsertSettings } from "@shared/schema";
+import { users, incidents, settings, type User, type InsertUser, type Incident, type InsertIncident, type Settings, type InsertSettings } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -452,4 +454,79 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage Implementation
+export class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async getIncidents(): Promise<Incident[]> {
+    return await db.select().from(incidents);
+  }
+
+  async getUserIncidents(userId: string): Promise<Incident[]> {
+    return await db.select().from(incidents).where(eq(incidents.userId, userId));
+  }
+
+  async getIncident(id: string): Promise<Incident | undefined> {
+    const [incident] = await db.select().from(incidents).where(eq(incidents.id, id));
+    return incident || undefined;
+  }
+
+  async createIncident(insertIncident: InsertIncident): Promise<Incident> {
+    const [incident] = await db.insert(incidents).values(insertIncident).returning();
+    return incident;
+  }
+
+  async updateIncident(id: string, incidentUpdate: Partial<Incident>): Promise<Incident | undefined> {
+    const [updated] = await db.update(incidents)
+      .set({ ...incidentUpdate, updatedAt: new Date() })
+      .where(eq(incidents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteIncident(id: string): Promise<boolean> {
+    const result = await db.delete(incidents).where(eq(incidents.id, id));
+    return result.rowCount > 0;
+  }
+
+  async getUserSettings(userId: string): Promise<Settings | undefined> {
+    const [userSettings] = await db.select().from(settings).where(eq(settings.userId, userId));
+    return userSettings || undefined;
+  }
+
+  async updateUserSettings(userId: string, settingsUpdate: Partial<InsertSettings>): Promise<Settings> {
+    // Try to get existing settings
+    const existing = await this.getUserSettings(userId);
+    
+    if (existing) {
+      // Update existing settings
+      const [updated] = await db.update(settings)
+        .set(settingsUpdate)
+        .where(eq(settings.userId, userId))
+        .returning();
+      return updated;
+    } else {
+      // Create new settings
+      const [created] = await db.insert(settings)
+        .values({ ...settingsUpdate, userId })
+        .returning();
+      return created;
+    }
+  }
+}
+
+// Use DatabaseStorage for persistent data
+export const storage = new DatabaseStorage();
