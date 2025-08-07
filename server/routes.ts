@@ -107,11 +107,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/settings/:userId", async (req, res) => {
     try {
       const validatedData = insertSettingsSchema.partial().parse(req.body);
+      
+      // Get current settings to compare
+      const currentSettings = await storage.getUserSettings(req.params.userId);
+      
+      // Update settings
       const settings = await storage.updateUserSettings(req.params.userId, validatedData);
       
-      // Send test email when email notifications are first enabled
+      // Send test email only when:
+      // 1. Email notifications are being enabled for the first time, OR
+      // 2. The email address has been changed
+      const emailJustEnabled = validatedData.emailNotifications === true && 
+                               currentSettings?.emailNotifications !== true;
+      const emailAddressChanged = validatedData.emailAddress && 
+                                 validatedData.emailAddress !== currentSettings?.emailAddress;
+      
       if (validatedData.emailNotifications && validatedData.emailAddress && 
-          (!req.body.previousEmailNotifications || req.body.previousEmailAddress !== validatedData.emailAddress)) {
+          (emailJustEnabled || emailAddressChanged)) {
+        console.log('Sending test email - Feature just enabled or address changed');
         await sendTestEmail(validatedData.emailAddress);
       }
       
