@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertIncidentSchema, insertSettingsSchema } from "@shared/schema";
 import { sendIncidentNotification } from "./email-service";
+import { threatIntelligence } from "./threat-intelligence";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Incidents routes (user-specific)
@@ -37,12 +38,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = "default-user";
       const userSettings = await storage.getUserSettings(userId);
       
-      // Intelligent AI analysis with settings integration
-      const aiAnalysis = generateMockAnalysis(validatedData, userSettings);
+      // Analyze threat intelligence
+      const threatReport = await threatIntelligence.analyzeThreatIntelligence(
+        validatedData.logData || '',
+        validatedData.additionalLogs || ''
+      );
+      
+      // Intelligent AI analysis with settings integration and threat intelligence
+      const aiAnalysis = generateMockAnalysis(validatedData, userSettings, threatReport);
       const incidentData = {
         ...validatedData,
         userId: userId, // Associate incident with user
-        ...aiAnalysis
+        ...aiAnalysis,
+        threatIntelligence: JSON.stringify(threatReport)
       };
       
       const incident = await storage.createIncident(incidentData);
@@ -153,7 +161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 // Intelligent AI analysis generator that analyzes logs and generates realistic cybersecurity insights
-function generateMockAnalysis(incident: any, settings?: any) {
+function generateMockAnalysis(incident: any, settings?: any, threatReport?: any) {
   const logData = incident.logData?.toLowerCase() || '';
   const title = incident.title?.toLowerCase() || '';
   const systemContext = incident.systemContext?.toLowerCase() || '';
@@ -169,14 +177,14 @@ function generateMockAnalysis(incident: any, settings?: any) {
     customInstructions: settings?.customInstructions || ''
   };
   
-  // AI Agent Analysis Results with settings integration
-  const analysisResults = analyzeWithMultipleAIAgents(allContent, incident, analysisConfig);
+  // AI Agent Analysis Results with settings integration and threat intelligence
+  const analysisResults = analyzeWithMultipleAIAgents(allContent, incident, analysisConfig, threatReport);
   
   return analysisResults;
 }
 
-// Multi-AI Agent Analysis System
-function analyzeWithMultipleAIAgents(content: string, incident: any, config: any = {}) {
+// Multi-AI Agent Analysis System with Threat Intelligence
+function analyzeWithMultipleAIAgents(content: string, incident: any, config: any = {}, threatReport: any = null) {
   // Pattern Recognition AI Agent
   const patterns = detectLogPatterns(content);
   
@@ -186,11 +194,11 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
   // MITRE ATT&CK Mapping AI Agent
   const mitreMapping = mapToMitreFramework(content, incident);
   
-  // IOC Enrichment AI Agent
-  const iocEnrichment = enrichIndicators(content);
+  // IOC Enrichment AI Agent with Threat Intelligence
+  const iocEnrichment = enrichIndicators(content, threatReport);
   
-  // Classification AI Agent (settings-aware)
-  const classification = classifyIncident(content, incident, threatAnalysis, config);
+  // Classification AI Agent (settings-aware with threat intelligence)
+  const classification = classifyIncident(content, incident, threatAnalysis, config, threatReport);
   
   // Dual-AI Workflow Implementation
   const dualAIAnalysis = config.enableDualAI ? 
@@ -251,6 +259,11 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
     // Factor 5: Attack vectors and IOCs (10 points max)
     const iocCount = iocEnrichment.indicators?.length || 0;
     severityScore += Math.min(10, iocCount * 2);
+    
+    // Factor 6: Threat Intelligence Risk (15 points max)
+    if (threatReport?.risk_score) {
+      severityScore += Math.min(15, Math.floor(threatReport.risk_score * 0.15));
+    }
     
     // Determine adjusted severity based on total score
     if (severityScore >= 75) {
@@ -461,8 +474,8 @@ function mapToMitreFramework(content: string, incident: any) {
   };
 }
 
-// IOC Enrichment AI Agent
-function enrichIndicators(content: string) {
+// IOC Enrichment AI Agent with Threat Intelligence Integration
+function enrichIndicators(content: string, threatReport?: any) {
   const indicators = [];
   
   // IP addresses
@@ -470,13 +483,35 @@ function enrichIndicators(content: string) {
   const ips = content.match(ipRegex) || [];
   
   ips.slice(0, 3).forEach(ip => {
-    const reputation = Math.random() > 0.7 ? 'Malicious' : Math.random() > 0.4 ? 'Suspicious' : 'Clean';
+    // Use threat intelligence data if available
+    let reputation = 'Clean';
+    let confidence = '30%';
+    let threatInfo = 'No known threats';
+    
+    if (threatReport?.indicators) {
+      const threatIndicator = threatReport.indicators.find((i: any) => i.type === 'ip' && i.value === ip);
+      if (threatIndicator) {
+        reputation = threatIndicator.malicious ? 'Malicious' : 
+                    threatIndicator.threat_score > 50 ? 'Suspicious' : 'Clean';
+        confidence = threatIndicator.malicious ? '95%' : 
+                    threatIndicator.threat_score > 50 ? '70%' : '30%';
+        threatInfo = threatIndicator.malicious ? 
+                    `Known threat - ${threatIndicator.pulse_count || 0} threat reports` : 
+                    threatIndicator.threat_score > 50 ? 'Recently observed in attacks' : 'No known threats';
+      }
+    } else {
+      // Fallback to simulated analysis if no threat intelligence
+      reputation = Math.random() > 0.7 ? 'Malicious' : Math.random() > 0.4 ? 'Suspicious' : 'Clean';
+      confidence = reputation === 'Malicious' ? '95%' : reputation === 'Suspicious' ? '70%' : '30%';
+      threatInfo = reputation === 'Malicious' ? 'Known C2 server' : reputation === 'Suspicious' ? 'Recently observed in attacks' : 'No known threats';
+    }
+    
     indicators.push({
       type: 'IP Address',
       value: ip,
       reputation: reputation,
-      confidence: reputation === 'Malicious' ? '95%' : reputation === 'Suspicious' ? '70%' : '30%',
-      threatIntelligence: reputation === 'Malicious' ? 'Known C2 server' : reputation === 'Suspicious' ? 'Recently observed in attacks' : 'No known threats'
+      confidence: confidence,
+      threatIntelligence: threatInfo
     });
   });
   
@@ -510,8 +545,8 @@ function enrichIndicators(content: string) {
   return { indicators };
 }
 
-// Classification AI Agent  
-function classifyIncident(content: string, incident: any, threatAnalysis: any, config: any = {}) {
+// Classification AI Agent with Threat Intelligence
+function classifyIncident(content: string, incident: any, threatAnalysis: any, config: any = {}, threatReport?: any) {
   let suspicionScore = 0;
   let reasons = [];
   
@@ -550,6 +585,27 @@ function classifyIncident(content: string, incident: any, threatAnalysis: any, c
   if (threatAnalysis.networkIndicators.length > 0) {
     suspicionScore += 10;
     reasons.push('Suspicious network activity');
+  }
+  
+  // Threat Intelligence scoring
+  if (threatReport) {
+    if (threatReport.risk_score >= 80) {
+      suspicionScore += 30;
+      reasons.push(`Critical threat intelligence risk (${threatReport.risk_score}/100)`);
+    } else if (threatReport.risk_score >= 60) {
+      suspicionScore += 20;
+      reasons.push(`High threat intelligence risk (${threatReport.risk_score}/100)`);
+    } else if (threatReport.risk_score >= 40) {
+      suspicionScore += 10;
+      reasons.push(`Medium threat intelligence risk (${threatReport.risk_score}/100)`);
+    }
+    
+    // Check for malicious indicators
+    const maliciousCount = threatReport.indicators?.filter((i: any) => i.malicious).length || 0;
+    if (maliciousCount > 0) {
+      suspicionScore += maliciousCount * 5;
+      reasons.push(`${maliciousCount} malicious indicators detected via threat intelligence`);
+    }
   }
   
   // Final classification
