@@ -5,11 +5,15 @@ import IncidentAnalysis from "@/components/incident-analysis";
 import IncidentHistory from "@/components/incident-history";
 import Settings from "@/components/settings";
 import { ThreatPredictionMeter } from "@/components/threat-prediction-meter";
+import ApiConfiguration from "@/components/api-configuration";
+import ThreatHeatmap from "@/components/threat-heatmap";
+import RiskVisualizer from "@/components/risk-visualizer";
+import SecurityRecommendations from "@/components/security-recommendations";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { useTheme } from "@/hooks/use-theme";
 
-type View = "incident-analysis" | "incident-history" | "settings" | "threat-prediction";
+type View = "incident-analysis" | "incident-history" | "settings" | "threat-prediction" | "api-configuration" | "threat-heatmap" | "risk-visualizer" | "security-recommendations";
 
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<View>("incident-analysis");
@@ -44,6 +48,14 @@ export default function Dashboard() {
         />;
       case "threat-prediction":
         return <ThreatPredictionView />;
+      case "api-configuration":
+        return <ApiConfiguration />;
+      case "threat-heatmap":
+        return <ThreatHeatmap />;
+      case "risk-visualizer":
+        return <RiskVisualizer />;
+      case "security-recommendations":
+        return <SecurityRecommendations />;
       case "settings":
         return <Settings />;
       default:
