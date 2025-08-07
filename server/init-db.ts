@@ -5,6 +5,21 @@ import { eq } from 'drizzle-orm';
 export async function initializeDatabase() {
   console.log('Initializing database...');
   
+  // Validate critical environment variables
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is required');
+  }
+  
+  try {
+    // Test database connection
+    await db.select().from(users).limit(1);
+    console.log('Database connection validated');
+    
+  } catch (connectionError) {
+    console.error('Database connection failed:', connectionError);
+    throw new Error(`Database connection failed: ${connectionError instanceof Error ? connectionError.message : 'Unknown error'}`);
+  }
+  
   try {
     // Check if default user exists
     const [existingUser] = await db.select().from(users).where(eq(users.id, 'default-user'));
@@ -13,8 +28,9 @@ export async function initializeDatabase() {
       // Create default user
       await db.insert(users).values({
         id: 'default-user',
-        username: 'Marcel Seiler',
-        password: 'password'
+        email: 'seitlermarcel24@gmail.com',
+        firstName: 'Marcel',
+        lastName: 'Seiler'
       });
       console.log('Default user created');
     }

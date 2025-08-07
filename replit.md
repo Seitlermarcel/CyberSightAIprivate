@@ -62,3 +62,18 @@ Preferred communication style: Simple, everyday language.
 - **Component Architecture**: Modular UI components with consistent styling patterns
 - **Error Handling**: Centralized error handling with user-friendly messages
 - **Development Experience**: Hot reload, runtime error overlays, and development banners
+
+### Deployment Configuration
+- **Database Initialization**: Comprehensive error handling with environment validation and connection testing
+- **Health Check Endpoint**: `/health` endpoint for deployment validation and monitoring
+- **Startup Validation**: Critical dependency verification before server launch
+- **Error Recovery**: Graceful failure handling with detailed error logging and process termination
+- **Environment Variables**: Mandatory DATABASE_URL validation with clear error messages
+
+### Recent Changes (January 7, 2025)
+- Fixed deployment failure by uncommenting database initialization in server/index.ts
+- Added comprehensive error handling around database startup with connection testing
+- Implemented health check endpoint for deployment validation
+- Fixed user creation schema to match PostgreSQL table structure (email/firstName/lastName instead of username/password)
+- Added environment variable validation and startup dependency checks
+- Enhanced error logging with stack traces and graceful failure handling

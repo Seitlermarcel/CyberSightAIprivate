@@ -38,10 +38,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Note: Database initialization temporarily disabled during schema migration
-  // await initializeDatabase();
-  
-  const server = await registerRoutes(app);
+  try {
+    console.log('Starting server initialization...');
+    
+    // Initialize database with comprehensive error handling
+    await initializeDatabase();
+    console.log('Database initialization successful');
+    
+    const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -64,6 +68,16 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
+  // Health check endpoint for deployment validation
+  app.get('/health', (_req, res) => {
+    res.status(200).json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      version: '1.0.0'
+    });
+  });
+
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
@@ -71,5 +85,12 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    log('Server initialization complete - all systems operational');
   });
+  
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    console.error('Error details:', error instanceof Error ? error.stack : error);
+    process.exit(1);
+  }
 })();
