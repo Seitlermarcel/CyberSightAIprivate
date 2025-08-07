@@ -62,7 +62,7 @@ export default function Settings() {
   };
 
   const getCurrentValue = (key: keyof InsertSettings) => {
-    return formData[key] !== undefined ? formData[key] : settings?.[key];
+    return formData[key] !== undefined ? formData[key] : (settings as any)?.[key];
   };
 
   if (isLoading || !settings) {
