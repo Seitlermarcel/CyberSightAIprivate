@@ -258,18 +258,28 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
                       <TooltipTrigger asChild>
                         <Info className="h-3 w-3 text-gray-500 hover:text-gray-300 cursor-help" />
                       </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <div className="space-y-2">
-                          <p className="font-medium">Confidence Score:</p>
-                          <div className="text-xs space-y-1">
-                            <div>• 90–100%: Very High – Strong evidence</div>
-                            <div>• 70–89%: High – Minor uncertainties</div>
-                            <div>• 50–69%: Medium – Needs human review</div>
-                            <div>• &lt;50%: Low – Manual validation required</div>
+                      <TooltipContent className="max-w-sm">
+                        <div className="space-y-3">
+                          <div>
+                            <p className="font-medium text-white">Confidence Score</p>
+                            <p className="text-xs text-gray-300">Measures AI's certainty in threat classification</p>
                           </div>
-                          <p className="text-xs text-gray-400 pt-1">
-                            AI's certainty level based on log analysis patterns and evidence strength.
-                          </p>
+                          
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-200">Scoring Ranges:</p>
+                            <div className="text-xs space-y-1 text-gray-300">
+                              <div>• <span className="text-green-400">90–100%</span> Very High – Strong evidence, reliable classification</div>
+                              <div>• <span className="text-blue-400">70–89%</span> High – Good indicators, minor uncertainties</div>
+                              <div>• <span className="text-yellow-400">50–69%</span> Medium – Mixed signals, needs human review</div>
+                              <div>• <span className="text-red-400">&lt;50%</span> Low – Weak evidence, manual validation required</div>
+                            </div>
+                          </div>
+                          
+                          <div className="border-t border-gray-600 pt-2">
+                            <p className="text-xs text-gray-400">
+                              <span className="font-medium">What it does:</span> Helps analysts prioritize incidents by showing how certain the AI is about threat classification. Higher scores indicate more reliable automated decisions.
+                            </p>
+                          </div>
                         </div>
                       </TooltipContent>
                     </Tooltip>
@@ -289,18 +299,28 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
                       <TooltipTrigger asChild>
                         <Info className="h-3 w-3 text-gray-500 hover:text-gray-300 cursor-help" />
                       </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <div className="space-y-2">
-                          <p className="font-medium">AI Investigation Metrics:</p>
-                          <div className="text-xs space-y-1">
-                            <div>• 90–100%: Complete – All logs processed</div>
-                            <div>• 70–89%: Comprehensive – Minor gaps</div>
-                            <div>• 50–69%: Partial – Some unclear data</div>
-                            <div>• &lt;50%: Limited – Insufficient clarity</div>
+                      <TooltipContent className="max-w-sm">
+                        <div className="space-y-3">
+                          <div>
+                            <p className="font-medium text-white">AI Investigation</p>
+                            <p className="text-xs text-gray-300">Measures analysis completeness across all data sources</p>
                           </div>
-                          <p className="text-xs text-gray-400 pt-1">
-                            Thoroughness of AI analysis across all 8 specialized agents and data sources.
-                          </p>
+                          
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-gray-200">Completeness Levels:</p>
+                            <div className="text-xs space-y-1 text-gray-300">
+                              <div>• <span className="text-green-400">90–100%</span> Complete – All logs processed, full context</div>
+                              <div>• <span className="text-blue-400">70–89%</span> Comprehensive – Minor data gaps, good coverage</div>
+                              <div>• <span className="text-yellow-400">50–69%</span> Partial – Some unclear data, incomplete picture</div>
+                              <div>• <span className="text-red-400">&lt;50%</span> Limited – Insufficient data, needs more investigation</div>
+                            </div>
+                          </div>
+                          
+                          <div className="border-t border-gray-600 pt-2">
+                            <p className="text-xs text-gray-400">
+                              <span className="font-medium">What it does:</span> Shows how thoroughly the 8 AI agents analyzed available data. Higher scores mean more comprehensive investigation across MITRE tactics, IOCs, patterns, and threat vectors.
+                            </p>
+                          </div>
                         </div>
                       </TooltipContent>
                     </Tooltip>
