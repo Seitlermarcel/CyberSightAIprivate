@@ -51,9 +51,9 @@ export async function sendIncidentNotification(data: EmailNotificationData): Pro
   
   // Parse threat intelligence if available
   let threatIntelHtml = '';
-  if (incident.threatIntelligence) {
+  if ((incident as any).threatIntelligence) {
     try {
-      const threatData = JSON.parse(incident.threatIntelligence);
+      const threatData = JSON.parse((incident as any).threatIntelligence);
       if (threatData.risk_score) {
         threatIntelHtml = `
           <tr>
@@ -144,24 +144,24 @@ export async function sendIncidentNotification(data: EmailNotificationData): Pro
           </table>
           
           <!-- AI Analysis Summary -->
-          ${incident.workflowStage ? `
+          ${(incident as any).workflowStage ? `
           <div style="background-color: #0d1117; border-left: 4px solid #00BFFF; padding: 20px; margin: 20px 0;">
             <h3 style="color: #00BFFF; margin-top: 0; font-size: 16px;">AI Analysis Summary</h3>
             <p style="color: #ccc; line-height: 1.6; margin: 10px 0;">
-              <strong>Workflow Stage:</strong> ${incident.workflowStage}
+              <strong>Workflow Stage:</strong> ${(incident as any).workflowStage}
             </p>
-            ${incident.analysisExplanation ? `
+            ${(incident as any).analysisExplanation ? `
             <p style="color: #ccc; line-height: 1.6; margin: 10px 0;">
-              ${incident.analysisExplanation.substring(0, 300)}${incident.analysisExplanation.length > 300 ? '...' : ''}
+              ${(incident as any).analysisExplanation.substring(0, 300)}${(incident as any).analysisExplanation.length > 300 ? '...' : ''}
             </p>
             ` : ''}
           </div>
           ` : ''}
           
           <!-- MITRE ATT&CK Mapping -->
-          ${incident.mitreMapping ? (() => {
+          ${(incident as any).mitreMapping ? (() => {
             try {
-              const mitre = JSON.parse(incident.mitreMapping);
+              const mitre = JSON.parse((incident as any).mitreMapping);
               if (mitre.tactics && mitre.tactics.length > 0) {
                 return `
                   <div style="margin: 20px 0;">
@@ -249,7 +249,7 @@ This is an automated alert from CyberSight AI
       subject,
       text: textContent,
       html: htmlContent,
-      priority: isHighSeverity ? 'high' : 'normal'
+      priority: (isHighSeverity ? 'high' : 'normal') as 'high' | 'normal'
     };
     
     await transport.sendMail(mailOptions);
