@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertIncidentSchema, insertSettingsSchema } from "@shared/schema";
-import { sendIncidentNotification } from "./email-service";
+import { sendIncidentNotification, sendTestEmail } from "./gmail-email-service";
 import { threatIntelligence } from "./threat-intelligence";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -106,6 +106,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertSettingsSchema.partial().parse(req.body);
       const settings = await storage.updateUserSettings(req.params.userId, validatedData);
+      
+      // Send test email when email notifications are first enabled
+      if (validatedData.emailNotifications && validatedData.emailAddress && 
+          (!req.body.previousEmailNotifications || req.body.previousEmailAddress !== validatedData.emailAddress)) {
+        await sendTestEmail(validatedData.emailAddress);
+      }
+      
       res.json(settings);
     } catch (error) {
       res.status(400).json({ error: "Invalid settings data" });
