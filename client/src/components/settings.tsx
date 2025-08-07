@@ -26,6 +26,7 @@ const settingsSchema = z.object({
   requireComments: z.boolean(),
   emailNotifications: z.boolean(),
   highSeverityAlerts: z.boolean(),
+  emailAddress: z.string().optional(),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -54,6 +55,7 @@ export default function Settings() {
       requireComments: false,
       emailNotifications: false,
       highSeverityAlerts: false,
+      emailAddress: "",
     },
   });
 
@@ -344,6 +346,30 @@ export default function Settings() {
                     </FormItem>
                   )}
                 />
+                
+                {/* Email Address Field - Show when email notifications are enabled */}
+                {form.watch("emailNotifications") && (
+                  <FormField
+                    control={form.control}
+                    name="emailAddress"
+                    render={({ field }) => (
+                      <FormItem className="ml-4">
+                        <FormLabel className="text-gray-300">Email Address</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="Enter your email address"
+                            className="cyber-dark border-cyber-slate-light text-white focus:ring-cyber-blue"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-gray-400">
+                          Email address for receiving incident notifications
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+                )}
                 
                 <FormField
                   control={form.control}
