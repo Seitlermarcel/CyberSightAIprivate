@@ -60,6 +60,30 @@ export default function Settings() {
   };
 
   const saveSettings = () => {
+    // Get current values for validation
+    const emailNotifications = getCurrentValue("emailNotifications") || false;
+    const emailAddress = getCurrentValue("emailAddress") || "";
+    
+    // Validate email address if email notifications are enabled
+    if (emailNotifications && !emailAddress.trim()) {
+      toast({
+        title: "Email Address Required",
+        description: "Please enter an email address to enable email notifications.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate email format
+    if (emailNotifications && emailAddress && !emailAddress.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      toast({
+        title: "Invalid Email Address",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Always allow save - create a complete settings object from current values
     const dataToSave = {
       analysisDepth: getCurrentValue("analysisDepth") || "comprehensive",
@@ -72,8 +96,8 @@ export default function Settings() {
       compactView: getCurrentValue("compactView") || false,
       autoRefresh: getCurrentValue("autoRefresh") || false,
       requireComments: getCurrentValue("requireComments") || false,
-      emailNotifications: getCurrentValue("emailNotifications") || false,
-      emailAddress: getCurrentValue("emailAddress") || "",
+      emailNotifications: emailNotifications,
+      emailAddress: emailAddress.trim(),
       highSeverityAlerts: getCurrentValue("highSeverityAlerts") || false,
     };
     
@@ -89,6 +113,14 @@ export default function Settings() {
         }
         setHasChanges(false);
         setFormData({}); // Clear form data after successful save
+        
+        // Show specific message for email notifications
+        if (dataToSave.emailNotifications && dataToSave.emailAddress) {
+          toast({
+            title: "Email Notifications Enabled",
+            description: `Incident alerts will be sent to ${dataToSave.emailAddress}`,
+          });
+        }
       }
     });
   };
@@ -364,10 +396,10 @@ export default function Settings() {
               <Input
                 id="emailAddress"
                 type="email"
-                placeholder="security-analyst@company.com"
+                placeholder="Enter your email address for notifications"
                 value={getCurrentValue("emailAddress") || ""}
                 onChange={(e) => handleSettingChange("emailAddress", e.target.value)}
-                className="cyber-dark border-cyber-slate-light text-white"
+                className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500"
               />
               <p className="text-xs text-gray-500">
                 This email will receive incident notifications with PDF reports attached
