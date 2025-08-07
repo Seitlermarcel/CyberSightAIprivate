@@ -39,7 +39,7 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<{ id: string; username: string }>({
     queryKey: ["/api/user"],
   });
 
@@ -48,7 +48,7 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
     enabled: !!user?.id,
   });
 
-  const { data: recentIncidents } = useQuery({
+  const { data: recentIncidents } = useQuery<Incident[]>({
     queryKey: ["/api/incidents"],
   });
 
@@ -376,9 +376,9 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                   </div>
                   {analysisResult.mitreAttack && analysisResult.mitreAttack.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {analysisResult.mitreAttack.slice(0, 3).map((technique, index) => (
+                      {analysisResult.mitreAttack.slice(0, 3).map((technique: any, index: number) => (
                         <Badge key={index} variant="outline" className="text-xs text-gray-400 border-gray-600">
-                          {technique}
+                          {typeof technique === 'object' ? (technique.id || technique.name || 'Unknown') : technique}
                         </Badge>
                       ))}
                       {analysisResult.mitreAttack.length > 3 && (

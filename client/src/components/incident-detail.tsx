@@ -243,6 +243,9 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <Badge className={`${getSeverityColor(incident.severity)} text-white uppercase`}>
+              {incident.severity}
+            </Badge>
             <Badge className={`${getClassificationColor(incident.classification || "")} text-white`}>
               {incident.classification === "true-positive" ? "TRUE POSITIVE" : "FALSE POSITIVE"}
             </Badge>
@@ -266,9 +269,14 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
           <div className="flex items-center space-x-2 mb-4">
             <Shield className="text-severity-high" />
             <h3 className="text-lg font-semibold">Analysis Results</h3>
-            <Badge className={`${getClassificationColor(incident.classification || "")} text-white ml-auto`}>
-              {incident.classification === "true-positive" ? "TRUE POSITIVE" : "FALSE POSITIVE"}
-            </Badge>
+            <div className="ml-auto flex items-center space-x-2">
+              <Badge className={`${getSeverityColor(incident.severity)} text-white uppercase`}>
+                {incident.severity}
+              </Badge>
+              <Badge className={`${getClassificationColor(incident.classification || "")} text-white`}>
+                {incident.classification === "true-positive" ? "TRUE POSITIVE" : "FALSE POSITIVE"}
+              </Badge>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-6">
