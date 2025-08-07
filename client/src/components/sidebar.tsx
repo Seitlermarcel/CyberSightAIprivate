@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Shield, ChartLine, History, Settings, TriangleAlert, Clock, CheckCircle, Brain, LogOut, Code2, Map, TrendingUp, Lightbulb } from "lucide-react";
+import { Shield, ChartLine, History, Settings, TriangleAlert, Clock, CheckCircle, Brain, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -35,30 +35,6 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
       icon: Brain,
       label: "Threat Prediction",
       color: "text-purple-400",
-    },
-    {
-      id: "api-configuration",
-      icon: Code2,
-      label: "API Configuration",
-      color: "text-green-400",
-    },
-    {
-      id: "threat-heatmap",
-      icon: Map,
-      label: "Threat Heatmap",
-      color: "text-orange-400",
-    },
-    {
-      id: "risk-visualizer",
-      icon: TrendingUp,
-      label: "Risk Visualizer",
-      color: "text-red-400",
-    },
-    {
-      id: "security-recommendations",
-      icon: Lightbulb,
-      label: "AI Recommendations",
-      color: "text-yellow-400",
     },
     {
       id: "settings",
