@@ -51,7 +51,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: incident, isLoading } = useQuery({
+  const { data: incident, isLoading } = useQuery<Incident>({
     queryKey: ["/api/incidents", currentIncidentId],
   });
 
@@ -65,7 +65,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     });
   };
 
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<{ id: string; username: string; password?: string }>({
     queryKey: ["/api/user"],
   });
 
@@ -972,8 +972,25 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
 
                     <div className="cyber-dark rounded-lg p-4">
                       <h4 className="font-medium mb-3">Execution Output</h4>
-                      <div className="cyber-slate rounded p-3 font-mono text-sm text-green-400">
-                        The outputs of the DLLs suggest normal behavior when run in isolation. However, observed behavior during integration with explorer.exe must be monitored.
+                      <div className="cyber-slate rounded p-3 font-mono text-sm">
+                        {codeAnalysis.executionOutput ? (
+                          <pre className="whitespace-pre-wrap">
+                            {codeAnalysis.executionOutput.split('\n').map((line: string, idx: number) => (
+                              <div key={idx} className={
+                                line.includes('CRITICAL') ? 'text-red-400' :
+                                line.includes('ALERT') ? 'text-orange-400' :
+                                line.includes('WARNING') || line.includes('blocked') ? 'text-yellow-400' :
+                                line.includes('THREAT INTEL') ? 'text-cyber-blue' :
+                                line.includes('successfully') ? 'text-green-400' :
+                                'text-gray-300'
+                              }>
+                                {line}
+                              </div>
+                            ))}
+                          </pre>
+                        ) : (
+                          <span className="text-gray-400">No execution output available</span>
+                        )}
                       </div>
                     </div>
                   </div>
