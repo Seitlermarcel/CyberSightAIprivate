@@ -251,7 +251,30 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
           <div className="grid grid-cols-2 gap-6">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-400">Confidence Score</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-400">Confidence Score</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3 w-3 text-gray-500 hover:text-gray-300 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <div className="space-y-2">
+                          <p className="font-medium">Confidence Score:</p>
+                          <div className="text-xs space-y-1">
+                            <div>• 90–100%: Very High – Strong evidence</div>
+                            <div>• 70–89%: High – Minor uncertainties</div>
+                            <div>• 50–69%: Medium – Needs human review</div>
+                            <div>• &lt;50%: Low – Manual validation required</div>
+                          </div>
+                          <p className="text-xs text-gray-400 pt-1">
+                            AI's certainty level based on log analysis patterns and evidence strength.
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <span className="text-sm font-medium">{incident.confidence}%</span>
               </div>
               <Progress value={incident.confidence || 0} className="h-2" />
@@ -261,6 +284,27 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
                 <div className="flex items-center space-x-2">
                   <Brain className="text-cyber-purple w-4 h-4" />
                   <span className="text-sm text-gray-400">AI Investigation</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3 w-3 text-gray-500 hover:text-gray-300 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <div className="space-y-2">
+                          <p className="font-medium">AI Investigation Metrics:</p>
+                          <div className="text-xs space-y-1">
+                            <div>• 90–100%: Complete – All logs processed</div>
+                            <div>• 70–89%: Comprehensive – Minor gaps</div>
+                            <div>• 50–69%: Partial – Some unclear data</div>
+                            <div>• &lt;50%: Limited – Insufficient clarity</div>
+                          </div>
+                          <p className="text-xs text-gray-400 pt-1">
+                            Thoroughness of AI analysis across all 8 specialized agents and data sources.
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <span className="text-sm font-medium">{incident.aiInvestigation || 85}%</span>
               </div>
