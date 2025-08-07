@@ -15,7 +15,6 @@ import { useState } from "react";
 
 const settingsSchema = z.object({
   analysisDepth: z.string(),
-  confidenceThreshold: z.number().min(0).max(100),
   enableDualAI: z.boolean(),
   autoSeverityAdjustment: z.boolean(),
   customInstructions: z.string().optional(),
@@ -42,9 +41,8 @@ export default function Settings() {
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: settings || {
+    values: settings || {
       analysisDepth: "comprehensive",
-      confidenceThreshold: 80,
       enableDualAI: true,
       autoSeverityAdjustment: false,
       customInstructions: "",
@@ -128,7 +126,7 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold">AI Analysis Configuration</h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-6">
                 <FormField
                   control={form.control}
                   name="analysisDepth"
@@ -147,26 +145,6 @@ export default function Settings() {
                           <SelectItem value="quick">Quick - Fast analysis</SelectItem>
                         </SelectContent>
                       </Select>
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="confidenceThreshold"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-300">Confidence Threshold (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          className="cyber-dark border-cyber-slate-light text-white focus:ring-cyber-blue"
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
-                        />
-                      </FormControl>
                     </FormItem>
                   )}
                 />
