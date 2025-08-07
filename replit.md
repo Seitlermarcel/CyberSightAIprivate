@@ -54,6 +54,7 @@ Preferred communication style: Simple, everyday language.
 - **Functional Settings**: All configuration options impact application behavior and analysis
 - **Severity Color System**: Critical (Dark Red), High (Vivid Red), Medium (Orange), Low (Yellow), Informational (Grey)
 - **Real-time Processing**: Immediate incident analysis with settings-aware AI behavior
+- **Sorted Incident Display**: Recent Analysis Results and Incident History display newest incidents first
 
 ### Design Patterns
 - **Monorepo Structure**: Shared TypeScript schemas between client and server

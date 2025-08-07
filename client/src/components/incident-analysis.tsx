@@ -402,7 +402,10 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
 
             {recentIncidents && recentIncidents.length > 0 ? (
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {recentIncidents.slice(0, 5).map((incident: Incident) => (
+                {recentIncidents
+                  .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                  .slice(0, 5)
+                  .map((incident: Incident) => (
                   <div key={incident.id} className="cyber-dark rounded-lg p-4 hover:bg-gray-700 transition-colors">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium text-sm text-white truncate flex-1 mr-2">
