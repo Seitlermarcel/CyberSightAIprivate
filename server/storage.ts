@@ -33,7 +33,7 @@ export class MemStorage implements IStorage {
     const defaultUser: User = {
       id: "default-user",
       username: "Marcel Seiler",
-      password: "password"
+      password: "demo-password-not-for-production"
     };
     this.users.set(defaultUser.id, defaultUser);
     
