@@ -37,6 +37,9 @@ export const incidents = pgTable("incidents", {
   attackVectors: text("attack_vectors"), // JSON string with AI-generated attack vectors
   complianceImpact: text("compliance_impact"), // JSON string with compliance analysis
   similarIncidents: text("similar_incidents"), // JSON string with similar incident data
+  threatPrediction: text("threat_prediction"), // JSON string with AI threat prediction data
+  predictionConfidence: integer("prediction_confidence"), // 0-100 threat prediction confidence
+  riskTrend: text("risk_trend"), // increasing, stable, decreasing
   comments: text("comments").array().default([]), // Array of comment strings
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

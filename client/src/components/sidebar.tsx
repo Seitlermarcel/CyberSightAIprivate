@@ -31,6 +31,12 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
       color: "text-gray-300",
     },
     {
+      id: "threat-prediction",
+      icon: Brain,
+      label: "Threat Prediction",
+      color: "text-purple-400",
+    },
+    {
       id: "settings",
       icon: Settings,
       label: "Settings", 
