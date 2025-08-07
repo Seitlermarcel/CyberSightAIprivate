@@ -145,17 +145,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Mock user route
-  app.get("/api/user", async (req, res) => {
-    const user = await storage.getUser("default-user");
-    res.json(user);
-  });
-
   // Dashboard stats (user-specific and linked to actual incident data)
-  app.get("/api/dashboard-stats", async (req, res) => {
+  app.get("/api/dashboard-stats", isAuthenticated, async (req: any, res) => {
     try {
-      // Get current user's incidents
-      const userId = "default-user";
+      const userId = req.user.claims.sub;
       const incidents = await storage.getUserIncidents(userId);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -190,9 +183,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Threat Prediction API
-  app.get("/api/threat-prediction", async (req, res) => {
+  app.get("/api/threat-prediction", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "default-user";
+      const userId = req.user.claims.sub;
       const incidents = await storage.getUserIncidents(userId);
       const prediction = ThreatPredictionEngine.generatePrediction(incidents);
       res.json(prediction);

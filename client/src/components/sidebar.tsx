@@ -14,7 +14,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
   });
 
   const { data: user } = useQuery({
-    queryKey: ["/api/user"],
+    queryKey: ["/api/auth/user"],
   });
 
   const menuItems = [
@@ -44,7 +44,8 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
     },
   ];
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return "??";
     return name
       .split(" ")
       .map(word => word[0])
@@ -154,21 +155,19 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
       <div className="p-4 border-t border-cyber-slate-light">
         <div className="flex items-center space-x-3 mb-3">
           <div className="w-8 h-8 cyber-purple rounded-full flex items-center justify-center text-sm font-semibold">
-            <span>{user ? getInitials(user.username) : "MS"}</span>
+            <span>{user ? getInitials(`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email) : "??"}</span>
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium">{user?.username || "Marcel Seiler"}</p>
+            <p className="text-sm font-medium">
+              {user ? (`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User') : 'Unknown User'}
+            </p>
             <p className="text-xs text-gray-400">Security Analyst</p>
             <p className="text-xs text-green-400">● {stats?.totalIncidents || 0} incidents tracked</p>
           </div>
         </div>
         <Button
           onClick={() => {
-            // Clear any stored auth data
-            localStorage.clear();
-            sessionStorage.clear();
-            // Reload the page to restart the session
-            window.location.reload();
+            window.location.href = '/api/logout';
           }}
           variant="outline"
           size="sm"
