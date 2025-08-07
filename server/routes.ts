@@ -219,10 +219,58 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
   let finalConfidence = classification.confidence;
   let finalClassification = classification.result;
   
-  // Auto severity adjustment based on settings
-  if (config.autoSeverityAdjustment && classification.confidence > 85) {
-    if (incident.severity === 'medium' && finalClassification === 'true-positive') {
-      incident.severity = 'high';
+  // Auto severity adjustment based on AI analysis
+  let adjustedSeverity = incident.severity;
+  if (config.autoSeverityAdjustment) {
+    // Calculate severity score based on multiple factors
+    let severityScore = 0;
+    
+    // Factor 1: Threat analysis indicators (20 points max)
+    const threatCount = (threatAnalysis.behavioralIndicators?.length || 0) + 
+                       (threatAnalysis.networkIndicators?.length || 0) +
+                       (threatAnalysis.processIndicators?.length || 0);
+    severityScore += Math.min(20, threatCount * 5);
+    
+    // Factor 2: Pattern significance (25 points max)
+    patterns.forEach(pattern => {
+      if (pattern.significance === 'High') severityScore += 8;
+      else if (pattern.significance === 'Medium') severityScore += 4;
+      else if (pattern.significance === 'Low') severityScore += 1;
+    });
+    severityScore = Math.min(severityScore, 25);
+    
+    // Factor 3: MITRE techniques detected (25 points max)
+    const mitreCount = mitreMapping.techniques?.length || 0;
+    severityScore += Math.min(25, mitreCount * 5);
+    
+    // Factor 4: Classification confidence (20 points max)
+    if (finalClassification === 'true-positive') {
+      severityScore += Math.floor(classification.confidence * 0.2);
+    }
+    
+    // Factor 5: Attack vectors and IOCs (10 points max)
+    const iocCount = iocEnrichment.indicators?.length || 0;
+    severityScore += Math.min(10, iocCount * 2);
+    
+    // Determine adjusted severity based on total score
+    if (severityScore >= 75) {
+      adjustedSeverity = 'critical';
+    } else if (severityScore >= 55) {
+      adjustedSeverity = 'high';
+    } else if (severityScore >= 35) {
+      adjustedSeverity = 'medium';
+    } else if (severityScore >= 15) {
+      adjustedSeverity = 'low';
+    } else {
+      adjustedSeverity = 'informational';
+    }
+    
+    // Log the adjustment for transparency
+    if (adjustedSeverity !== incident.severity) {
+      console.log(`Auto Severity Adjustment: Changed from ${incident.severity} to ${adjustedSeverity} (Score: ${severityScore})`);
+      incident.severity = adjustedSeverity;
+      incident.severityAdjusted = true;
+      incident.severityScore = severityScore;
     }
   }
   
@@ -252,6 +300,9 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
     attackVectors: JSON.stringify(attackVectors),
     complianceImpact: JSON.stringify(complianceImpact),
     similarIncidents: JSON.stringify(similarIncidents),
+    adjustedSeverity: incident.severity,
+    severityAdjusted: incident.severityAdjusted || false,
+    severityScore: incident.severityScore || null,
   };
 }
 
