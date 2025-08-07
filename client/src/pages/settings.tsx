@@ -53,7 +53,11 @@ export default function Settings() {
   });
 
   const handleSettingChange = (key: keyof InsertSettings, value: any) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
+    setFormData(prev => {
+      const newData = { ...prev };
+      newData[key] = value;
+      return newData;
+    });
     setHasChanges(true);
   };
 
@@ -124,12 +128,12 @@ export default function Settings() {
   };
 
   const getCurrentValue = (key: keyof InsertSettings) => {
-    // Check if we have a pending change first
-    if (formData[key] !== undefined) {
+    // Use formData if it has the key, otherwise use settings with safe defaults
+    if (formData.hasOwnProperty(key)) {
       return formData[key];
     }
-    // Otherwise use the settings value, with safe defaults for text fields
-    const settingsValue = (settings as any)?.[key];
+    const settingsValue = settings?.[key];
+    // Handle null/undefined for text fields
     if ((key === 'customInstructions' || key === 'emailAddress') && (settingsValue === null || settingsValue === undefined)) {
       return "";
     }
