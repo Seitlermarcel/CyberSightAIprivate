@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Shield, ChartLine, History, Settings, TriangleAlert, Clock, CheckCircle, Brain } from "lucide-react";
+import { Shield, ChartLine, History, Settings, TriangleAlert, Clock, CheckCircle, Brain, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
   currentView: string;
@@ -145,7 +146,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
       {/* User Profile with dynamic login info */}
       <div className="p-4 border-t border-cyber-slate-light">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 mb-3">
           <div className="w-8 h-8 cyber-purple rounded-full flex items-center justify-center text-sm font-semibold">
             <span>{user ? getInitials(user.username) : "MS"}</span>
           </div>
@@ -155,6 +156,21 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <p className="text-xs text-green-400">● {stats?.totalIncidents || 0} incidents tracked</p>
           </div>
         </div>
+        <Button
+          onClick={() => {
+            // Clear any stored auth data
+            localStorage.clear();
+            sessionStorage.clear();
+            // Reload the page to restart the session
+            window.location.reload();
+          }}
+          variant="outline"
+          size="sm"
+          className="w-full border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Logout
+        </Button>
       </div>
     </div>
   );
