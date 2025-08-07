@@ -62,7 +62,21 @@ export default function Settings() {
   // Update form when settings are loaded
   React.useEffect(() => {
     if (settings) {
-      form.reset(settings);
+      const settingsData = settings as any; // Type assertion to handle missing fields
+      form.reset({
+        analysisDepth: settingsData.analysisDepth || "comprehensive",
+        enableDualAI: settingsData.enableDualAI ?? true,
+        autoSeverityAdjustment: settingsData.autoSeverityAdjustment ?? false,
+        customInstructions: settingsData.customInstructions || "",
+        theme: settingsData.theme || "dark",
+        sessionTimeout: settingsData.sessionTimeout || 480,
+        compactView: settingsData.compactView ?? false,
+        autoRefresh: settingsData.autoRefresh ?? false,
+        requireComments: settingsData.requireComments ?? false,
+        emailNotifications: settingsData.emailNotifications ?? false,
+        highSeverityAlerts: settingsData.highSeverityAlerts ?? false,
+        emailAddress: settingsData.emailAddress || "",
+      });
     }
   }, [settings, form]);
 
@@ -92,6 +106,7 @@ export default function Settings() {
   });
 
   const onSubmit = (data: SettingsFormData) => {
+    console.log("Form submitted with data:", data);
     saveSettingsMutation.mutate(data);
   };
 
@@ -256,9 +271,12 @@ export default function Settings() {
                           max="1440"
                           className="cyber-dark border-cyber-slate-light text-white focus:ring-cyber-cyan"
                           {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 480)}
                         />
                       </FormControl>
+                      <FormDescription className="text-gray-400">
+                        Time before requiring re-authentication (30-1440 minutes)
+                      </FormDescription>
                     </FormItem>
                   )}
                 />
@@ -401,8 +419,18 @@ export default function Settings() {
                     ? "bg-green-600 hover:bg-green-600" 
                     : "cyber-blue hover:bg-blue-600"
                 } text-white`}
+                onClick={() => {
+                  console.log("Save button clicked");
+                  console.log("Form errors:", form.formState.errors);
+                  console.log("Form values:", form.getValues());
+                }}
               >
-                {saveSuccess ? (
+                {saveSettingsMutation.isPending ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : saveSuccess ? (
                   <>
                     <Check className="mr-2 h-4 w-4" />
                     Saved!
