@@ -1,18 +1,23 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-export function useAutoRefresh(enabled: boolean, intervalMs = 30000) {
+export function useAutoRefresh(enabled: boolean, interval: number = 30000) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!enabled) return;
 
-    const interval = setInterval(() => {
-      // Refresh incidents and dashboard stats
+    // Initial refetch
+    queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+
+    // Set up interval for auto-refresh (every 30 seconds by default)
+    const refreshInterval = setInterval(() => {
+      console.log("Auto-refreshing incidents...");
       queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
-    }, intervalMs);
+    }, interval);
 
-    return () => clearInterval(interval);
-  }, [enabled, intervalMs, queryClient]);
+    return () => clearInterval(refreshInterval);
+  }, [enabled, interval, queryClient]);
 }
