@@ -5,18 +5,55 @@ import { eq } from 'drizzle-orm';
 export async function initializeDatabase() {
   console.log('Initializing database...');
   
-  // Validate critical environment variables
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL environment variable is required');
+  // Validate critical environment variables for production
+  const requiredEnvVars = ['DATABASE_URL'];
+  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    const errorMsg = `Missing required environment variables: ${missingVars.join(', ')}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
   
+  // Validate DATABASE_URL format
+  const dbUrl = process.env.DATABASE_URL!;
+  if (!dbUrl.startsWith('postgresql://') && !dbUrl.startsWith('postgres://')) {
+    throw new Error('DATABASE_URL must be a valid PostgreSQL connection string');
+  }
+  
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Database URL configured: ${dbUrl.replace(/\/\/.*@/, '//***@')}`); // Hide credentials in logs
+  
   try {
-    // Test database connection
-    await db.select().from(users).limit(1);
-    console.log('Database connection validated');
+    // Test database connection with retry logic
+    const maxRetries = 3;
+    let lastError: any = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Database connection attempt ${attempt}/${maxRetries}...`);
+        await db.select().from(users).limit(1);
+        console.log('Database connection validated');
+        break;
+      } catch (error) {
+        lastError = error;
+        console.warn(`Connection attempt ${attempt} failed:`, error instanceof Error ? error.message : error);
+        
+        if (attempt < maxRetries) {
+          const delay = attempt * 2000; // Progressive delay: 2s, 4s
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    if (lastError) {
+      throw lastError;
+    }
     
   } catch (connectionError) {
-    console.error('Database connection failed:', connectionError);
+    console.error('Database connection failed after retries:', connectionError);
+    console.error('Connection error details:', connectionError instanceof Error ? connectionError.stack : connectionError);
     throw new Error(`Database connection failed: ${connectionError instanceof Error ? connectionError.message : 'Unknown error'}`);
   }
   
