@@ -33,7 +33,8 @@ export default function IncidentHistory({ compactView = false, requireComments =
     const matchesStatus = statusFilter === "all" || incident.status === statusFilter;
     
     return matchesSearch && matchesClassification && matchesSeverity && matchesStatus;
-  }) || [];
+  })
+  .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()) || [];
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
