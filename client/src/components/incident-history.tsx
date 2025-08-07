@@ -22,7 +22,7 @@ export default function IncidentHistory({ compactView = false, requireComments =
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
 
-  const { data: incidents, isLoading } = useQuery({
+  const { data: incidents, isLoading } = useQuery<Incident[]>({
     queryKey: ["/api/incidents"],
   });
 
@@ -34,7 +34,7 @@ export default function IncidentHistory({ compactView = false, requireComments =
     
     return matchesSearch && matchesClassification && matchesSeverity && matchesStatus;
   })
-  .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()) || [];
+  .sort((a: Incident, b: Incident) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()) || [];
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
