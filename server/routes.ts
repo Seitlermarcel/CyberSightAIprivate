@@ -74,7 +74,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(incident);
     } catch (error) {
-      res.status(400).json({ error: "Invalid incident data" });
+      console.error("Incident creation error:", error);
+      res.status(400).json({ error: "Invalid incident data", details: error.message });
     }
   });
 
