@@ -46,7 +46,6 @@ export const settings = pgTable("settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
   analysisDepth: text("analysis_depth").default("comprehensive"),
-  confidenceThreshold: integer("confidence_threshold").default(80),
   enableDualAI: boolean("enable_dual_ai").default(true),
   autoSeverityAdjustment: boolean("auto_severity_adjustment").default(false),
   customInstructions: text("custom_instructions").default(""),

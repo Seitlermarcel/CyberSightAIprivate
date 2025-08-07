@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -184,57 +184,21 @@ export default function Settings() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="analysisDepth">Analysis Depth</Label>
-              <Select 
-                value={getCurrentValue("analysisDepth") || "comprehensive"} 
-                onValueChange={(value) => handleSettingChange("analysisDepth", value)}
-              >
-                <SelectTrigger className="cyber-dark border-cyber-slate-light">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="cyber-dark border-cyber-slate-light">
-                  <SelectItem value="basic">Basic - Quick analysis</SelectItem>
-                  <SelectItem value="standard">Standard - Balanced analysis</SelectItem>
-                  <SelectItem value="comprehensive">Comprehensive - Deep analysis</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Label htmlFor="confidenceThreshold">Confidence Threshold (%)</Label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-gray-500 hover:text-gray-300 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <div className="space-y-2">
-                        <p className="font-medium">Confidence Threshold:</p>
-                        <p className="text-xs">Minimum confidence required for AI classifications. Incidents below this threshold require manual review. Higher values reduce false positives but may miss threats.</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <div className="px-3">
-                <Slider
-                  value={[getCurrentValue("confidenceThreshold") || 80]}
-                  onValueChange={(value) => handleSettingChange("confidenceThreshold", value[0])}
-                  max={100}
-                  min={0}
-                  step={5}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>0%</span>
-                  <span className="font-medium">{getCurrentValue("confidenceThreshold") || 80}%</span>
-                  <span>100%</span>
-                </div>
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="analysisDepth">Analysis Depth</Label>
+            <Select 
+              value={getCurrentValue("analysisDepth") || "comprehensive"} 
+              onValueChange={(value) => handleSettingChange("analysisDepth", value)}
+            >
+              <SelectTrigger className="cyber-dark border-cyber-slate-light">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="cyber-dark border-cyber-slate-light">
+                <SelectItem value="basic">Basic - Quick analysis</SelectItem>
+                <SelectItem value="standard">Standard - Balanced analysis</SelectItem>
+                <SelectItem value="comprehensive">Comprehensive - Deep analysis</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-4">
