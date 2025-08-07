@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Settings as SettingsIcon, Save, Brain, Monitor, Shield } from "lucide-react";
+import { Settings as SettingsIcon, Save, Brain, Monitor, Shield, Info, Palette, Clock, Bell, Shield as SecurityShield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Settings, InsertSettings } from "@shared/schema";
@@ -126,7 +127,22 @@ export default function Settings() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confidenceThreshold">Confidence Threshold (%)</Label>
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="confidenceThreshold">Confidence Threshold (%)</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-gray-500 hover:text-gray-300 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-2">
+                        <p className="font-medium">Confidence Threshold:</p>
+                        <p className="text-xs">Minimum confidence required for AI classifications. Incidents below this threshold require manual review. Higher values reduce false positives but may miss threats.</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <div className="px-3">
                 <Slider
                   value={[getCurrentValue("confidenceThreshold") || 80]}
@@ -148,8 +164,23 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="enableDualAI">Enable Dual AI Analysis</Label>
-                <div className="text-sm text-gray-400">Use two different AI analysts for enhanced accuracy</div>
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="enableDualAI">Enable Dual AI Analysis</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-500 hover:text-gray-300 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <div className="space-y-2">
+                          <p className="font-medium">Dual-AI Analysis:</p>
+                          <p className="text-xs">Enables Tactical Analyst (technical evidence), Strategic Analyst (patterns & hypotheticals), and Chief Analyst (final synthesis) for comprehensive incident analysis.</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <div className="text-sm text-gray-400">Use Tactical, Strategic & Chief analysts for enhanced accuracy</div>
               </div>
               <Switch
                 id="enableDualAI"

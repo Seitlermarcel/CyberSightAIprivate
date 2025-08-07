@@ -4,10 +4,12 @@ import { storage } from "./storage";
 import { insertIncidentSchema, insertSettingsSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Incidents routes
+  // Incidents routes (user-specific)
   app.get("/api/incidents", async (req, res) => {
     try {
-      const incidents = await storage.getIncidents();
+      // For now, use default user - in production this would come from session/auth
+      const userId = "default-user";
+      const incidents = await storage.getUserIncidents(userId);
       res.json(incidents);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch incidents" });
@@ -30,13 +32,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertIncidentSchema.parse(req.body);
       
-      // Get user settings for AI analysis configuration
-      const userSettings = await storage.getUserSettings("default-user");
+      // Get current user - in production this would come from session/auth
+      const userId = "default-user";
+      const userSettings = await storage.getUserSettings(userId);
       
       // Intelligent AI analysis with settings integration
       const aiAnalysis = generateMockAnalysis(validatedData, userSettings);
       const incidentData = {
         ...validatedData,
+        userId: userId, // Associate incident with user
         ...aiAnalysis
       };
       
@@ -88,16 +92,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(user);
   });
 
-  // Mock dashboard stats
+  // Dashboard stats (user-specific and linked to actual incident data)
   app.get("/api/dashboard-stats", async (req, res) => {
     try {
-      const incidents = await storage.getIncidents();
+      // Get current user's incidents
+      const userId = "default-user";
+      const incidents = await storage.getUserIncidents(userId);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const activeThreats = incidents.filter(i => i.status === "open" && (i.severity === "critical" || i.severity === "high")).length;
-      const todayIncidents = incidents.filter(i => new Date(i.createdAt!).getTime() >= today.getTime()).length;
-      const truePositives = incidents.filter(i => i.classification === "true-positive").length;
+      // Calculate metrics from actual user incident data
+      const activeThreats = incidents.filter(i => 
+        i.status === "open" && (i.severity === "critical" || i.severity === "high")
+      ).length;
+      
+      const todayIncidents = incidents.filter(i => 
+        new Date(i.createdAt!).getTime() >= today.getTime()
+      ).length;
+      
+      const truePositives = incidents.filter(i => 
+        i.classification === "true-positive"
+      ).length;
+      
       const totalConfidence = incidents.reduce((acc, i) => acc + (i.confidence || 0), 0);
       const avgConfidence = incidents.length > 0 ? Math.round(totalConfidence / incidents.length) : 0;
       
@@ -105,7 +121,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeThreats,
         todayIncidents,
         truePositives,
-        avgConfidence
+        avgConfidence,
+        totalIncidents: incidents.length,
+        userId: userId
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
@@ -156,6 +174,11 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
   // Classification AI Agent (settings-aware)
   const classification = classifyIncident(content, incident, threatAnalysis, config);
   
+  // Dual-AI Workflow Implementation
+  const dualAIAnalysis = config.enableDualAI ? 
+    generateDualAIAnalysis(content, incident, threatAnalysis, mitreMapping, config) : 
+    null;
+  
   // Purple Team AI Agent
   const purpleTeamAnalysis = generatePurpleTeamAnalysis(content, mitreMapping);
   
@@ -199,6 +222,9 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
     iocs: iocEnrichment.indicators.map(ioc => ioc.value),
     aiAnalysis: classification.explanation,
     analysisExplanation: generateDetailedExplanation(classification, threatAnalysis, patterns, config),
+    tacticalAnalyst: dualAIAnalysis?.tacticalAnalyst || '',
+    strategicAnalyst: dualAIAnalysis?.strategicAnalyst || '',
+    chiefAnalyst: dualAIAnalysis?.chiefAnalyst || '',
     mitreDetails: JSON.stringify(mitreMapping),
     iocDetails: JSON.stringify(iocEnrichment.indicators),
     patternAnalysis: JSON.stringify(patterns),
@@ -704,4 +730,125 @@ function generateDetailedExplanation(classification: any, threatAnalysis: any, p
   explanation += `supporting the ${classification.result.replace('-', ' ').toUpperCase()} classification.`;
   
   return explanation;
+}
+
+// Dual-AI Workflow: Tactical, Strategic, and Chief Analysts
+function generateDualAIAnalysis(content: string, incident: any, threatAnalysis: any, mitreMapping: any, config: any) {
+  // Tactical Analyst: Technical evidence focus
+  const tacticalAnalyst = `TACTICAL ANALYST ASSESSMENT:
+${generateTacticalAnalysis(content, threatAnalysis, mitreMapping)}`;
+
+  // Strategic Analyst: Patterns & hypotheticals
+  const strategicAnalyst = `STRATEGIC ANALYST ASSESSMENT:
+${generateStrategicAnalysis(content, incident, threatAnalysis)}`;
+
+  // Chief Analyst: Synthesized final verdict
+  const chiefAnalyst = `CHIEF ANALYST VERDICT:
+${generateChiefAnalystVerdict(content, incident, threatAnalysis, mitreMapping, config)}`;
+
+  return {
+    tacticalAnalyst,
+    strategicAnalyst,
+    chiefAnalyst
+  };
+}
+
+function generateTacticalAnalysis(content: string, threatAnalysis: any, mitreMapping: any) {
+  let analysis = "Technical Evidence Review:\n\n";
+  
+  // Technical indicators analysis
+  if (content.includes('lsass') || content.includes('mimikatz')) {
+    analysis += "• CRITICAL: Direct evidence of credential dumping tools (LSASS access patterns detected)\n";
+    analysis += "• Process injection signatures confirm T1003.001 - OS Credential Dumping\n";
+  }
+  
+  if (content.includes('powershell') && content.includes('-enc')) {
+    analysis += "• HIGH: Encoded PowerShell execution detected (Base64 obfuscation)\n";
+    analysis += "• Command line artifacts suggest T1027 - Obfuscated Files or Information\n";
+  }
+  
+  if (threatAnalysis.networkIndicators.length > 0) {
+    analysis += `• MEDIUM: ${threatAnalysis.networkIndicators.length} network indicators identified\n`;
+    analysis += "• Network communication patterns require correlation analysis\n";
+  }
+  
+  analysis += "\nTechnical Verdict: ";
+  if (content.includes('lsass') || content.includes('mimikatz')) {
+    analysis += "Strong technical evidence supports malicious activity classification.";
+  } else if (content.includes('powershell') && content.includes('-enc')) {
+    analysis += "Moderate technical evidence suggests suspicious activity requiring investigation.";
+  } else {
+    analysis += "Limited technical evidence - additional context needed for definitive assessment.";
+  }
+  
+  return analysis;
+}
+
+function generateStrategicAnalysis(content: string, incident: any, threatAnalysis: any) {
+  let analysis = "Strategic Pattern Assessment:\n\n";
+  
+  // Attack pattern analysis
+  if (content.includes('credential') && content.includes('lateral')) {
+    analysis += "• ATTACK PATTERN: Classic credential harvesting followed by lateral movement\n";
+    analysis += "• THREAT ACTOR PROFILE: Consistent with APT-style operations\n";
+    analysis += "• CAMPAIGN INDICATORS: Part of broader infrastructure compromise attempt\n";
+  }
+  
+  if (content.includes('powershell') || content.includes('cmd')) {
+    analysis += "• LIVING OFF THE LAND: Adversary using legitimate system tools\n";
+    analysis += "• EVASION STRATEGY: Blending malicious activity with normal operations\n";
+  }
+  
+  // Hypothetical scenarios
+  analysis += "\nHypothetical Attack Progression:\n";
+  analysis += "1. Initial compromise via [detected vector]\n";
+  analysis += "2. Credential extraction and privilege escalation\n";
+  analysis += "3. Lateral movement to high-value targets\n";
+  analysis += "4. Data exfiltration or ransomware deployment\n\n";
+  
+  analysis += "Strategic Recommendation: ";
+  if (incident.severity === 'critical' || incident.severity === 'high') {
+    analysis += "Immediate containment and network segmentation to prevent lateral spread.";
+  } else {
+    analysis += "Enhanced monitoring and threat hunting to identify related activity.";
+  }
+  
+  return analysis;
+}
+
+function generateChiefAnalystVerdict(content: string, incident: any, threatAnalysis: any, mitreMapping: any, config: any) {
+  let verdict = "Executive Summary & Final Assessment:\n\n";
+  
+  // Synthesize both analyst perspectives
+  const hasTechnicalEvidence = content.includes('lsass') || content.includes('mimikatz') || 
+                              (content.includes('powershell') && content.includes('-enc'));
+  const hasStrategicConcerns = incident.severity === 'critical' || incident.severity === 'high' ||
+                              threatAnalysis.behavioralIndicators.length > 2;
+  
+  if (hasTechnicalEvidence && hasStrategicConcerns) {
+    verdict += "🔴 HIGH CONFIDENCE THREAT: Both technical evidence and strategic patterns align.\n";
+    verdict += "• Tactical analysis confirms malicious tooling and techniques\n";
+    verdict += "• Strategic assessment indicates sophisticated threat actor\n";
+    verdict += "• Convergent analysis supports TRUE POSITIVE classification\n\n";
+  } else if (hasTechnicalEvidence || hasStrategicConcerns) {
+    verdict += "🟡 MODERATE CONFIDENCE: Mixed indicators require human validation.\n";
+    verdict += "• Partial evidence from one analytical perspective\n";
+    verdict += "• Recommendation: Enhanced investigation and monitoring\n\n";
+  } else {
+    verdict += "🟢 LOW CONFIDENCE THREAT: Limited evidence across both analytical domains.\n";
+    verdict += "• Insufficient technical indicators for positive identification\n";
+    verdict += "• Strategic patterns do not suggest sophisticated threat\n";
+    verdict += "• Classification tends toward FALSE POSITIVE\n\n";
+  }
+  
+  // Settings-aware recommendations
+  if (config.customInstructions) {
+    verdict += `Custom Analysis Context: ${config.customInstructions}\n\n`;
+  }
+  
+  verdict += "Chief Analyst Decision: ";
+  verdict += `Based on convergent analysis from tactical and strategic perspectives, `;
+  verdict += `this incident is classified with ${config.confidenceThreshold}% threshold consideration.`;
+  
+  return verdict;
 }

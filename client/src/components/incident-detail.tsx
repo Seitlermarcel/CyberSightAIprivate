@@ -16,7 +16,8 @@ import {
   Eye,
   EyeOff,
   Send,
-  RotateCcw
+  RotateCcw,
+  Info
 } from "lucide-react";
 import { generateIncidentPDF } from "@/utils/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -78,16 +80,30 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case "critical": return "bg-severity-critical";
-      case "high": return "bg-severity-high";
-      case "medium": return "bg-severity-medium";
-      case "low": return "bg-severity-low";
-      default: return "bg-severity-info";
+      case "critical": return "bg-red-900"; // Dark Red
+      case "high": return "bg-red-600"; // Vivid Red
+      case "medium": return "bg-orange-500"; // Orange
+      case "low": return "bg-yellow-500"; // Yellow
+      default: return "bg-gray-500"; // Grey for informational
     }
   };
 
+  const getInvestigationStatus = (percentage: number) => {
+    if (percentage >= 90) return "Complete – All logs processed";
+    if (percentage >= 70) return "Comprehensive – Minor gaps";
+    if (percentage >= 50) return "Partial – Some unclear data";
+    return "Limited – Insufficient clarity";
+  };
+
+  const getConfidenceLevel = (percentage: number) => {
+    if (percentage >= 90) return "Very High – Strong evidence";
+    if (percentage >= 70) return "High – Minor uncertainties";
+    if (percentage >= 50) return "Medium – Needs human review";
+    return "Low – Manual validation required";
+  };
+
   const getClassificationColor = (classification: string) => {
-    return classification === "true-positive" ? "bg-severity-high" : "bg-green-500";
+    return classification === "true-positive" ? "bg-red-600" : "bg-green-500";
   };
 
   const toggleSection = (section: string) => {
