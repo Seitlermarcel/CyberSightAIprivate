@@ -42,16 +42,16 @@ export class MemStorage implements IStorage {
       id: "default-settings",
       userId: "default-user",
       analysisDepth: "comprehensive",
+      confidenceThreshold: 80,
       enableDualAI: true,
       autoSeverityAdjustment: false,
-      customInstructions: "",
+      customInstructions: null,
       theme: "dark",
       sessionTimeout: 480,
       compactView: false,
       autoRefresh: false,
       requireComments: false,
       emailNotifications: false,
-      emailAddress: null,
       highSeverityAlerts: false,
     };
     this.settings.set(defaultUser.id, defaultSettings);
@@ -499,7 +499,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteIncident(id: string): Promise<boolean> {
     const result = await db.delete(incidents).where(eq(incidents.id, id));
-    return (result.rowCount || 0) > 0;
+    return result.rowCount > 0;
   }
 
   async getUserSettings(userId: string): Promise<Settings | undefined> {
