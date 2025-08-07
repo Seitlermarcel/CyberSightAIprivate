@@ -29,9 +29,10 @@ type FormData = z.infer<typeof formSchema>;
 
 interface IncidentAnalysisProps {
   compactView?: boolean;
+  requireComments?: boolean;
 }
 
-export default function IncidentAnalysis({ compactView = false }: IncidentAnalysisProps) {
+export default function IncidentAnalysis({ compactView = false, requireComments = false }: IncidentAnalysisProps) {
   const [analysisResult, setAnalysisResult] = useState<Incident | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
@@ -468,6 +469,7 @@ export default function IncidentAnalysis({ compactView = false }: IncidentAnalys
         <IncidentDetail
           incidentId={selectedIncident}
           onClose={() => setSelectedIncident(null)}
+          requireComments={requireComments}
         />
       )}
     </div>

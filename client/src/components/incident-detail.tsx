@@ -36,13 +36,17 @@ import type { Incident } from "@shared/schema";
 interface IncidentDetailProps {
   incidentId: string;
   onClose: () => void;
+  requireComments?: boolean;
 }
 
-export default function IncidentDetail({ incidentId, onClose }: IncidentDetailProps) {
+export default function IncidentDetail({ incidentId, onClose, requireComments = false }: IncidentDetailProps) {
   const [activeTab, setActiveTab] = useState("workflow");
   const [comment, setComment] = useState("");
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [currentIncidentId, setCurrentIncidentId] = useState(incidentId);
+  const [statusChangeComment, setStatusChangeComment] = useState("");
+  const [showCommentDialog, setShowCommentDialog] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -141,16 +145,34 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
   };
 
   const updateStatus = (status: string) => {
+    if (requireComments && !statusChangeComment.trim()) {
+      setPendingStatusChange(status);
+      setShowCommentDialog(true);
+      toast({
+        title: "Comment Required",
+        description: "Please provide a comment for this status change.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
     const analystName = user?.username || 'Security Analyst';
-    const statusComment = `[${timestamp}] ${analystName}: Status updated to ${status.toUpperCase()}`;
+    const baseComment = `[${timestamp}] ${analystName}: Status updated to ${status.toUpperCase()}`;
+    const fullComment = statusChangeComment.trim() 
+      ? `${baseComment} - ${statusChangeComment.trim()}`
+      : baseComment;
     
-    const updatedComments = [...(incident?.comments || []), statusComment];
+    const updatedComments = [...(incident?.comments || []), fullComment];
     updateIncidentMutation.mutate({ 
       status,
       comments: updatedComments,
       updatedAt: new Date()
     });
+    
+    setStatusChangeComment("");
+    setPendingStatusChange(null);
+    setShowCommentDialog(false);
   };
 
   const updateSeverity = (severity: string) => {
@@ -464,6 +486,48 @@ export default function IncidentDetail({ incidentId, onClose }: IncidentDetailPr
                         <SelectItem value="closed">Closed</SelectItem>
                       </SelectContent>
                     </Select>
+                    {requireComments && (
+                      <Dialog open={showCommentDialog} onOpenChange={setShowCommentDialog}>
+                        <DialogContent className="cyber-dark border-cyber-slate-light">
+                          <DialogHeader>
+                            <DialogTitle>Comment Required for Status Change</DialogTitle>
+                            <DialogDescription>
+                              Please provide a comment explaining this status change to {pendingStatusChange}.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <Textarea
+                            placeholder="Enter your comment..."
+                            value={statusChangeComment}
+                            onChange={(e) => setStatusChangeComment(e.target.value)}
+                            className="cyber-dark border-cyber-slate-light text-white"
+                            rows={3}
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShowCommentDialog(false);
+                                setStatusChangeComment("");
+                                setPendingStatusChange(null);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                if (pendingStatusChange) {
+                                  updateStatus(pendingStatusChange);
+                                }
+                              }}
+                              disabled={!statusChangeComment.trim()}
+                              className="cyber-blue"
+                            >
+                              Submit
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                   </div>
                   
                   <div>

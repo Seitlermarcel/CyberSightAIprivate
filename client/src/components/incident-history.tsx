@@ -12,9 +12,10 @@ import { CompactIncidentCard } from "./compact-incident-card";
 
 interface IncidentHistoryProps {
   compactView?: boolean;
+  requireComments?: boolean;
 }
 
-export default function IncidentHistory({ compactView = false }: IncidentHistoryProps) {
+export default function IncidentHistory({ compactView = false, requireComments = false }: IncidentHistoryProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [classificationFilter, setClassificationFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
@@ -234,6 +235,7 @@ export default function IncidentHistory({ compactView = false }: IncidentHistory
         <IncidentDetail
           incidentId={selectedIncident}
           onClose={() => setSelectedIncident(null)}
+          requireComments={requireComments}
         />
       )}
     </div>
