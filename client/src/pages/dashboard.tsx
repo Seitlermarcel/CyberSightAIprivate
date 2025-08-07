@@ -5,6 +5,7 @@ import IncidentAnalysis from "@/components/incident-analysis";
 import IncidentHistory from "@/components/incident-history";
 import Settings from "@/components/settings";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
+import { useTheme } from "@/hooks/use-theme";
 
 type View = "incident-analysis" | "incident-history" | "settings";
 
@@ -20,6 +21,9 @@ export default function Dashboard() {
 
   // Auto-refresh functionality
   useAutoRefresh(settings?.autoRefresh || false);
+
+  // Theme management
+  useTheme();
 
   const renderView = () => {
     switch (currentView) {

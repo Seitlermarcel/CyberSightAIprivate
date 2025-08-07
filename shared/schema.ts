@@ -49,7 +49,7 @@ export const settings = pgTable("settings", {
   confidenceThreshold: integer("confidence_threshold").default(80),
   enableDualAI: boolean("enable_dual_ai").default(true),
   autoSeverityAdjustment: boolean("auto_severity_adjustment").default(false),
-  customInstructions: text("custom_instructions"),
+  customInstructions: text("custom_instructions").default(""),
   theme: text("theme").default("dark"),
   sessionTimeout: integer("session_timeout").default(480),
   compactView: boolean("compact_view").default(false),

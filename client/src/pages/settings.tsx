@@ -58,16 +58,20 @@ export default function Settings() {
   };
 
   const saveSettings = () => {
-    // Apply theme change immediately after save
-    if (formData.theme) {
-      const root = document.documentElement;
-      root.classList.remove("light", "dark");
-      if (formData.theme !== "dark") {
-        root.classList.add(formData.theme);
+    updateSettingsMutation.mutate(formData, {
+      onSuccess: () => {
+        // Apply theme change immediately after successful save
+        if (formData.theme) {
+          const root = document.documentElement;
+          root.classList.remove("light", "dark");
+          if (formData.theme === "light") {
+            root.classList.add("light");
+          }
+          // Dark theme is default, no need to add class
+        }
+        setHasChanges(false);
       }
-    }
-    
-    updateSettingsMutation.mutate(formData);
+    });
   };
 
   const getCurrentValue = (key: keyof InsertSettings) => {
@@ -216,7 +220,7 @@ export default function Settings() {
             <Textarea
               id="customInstructions"
               placeholder="Enter any specific instructions for the AI analysis (e.g., focus on specific attack vectors, compliance requirements, etc.)"
-              value={getCurrentValue("customInstructions") || ""}
+              value={getCurrentValue("customInstructions") ?? ""}
               onChange={(e) => handleSettingChange("customInstructions", e.target.value)}
               className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 min-h-[100px]"
             />
