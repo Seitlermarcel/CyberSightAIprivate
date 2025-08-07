@@ -86,8 +86,10 @@ Preferred communication style: Simple, everyday language.
   - Added port validation and comprehensive startup status logging
   - Enhanced database URL format validation and credential masking in logs
 - **Fixed Display Issues (January 7, 2025 - Latest)**:
-  - Fixed MITRE ATT&CK display showing "[object Object]" by properly handling object rendering
+  - Fixed MITRE ATT&CK display showing "[object Object]" by storing technique IDs instead of full objects
+  - Updated backend to return technique IDs (like "T1055", "T1059") instead of complex objects
+  - Fixed all frontend components (compact-incident-card, incident-history, incident-analysis) to handle both string and object formats
   - Updated entity extraction to parse real IPs, users, processes, and domains from logs
   - Enhanced entity relationships display to show descriptions
   - Fixed network topology display to show correct risk levels and node types
-  - Updated compact-incident-card and incident-history components to properly display MITRE technique IDs
+  - Resolved TypeScript compilation errors that were preventing proper display
