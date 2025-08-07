@@ -85,7 +85,7 @@ export function CompactIncidentCard({ incident, onClick }: CompactIncidentCardPr
         <div className="mt-2 flex flex-wrap gap-1">
           {incident.mitreAttack.slice(0, 2).map((mitre: any, index: number) => (
             <Badge key={index} variant="outline" className="text-xs px-1 py-0 text-gray-400 border-gray-600">
-              {typeof mitre === 'object' ? (mitre.id || mitre.name || 'Unknown') : mitre}
+              {typeof mitre === 'object' && mitre !== null ? (mitre.id || mitre.name || 'Unknown') : String(mitre)}
             </Badge>
           ))}
           {incident.mitreAttack.length > 2 && (

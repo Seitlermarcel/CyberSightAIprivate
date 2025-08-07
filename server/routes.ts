@@ -335,7 +335,7 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
     classification: finalClassification,
     confidence: finalConfidence,
     aiInvestigation: Math.min(95, Math.max(75, finalConfidence + Math.floor(Math.random() * 15))),
-    mitreAttack: mitreMapping.techniques,
+    mitreAttack: mitreMapping.techniques.map((t: any) => t.id),
     iocs: iocEnrichment.indicators.map(ioc => ioc.value),
     aiAnalysis: classification.explanation,
     analysisExplanation: generateDetailedExplanation(classification, threatAnalysis, patterns, config),

@@ -378,7 +378,7 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                     <div className="flex flex-wrap gap-1">
                       {analysisResult.mitreAttack.slice(0, 3).map((technique: any, index: number) => (
                         <Badge key={index} variant="outline" className="text-xs text-gray-400 border-gray-600">
-                          {typeof technique === 'object' ? (technique.id || technique.name || 'Unknown') : technique}
+                          {typeof technique === 'object' && technique !== null ? (technique.id || technique.name || 'Unknown') : String(technique)}
                         </Badge>
                       ))}
                       {analysisResult.mitreAttack.length > 3 && (
