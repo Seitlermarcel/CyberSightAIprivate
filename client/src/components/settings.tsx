@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription } fr
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import * as React from "react";
 
 const settingsSchema = z.object({
   analysisDepth: z.string(),
@@ -41,7 +42,7 @@ export default function Settings() {
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
-    values: settings || {
+    defaultValues: {
       analysisDepth: "comprehensive",
       enableDualAI: true,
       autoSeverityAdjustment: false,
@@ -55,6 +56,13 @@ export default function Settings() {
       highSeverityAlerts: false,
     },
   });
+
+  // Update form when settings are loaded
+  React.useEffect(() => {
+    if (settings) {
+      form.reset(settings);
+    }
+  }, [settings, form]);
 
   const saveSettingsMutation = useMutation({
     mutationFn: async (data: SettingsFormData) => {
@@ -84,11 +92,6 @@ export default function Settings() {
   const onSubmit = (data: SettingsFormData) => {
     saveSettingsMutation.mutate(data);
   };
-
-  // Update form when settings are loaded
-  if (settings && !form.formState.isDirty) {
-    form.reset(settings);
-  }
 
   if (isLoading) {
     return (
@@ -199,7 +202,8 @@ export default function Settings() {
                         placeholder="Enter any specific instructions for the AI analysis (e.g., focus on specific attack vectors, compliance requirements, etc.)"
                         className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 focus:ring-cyber-blue resize-none"
                         rows={3}
-                        {...field}
+                        value={field.value || ""}
+                        onChange={field.onChange}
                       />
                     </FormControl>
                   </FormItem>
