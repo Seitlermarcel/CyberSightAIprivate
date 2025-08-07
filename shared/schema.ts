@@ -19,9 +19,21 @@ export const incidents = pgTable("incidents", {
   additionalLogs: text("additional_logs"),
   classification: text("classification"), // true-positive, false-positive
   confidence: integer("confidence"), // 0-100
+  aiInvestigation: integer("ai_investigation"), // AI Investigation confidence score
   mitreAttack: text("mitre_attack").array(),
   iocs: text("iocs").array(),
   aiAnalysis: text("ai_analysis"),
+  analysisExplanation: text("analysis_explanation"),
+  mitreDetails: text("mitre_details"), // JSON string with detailed MITRE info
+  iocDetails: text("ioc_details"), // JSON string with detailed IOC enrichment
+  patternAnalysis: text("pattern_analysis"), // JSON string with log patterns
+  purpleTeam: text("purple_team"), // JSON string with red/blue team analysis
+  entityMapping: text("entity_mapping"), // JSON string with entity relationships
+  codeAnalysis: text("code_analysis"), // JSON string with code analysis
+  attackVectors: text("attack_vectors"), // JSON string with AI-generated attack vectors
+  complianceImpact: text("compliance_impact"), // JSON string with compliance analysis
+  similarIncidents: text("similar_incidents"), // JSON string with similar incident data
+  comments: text("comments").array().default([]), // Array of comment strings
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

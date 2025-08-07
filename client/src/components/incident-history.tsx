@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import IncidentDetail from "@/components/incident-detail";
 import type { Incident } from "@shared/schema";
 import { format } from "date-fns";
 
@@ -13,6 +14,7 @@ export default function IncidentHistory() {
   const [classificationFilter, setClassificationFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
 
   const { data: incidents, isLoading } = useQuery({
     queryKey: ["/api/incidents"],
@@ -202,10 +204,7 @@ export default function IncidentHistory() {
                       variant="ghost"
                       size="sm"
                       className="text-gray-400 hover:text-white"
-                      onClick={() => {
-                        // TODO: Implement incident detail view
-                        console.log("View incident:", incident.id);
-                      }}
+                      onClick={() => setSelectedIncident(incident.id)}
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
@@ -216,6 +215,14 @@ export default function IncidentHistory() {
           )}
         </div>
       </div>
+
+      {/* Incident Detail Modal */}
+      {selectedIncident && (
+        <IncidentDetail
+          incidentId={selectedIncident}
+          onClose={() => setSelectedIncident(null)}
+        />
+      )}
     </div>
   );
 }
