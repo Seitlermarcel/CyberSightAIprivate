@@ -73,7 +73,7 @@ export const insertIncidentSchema = createInsertSchema(incidents).omit({
 
 export const insertSettingsSchema = createInsertSchema(settings).omit({
   id: true,
-});
+}).partial();
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

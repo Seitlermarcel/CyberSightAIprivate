@@ -58,7 +58,10 @@ export default function Settings() {
   };
 
   const saveSettings = () => {
-    updateSettingsMutation.mutate(formData, {
+    // Include all changed values, even empty strings for optional fields like customInstructions
+    const dataToSave = { ...formData };
+    
+    updateSettingsMutation.mutate(dataToSave, {
       onSuccess: () => {
         // Apply theme change immediately after successful save
         if (formData.theme) {
@@ -75,7 +78,12 @@ export default function Settings() {
   };
 
   const getCurrentValue = (key: keyof InsertSettings) => {
-    return formData[key] !== undefined ? formData[key] : (settings as any)?.[key];
+    const value = formData[key] !== undefined ? formData[key] : (settings as any)?.[key];
+    // Ensure customInstructions is never null or undefined
+    if (key === 'customInstructions' && (value === null || value === undefined)) {
+      return "";
+    }
+    return value;
   };
 
   if (isLoading || !settings) {
