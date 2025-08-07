@@ -54,49 +54,56 @@ export default function Settings() {
 
   const handleSettingChange = (key: keyof InsertSettings, value: any) => {
     setFormData(prev => ({ ...prev, [key]: value }));
-    setHasChanges(true);
+    if (!hasChanges) {
+      setHasChanges(true);
+    }
   };
 
   const saveSettings = () => {
-    // Always save whatever is in formData - all fields are optional
-    // If no changes were made, save current settings to ensure they persist
-    const dataToSave = hasChanges ? formData : {
-      analysisDepth: settings?.analysisDepth || "comprehensive",
-      confidenceThreshold: settings?.confidenceThreshold || 80,
-      enableDualAI: settings?.enableDualAI || true,
-      autoSeverityAdjustment: settings?.autoSeverityAdjustment || false,
-      customInstructions: settings?.customInstructions || "",
-      theme: settings?.theme || "dark",
-      sessionTimeout: settings?.sessionTimeout || 480,
-      compactView: settings?.compactView || false,
-      autoRefresh: settings?.autoRefresh || false,
-      requireComments: settings?.requireComments || false,
-      emailNotifications: settings?.emailNotifications || false,
-      emailAddress: settings?.emailAddress || "",
-      highSeverityAlerts: settings?.highSeverityAlerts || false,
+    // Always allow save - create a complete settings object from current values
+    const dataToSave = {
+      analysisDepth: getCurrentValue("analysisDepth") || "comprehensive",
+      confidenceThreshold: getCurrentValue("confidenceThreshold") || 80,
+      enableDualAI: getCurrentValue("enableDualAI") || true,
+      autoSeverityAdjustment: getCurrentValue("autoSeverityAdjustment") || false,
+      customInstructions: getCurrentValue("customInstructions") || "", // This can be empty!
+      theme: getCurrentValue("theme") || "dark",
+      sessionTimeout: getCurrentValue("sessionTimeout") || 480,
+      compactView: getCurrentValue("compactView") || false,
+      autoRefresh: getCurrentValue("autoRefresh") || false,
+      requireComments: getCurrentValue("requireComments") || false,
+      emailNotifications: getCurrentValue("emailNotifications") || false,
+      emailAddress: getCurrentValue("emailAddress") || "",
+      highSeverityAlerts: getCurrentValue("highSeverityAlerts") || false,
     };
     
     updateSettingsMutation.mutate(dataToSave, {
       onSuccess: () => {
         // Apply theme change immediately after successful save
-        const themeToApply = dataToSave.theme || settings?.theme || "dark";
-        const root = document.documentElement;
-        root.classList.remove("light", "dark");
-        if (themeToApply === "light") {
-          root.classList.add("light");
+        if (dataToSave.theme) {
+          const root = document.documentElement;
+          root.classList.remove("light", "dark");
+          if (dataToSave.theme === "light") {
+            root.classList.add("light");
+          }
         }
         setHasChanges(false);
+        setFormData({}); // Clear form data after successful save
       }
     });
   };
 
   const getCurrentValue = (key: keyof InsertSettings) => {
-    const value = formData[key] !== undefined ? formData[key] : (settings as any)?.[key];
-    // Ensure customInstructions and emailAddress are never null or undefined
-    if ((key === 'customInstructions' || key === 'emailAddress') && (value === null || value === undefined)) {
+    // Check if we have a pending change first
+    if (formData[key] !== undefined) {
+      return formData[key];
+    }
+    // Otherwise use the settings value, with safe defaults for text fields
+    const settingsValue = (settings as any)?.[key];
+    if ((key === 'customInstructions' || key === 'emailAddress') && (settingsValue === null || settingsValue === undefined)) {
       return "";
     }
-    return value;
+    return settingsValue;
   };
 
   if (isLoading || !settings) {
@@ -127,6 +134,7 @@ export default function Settings() {
           onClick={saveSettings}
           disabled={updateSettingsMutation.isPending}
           className="cyber-blue hover:bg-blue-600"
+          type="button"
         >
           <Save className="w-4 h-4 mr-2" />
           {updateSettingsMutation.isPending ? "Saving..." : "Save Settings"}
