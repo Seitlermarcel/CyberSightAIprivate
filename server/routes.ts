@@ -5,13 +5,27 @@ import { insertIncidentSchema, insertSettingsSchema } from "@shared/schema";
 import { sendIncidentNotification, sendTestEmail } from "./gmail-email-service";
 import { threatIntelligence } from "./threat-intelligence";
 import { ThreatPredictionEngine } from "./threat-prediction";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Incidents routes (user-specific)
-  app.get("/api/incidents", async (req, res) => {
+  // Auth middleware
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      // For now, use default user - in production this would come from session/auth
-      const userId = "default-user";
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  // Incidents routes (user-specific)
+  app.get("/api/incidents", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
       const incidents = await storage.getUserIncidents(userId);
       res.json(incidents);
     } catch (error) {
@@ -19,7 +33,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/incidents/:id", async (req, res) => {
+  app.get("/api/incidents/:id", isAuthenticated, async (req: any, res) => {
     try {
       const incident = await storage.getIncident(req.params.id);
       if (!incident) {
@@ -31,12 +45,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/incidents", async (req, res) => {
+  app.post("/api/incidents", isAuthenticated, async (req: any, res) => {
     try {
       const validatedData = insertIncidentSchema.parse(req.body);
       
-      // Get current user - in production this would come from session/auth
-      const userId = "default-user";
+      const userId = req.user.claims.sub;
       const userSettings = await storage.getUserSettings(userId);
       
       // Analyze threat intelligence
@@ -79,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/incidents/:id", async (req, res) => {
+  app.patch("/api/incidents/:id", isAuthenticated, async (req: any, res) => {
     try {
       const incident = await storage.updateIncident(req.params.id, req.body);
       if (!incident) {
@@ -92,12 +105,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Settings routes
-  app.get("/api/settings/:userId", async (req, res) => {
+  app.get("/api/settings/:userId", isAuthenticated, async (req: any, res) => {
     try {
-      const settings = await storage.getUserSettings(req.params.userId);
-      if (!settings) {
-        return res.status(404).json({ error: "Settings not found" });
-      }
+      const userId = req.user.claims.sub;
+      const settings = await storage.getUserSettings(userId);
       res.json(settings);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch settings" });

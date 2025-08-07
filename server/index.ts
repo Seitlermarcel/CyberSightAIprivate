@@ -38,8 +38,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize database with default data
-  await initializeDatabase();
+  // Note: Database initialization temporarily disabled during schema migration
+  // await initializeDatabase();
   
   const server = await registerRoutes(app);
 
