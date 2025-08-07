@@ -4,11 +4,12 @@ import Sidebar from "@/components/sidebar";
 import IncidentAnalysis from "@/components/incident-analysis";
 import IncidentHistory from "@/components/incident-history";
 import Settings from "@/components/settings";
+import { ThreatPredictionMeter } from "@/components/threat-prediction-meter";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { useTheme } from "@/hooks/use-theme";
 
-type View = "incident-analysis" | "incident-history" | "settings";
+type View = "incident-analysis" | "incident-history" | "settings" | "threat-prediction";
 
 export default function Dashboard() {
   const [currentView, setCurrentView] = useState<View>("incident-analysis");
@@ -41,6 +42,8 @@ export default function Dashboard() {
           compactView={settings?.compactView || false}
           requireComments={settings?.requireComments || false}
         />;
+      case "threat-prediction":
+        return <ThreatPredictionView />;
       case "settings":
         return <Settings />;
       default:
@@ -56,6 +59,34 @@ export default function Dashboard() {
       <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       <div className="flex-1 overflow-hidden">
         {renderView()}
+      </div>
+    </div>
+  );
+}
+
+function ThreatPredictionView() {
+  const { data: threatPrediction, isLoading, refetch } = useQuery({
+    queryKey: ["/api/threat-prediction"],
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
+
+  return (
+    <div className="h-full p-6 overflow-auto">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-cyber-blue mb-2">
+            AI-Powered Threat Prediction
+          </h1>
+          <p className="text-muted-foreground">
+            Advanced machine learning algorithms analyze your security incidents to predict future threats and provide actionable intelligence.
+          </p>
+        </div>
+        
+        <ThreatPredictionMeter 
+          data={threatPrediction} 
+          onRefresh={() => refetch()}
+          isLoading={isLoading}
+        />
       </div>
     </div>
   );

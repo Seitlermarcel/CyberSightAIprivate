@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertIncidentSchema, insertSettingsSchema } from "@shared/schema";
 import { sendIncidentNotification, sendTestEmail } from "./gmail-email-service";
 import { threatIntelligence } from "./threat-intelligence";
+import { ThreatPredictionEngine } from "./threat-prediction";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Incidents routes (user-specific)
@@ -160,6 +161,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Threat Prediction API
+  app.get("/api/threat-prediction", async (req, res) => {
+    try {
+      const userId = "default-user";
+      const incidents = await storage.getUserIncidents(userId);
+      const prediction = ThreatPredictionEngine.generatePrediction(incidents);
+      res.json(prediction);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate threat prediction" });
     }
   });
 
