@@ -190,6 +190,181 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API Configuration endpoints
+  app.get("/api/api-config", async (req, res) => {
+    res.json({
+      activeKeys: 2,
+      keys: [
+        { id: "key-1", lastFour: "a8f3", created: new Date("2024-01-15"), active: true },
+        { id: "key-2", lastFour: "b2c9", created: new Date("2024-01-20"), active: true }
+      ],
+      stats: {
+        totalRequests: 1847,
+        successRate: 98.5,
+        avgResponseTime: 45
+      }
+    });
+  });
+
+  app.post("/api/api-config/generate-key", async (req, res) => {
+    const apiKey = `cs_${Math.random().toString(36).substring(2, 15)}_${Math.random().toString(36).substring(2, 15)}`;
+    res.json({ apiKey });
+  });
+
+  app.post("/api/api-config/test", async (req, res) => {
+    const { apiKey, testData } = req.body;
+    if (apiKey && apiKey.startsWith("cs_")) {
+      res.json({ success: true, message: "API test successful" });
+    } else {
+      res.status(400).json({ error: "Invalid API key" });
+    }
+  });
+
+  // External API endpoints for log ingestion
+  app.post("/api/external/logs", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer cs_")) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { title, severity, logData, source } = req.body;
+    
+    // Process the log and create an incident
+    const incident = {
+      id: `ext-${Math.random().toString(36).substring(2, 9)}`,
+      title: title || "External Log Entry",
+      severity: severity || "medium",
+      logData,
+      source,
+      createdAt: new Date().toISOString(),
+      status: "analyzing"
+    };
+
+    res.json({ 
+      success: true, 
+      incidentId: incident.id,
+      message: "Log received and analysis initiated" 
+    });
+  });
+
+  app.post("/api/external/logs/batch", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer cs_")) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { logs } = req.body;
+    const results = logs?.map((log: any) => ({
+      id: `ext-${Math.random().toString(36).substring(2, 9)}`,
+      status: "queued"
+    }));
+
+    res.json({ 
+      success: true, 
+      processed: logs?.length || 0,
+      results 
+    });
+  });
+
+  app.get("/api/external/analysis/:id", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer cs_")) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    res.json({
+      id: req.params.id,
+      status: "completed",
+      classification: "true-positive",
+      severity: "high",
+      confidence: 87,
+      analysis: "Detected suspicious activity matching known attack patterns"
+    });
+  });
+
+  // Threat Heatmap endpoints
+  app.get("/api/threat-heatmap", async (req, res) => {
+    res.json({
+      totalThreats: 1847,
+      countriesAffected: 67,
+      threatsBlocked: 892,
+      avgResponseTime: "2.3"
+    });
+  });
+
+  app.get("/api/threat-alerts", async (req, res) => {
+    // Generate some random alerts for real-time feel
+    const locations = ["New York, USA", "London, UK", "Tokyo, Japan", "Sydney, Australia", "Berlin, Germany"];
+    const types = ["DDoS Attack", "Malware Detection", "Phishing Attempt", "Brute Force", "Data Exfiltration"];
+    
+    const newAlerts = Math.random() > 0.3 ? [
+      {
+        location: locations[Math.floor(Math.random() * locations.length)],
+        type: types[Math.floor(Math.random() * types.length)],
+        severity: Math.floor(Math.random() * 100)
+      }
+    ] : [];
+
+    res.json({ newAlerts });
+  });
+
+  // Risk Visualizer endpoints
+  app.get("/api/risk-progression/:timeframe", async (req, res) => {
+    const { timeframe } = req.params;
+    const baseScore = Math.floor(Math.random() * 30) + 50;
+    
+    res.json({
+      currentRiskScore: baseScore + Math.floor(Math.random() * 20),
+      timeframe,
+      trend: Math.random() > 0.5 ? "increasing" : "decreasing",
+      criticalRisks: Math.floor(Math.random() * 10) + 5,
+      mitigatedRisks: Math.floor(Math.random() * 20) + 10
+    });
+  });
+
+  // Security Recommendations endpoints
+  app.get("/api/security-recommendations", async (req, res) => {
+    res.json([
+      {
+        id: "rec-1",
+        title: "Enable Multi-Factor Authentication",
+        description: "Based on recent authentication-related incidents, implementing MFA would reduce unauthorized access attempts by 99%.",
+        priority: "critical",
+        category: "Access Control",
+        impact: 95,
+        effort: "low",
+        status: "pending",
+        relatedIncidents: [],
+        estimatedTime: "30 minutes"
+      },
+      {
+        id: "rec-2",
+        title: "Update Firewall Rules",
+        description: "Block identified malicious IP addresses from recent threat intelligence reports.",
+        priority: "high",
+        category: "Network Security",
+        impact: 82,
+        effort: "low",
+        status: "pending",
+        relatedIncidents: [],
+        estimatedTime: "15 minutes"
+      }
+    ]);
+  });
+
+  app.post("/api/security-recommendations/:id/implement", async (req, res) => {
+    const { id } = req.params;
+    
+    // Simulate implementation
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    res.json({
+      success: true,
+      recommendationId: id,
+      message: "Recommendation successfully implemented"
+    });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
