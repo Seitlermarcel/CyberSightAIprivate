@@ -368,55 +368,74 @@ export class DatabaseStorage implements IStorage {
     // For development/testing, if there's no real user ID, use 'default-user'
     const effectiveUserId = userId || 'default-user';
     
-    // Ensure query is safe - automatically add user filter if not present
-    let safeQuery = query;
-    if (!query.toLowerCase().includes('user_id')) {
-      // Check if query is targeting incidents table
-      const isIncidentsQuery = query.toLowerCase().includes('from incidents');
+    // Parse the query to understand its structure
+    let safeQuery = query.trim();
+    
+    // Check if query already has user_id filter
+    if (query.toLowerCase().includes('user_id')) {
+      // Query already has user_id filter, don't modify it
+      safeQuery = query;
+    } else {
+      // Need to add user_id filter for security
+      const lowerQuery = query.toLowerCase();
+      const fromMatch = lowerQuery.match(/from\s+(\w+)/i);
       
-      // Add user_id filter to the query
-      if (query.toLowerCase().includes('where')) {
-        // For incidents table in development, include both the actual user ID and default-user
-        if (isIncidentsQuery) {
-          safeQuery = query.replace(/where/i, `WHERE (user_id = '${effectiveUserId}' OR user_id = 'default-user') AND`);
-        } else {
-          safeQuery = query.replace(/where/i, `WHERE user_id = '${effectiveUserId}' AND`);
-        }
-      } else if (query.toLowerCase().includes('from')) {
-        // Add WHERE clause after FROM clause
-        const fromMatch = query.match(/from\s+(\w+)/i);
-        if (fromMatch) {
-          const tableName = fromMatch[1];
-          const fromEnd = fromMatch.index! + fromMatch[0].length;
-          
-          // Check for ORDER BY, GROUP BY, or LIMIT clauses
-          const orderByIndex = query.toLowerCase().indexOf('order by');
-          const groupByIndex = query.toLowerCase().indexOf('group by');
-          const limitIndex = query.toLowerCase().indexOf('limit');
-          
-          let insertPoint = query.length;
-          if (orderByIndex > -1) insertPoint = Math.min(insertPoint, orderByIndex);
-          if (groupByIndex > -1) insertPoint = Math.min(insertPoint, groupByIndex);
-          if (limitIndex > -1) insertPoint = Math.min(insertPoint, limitIndex);
-          
-          if (isIncidentsQuery) {
-            safeQuery = query.slice(0, insertPoint) + ` WHERE (user_id = '${effectiveUserId}' OR user_id = 'default-user') ` + query.slice(insertPoint);
-          } else {
-            safeQuery = query.slice(0, insertPoint) + ` WHERE user_id = '${effectiveUserId}' ` + query.slice(insertPoint);
-          }
-        } else {
-          throw new Error('Invalid query structure - unable to parse FROM clause');
-        }
-      } else {
+      if (!fromMatch) {
         throw new Error('Invalid query structure - must have FROM clause');
       }
+      
+      const tableName = fromMatch[1];
+      const isIncidentsTable = tableName === 'incidents';
+      
+      // Find where to insert the WHERE clause
+      const whereIndex = lowerQuery.indexOf('where');
+      const orderByIndex = lowerQuery.indexOf('order by');
+      const groupByIndex = lowerQuery.indexOf('group by');
+      const limitIndex = lowerQuery.indexOf('limit');
+      
+      if (whereIndex > -1) {
+        // Query has WHERE clause, add user_id condition
+        const beforeWhere = query.substring(0, whereIndex + 5);
+        const afterWhere = query.substring(whereIndex + 5);
+        
+        if (isIncidentsTable) {
+          // For incidents, include both user's incidents and default-user incidents
+          safeQuery = beforeWhere + ` (user_id = '${effectiveUserId}' OR user_id = 'default-user') AND` + afterWhere;
+        } else {
+          safeQuery = beforeWhere + ` user_id = '${effectiveUserId}' AND` + afterWhere;
+        }
+      } else {
+        // No WHERE clause, need to add one
+        let insertPoint = query.length;
+        
+        // Find the earliest clause that comes after FROM
+        if (orderByIndex > -1) insertPoint = Math.min(insertPoint, orderByIndex);
+        if (groupByIndex > -1) insertPoint = Math.min(insertPoint, groupByIndex);
+        if (limitIndex > -1) insertPoint = Math.min(insertPoint, limitIndex);
+        
+        const beforeInsert = query.substring(0, insertPoint).trim();
+        const afterInsert = query.substring(insertPoint).trim();
+        
+        if (isIncidentsTable) {
+          // For incidents, include both user's incidents and default-user incidents
+          safeQuery = beforeInsert + ` WHERE (user_id = '${effectiveUserId}' OR user_id = 'default-user') ` + afterInsert;
+        } else {
+          safeQuery = beforeInsert + ` WHERE user_id = '${effectiveUserId}' ` + afterInsert;
+        }
+      }
     }
+    
+    // Clean up any double spaces
+    safeQuery = safeQuery.replace(/\s+/g, ' ').trim();
+    
+    console.log('Executing SQL query:', safeQuery);
     
     try {
       // Execute the safe SQL query
       const result = await db.execute(sql.raw(safeQuery));
       return result.rows || [];
     } catch (error: any) {
+      console.error('Query execution error:', error);
       throw new Error(`Query execution failed: ${error.message}`);
     }
   }
