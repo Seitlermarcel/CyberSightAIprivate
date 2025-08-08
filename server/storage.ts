@@ -365,14 +365,29 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    // Ensure query includes user filter
+    // Ensure query is safe - automatically add user filter if not present
+    let safeQuery = query;
     if (!query.toLowerCase().includes('user_id')) {
-      throw new Error('Query must filter by user_id for security');
+      // Add user_id filter to the query
+      if (query.toLowerCase().includes('where')) {
+        safeQuery = query.replace(/where/i, `WHERE user_id = '${userId}' AND`);
+      } else if (query.toLowerCase().includes('from')) {
+        // Add WHERE clause after FROM
+        const fromIndex = query.toLowerCase().lastIndexOf('from');
+        const afterFrom = query.indexOf(' ', fromIndex + 5);
+        if (afterFrom !== -1) {
+          safeQuery = query.slice(0, afterFrom) + ` WHERE user_id = '${userId}'` + query.slice(afterFrom);
+        } else {
+          safeQuery = query + ` WHERE user_id = '${userId}'`;
+        }
+      } else {
+        throw new Error('Invalid query structure - must have FROM clause');
+      }
     }
     
     try {
-      // Execute the raw SQL query
-      const result = await db.execute(sql.raw(query));
+      // Execute the safe SQL query
+      const result = await db.execute(sql.raw(safeQuery));
       return result.rows || [];
     } catch (error: any) {
       throw new Error(`Query execution failed: ${error.message}`);

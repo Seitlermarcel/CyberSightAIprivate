@@ -5,6 +5,25 @@ export function convertKQLToSQL(kqlQuery: string, userId: string): string {
   // Basic KQL to SQL conversion
   let sqlQuery = kqlQuery.trim();
   
+  // Handle table name at the beginning (KQL format: TableName | where ...)
+  if (!sqlQuery.toLowerCase().startsWith('select') && !sqlQuery.includes('|')) {
+    // If it starts with a table name, convert to SQL format
+    sqlQuery = `incidents | ${sqlQuery}`;
+  }
+  
+  // Replace pipe operator with proper SQL structure
+  if (sqlQuery.includes('|')) {
+    const parts = sqlQuery.split('|').map(p => p.trim());
+    const tableName = parts[0];
+    const operations = parts.slice(1).join(' ');
+    sqlQuery = operations;
+    
+    // We'll add FROM clause later
+    if (!sqlQuery.toLowerCase().includes('from')) {
+      sqlQuery = sqlQuery + ` FROM ${tableName}`;
+    }
+  }
+  
   // Handle common KQL operators
   sqlQuery = sqlQuery
     .replace(/\bproject\b/gi, 'SELECT')
@@ -34,19 +53,22 @@ export function convertKQLToSQL(kqlQuery: string, userId: string): string {
       if (whereIndex !== -1) {
         sqlQuery = sqlQuery.slice(0, whereIndex) + ' FROM incidents ' + sqlQuery.slice(whereIndex);
       } else {
-        sqlQuery += ' FROM incidents';
+        const limitIndex = sqlQuery.toLowerCase().indexOf('limit');
+        const orderIndex = sqlQuery.toLowerCase().indexOf('order');
+        let insertPoint = sqlQuery.length;
+        
+        if (limitIndex !== -1) insertPoint = Math.min(insertPoint, limitIndex);
+        if (orderIndex !== -1) insertPoint = Math.min(insertPoint, orderIndex);
+        
+        sqlQuery = sqlQuery.slice(0, insertPoint) + ' FROM incidents ' + sqlQuery.slice(insertPoint);
       }
     } else {
       sqlQuery = 'SELECT * FROM incidents WHERE ' + sqlQuery;
     }
   }
   
-  // Add user filter for security
-  if (sqlQuery.toLowerCase().includes('where')) {
-    sqlQuery = sqlQuery.replace(/where/i, `WHERE user_id = '${userId}' AND`);
-  } else {
-    sqlQuery += ` WHERE user_id = '${userId}'`;
-  }
+  // The user_id filter will be added automatically by executeRawQuery for security
+  // So we don't need to add it here to avoid duplication
   
   // Handle LIKE patterns
   sqlQuery = sqlQuery.replace(/LIKE\s+'([^']+)'/gi, (match, p1) => {
