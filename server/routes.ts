@@ -1049,86 +1049,389 @@ function enrichIndicators(content: string, threatReport?: any) {
 
 // Classification AI Agent with Threat Intelligence
 function classifyIncident(content: string, incident: any, threatAnalysis: any, config: any = {}, threatReport?: any) {
-  let suspicionScore = 0;
+  let truePositiveScore = 0;
+  let falsePositiveScore = 0;
   let reasons = [];
+  let falsePositiveReasons = [];
   
-  // High-risk indicators
-  if (content.includes('lsass') || content.includes('mimikatz') || content.includes('secretsdump')) {
-    suspicionScore += 30;
-    reasons.push('Credential dumping tools detected');
+  // Advanced Pattern Analysis with Contextual Scoring
+  const contextualPatterns = {
+    // Critical threat patterns (strong true positive indicators)
+    criticalThreats: [
+      { pattern: /lsass\.exe.*dump|mimikatz|secretsdump/i, score: 35, desc: 'Credential theft tools/techniques detected' },
+      { pattern: /powershell.*-enc.*-bypass|iex.*downloadstring/i, score: 30, desc: 'Malicious PowerShell execution patterns' },
+      { pattern: /cmd\.exe.*\/c.*whoami.*\&\&.*net\s+user/i, score: 28, desc: 'Reconnaissance command chaining detected' },
+      { pattern: /regsvr32.*\/s.*\/n.*\/u.*\/i.*http/i, score: 32, desc: 'Living off the land binary abuse' },
+      { pattern: /wmic.*process.*call.*create/i, score: 25, desc: 'Remote process execution via WMI' },
+      { pattern: /net\.exe.*localgroup.*administrators.*\/add/i, score: 30, desc: 'Privilege escalation attempt' },
+      { pattern: /schtasks.*\/create.*\/sc.*onstart/i, score: 27, desc: 'Persistence via scheduled task' },
+      { pattern: /certutil.*-urlcache.*-split.*-f/i, score: 29, desc: 'File download via certutil' },
+      { pattern: /vssadmin.*delete.*shadows.*\/all/i, score: 33, desc: 'Shadow copy deletion (ransomware indicator)' },
+      { pattern: /bcdedit.*\/set.*recoveryenabled.*no/i, score: 31, desc: 'Recovery options disabled' }
+    ],
+    
+    // Suspicious patterns (moderate true positive indicators)
+    suspiciousPatterns: [
+      { pattern: /net\s+view|net\s+group|net\s+localgroup/i, score: 12, desc: 'Network/group enumeration' },
+      { pattern: /tasklist|systeminfo|qprocess/i, score: 10, desc: 'System reconnaissance' },
+      { pattern: /nslookup|ping.*-n.*\d+|tracert/i, score: 8, desc: 'Network discovery activity' },
+      { pattern: /reg\s+query.*hklm|reg\s+add.*hkcu/i, score: 14, desc: 'Registry manipulation' },
+      { pattern: /netstat.*-an|arp\s+-a/i, score: 11, desc: 'Network connection enumeration' },
+      { pattern: /psexec|paexec|winexe/i, score: 18, desc: 'Remote administration tools' },
+      { pattern: /rundll32\.exe.*javascript:|mshta.*http/i, score: 22, desc: 'Suspicious execution methods' }
+    ],
+    
+    // False positive indicators (legitimate activity patterns)
+    legitimatePatterns: [
+      { pattern: /windows.*update|microsoft.*defender|antivirus/i, score: 15, desc: 'Security software activity' },
+      { pattern: /backup.*service|vss.*writer|volume.*shadow/i, score: 12, desc: 'Legitimate backup operations' },
+      { pattern: /software.*installation|msiexec\.exe.*\/i/i, score: 10, desc: 'Software installation process' },
+      { pattern: /svchost\.exe.*-k.*netsvcs|services\.exe/i, score: 8, desc: 'Normal Windows services' },
+      { pattern: /google.*chrome|firefox|edge.*browser/i, score: 6, desc: 'Browser activity' },
+      { pattern: /windows.*explorer|taskbar|start.*menu/i, score: 5, desc: 'Windows UI components' },
+      { pattern: /office.*365|outlook|teams/i, score: 7, desc: 'Microsoft Office applications' },
+      { pattern: /scheduled.*maintenance|defrag|disk.*cleanup/i, score: 9, desc: 'System maintenance tasks' }
+    ]
+  };
+  
+  // Analyze critical threat patterns
+  contextualPatterns.criticalThreats.forEach(item => {
+    if (item.pattern.test(content)) {
+      truePositiveScore += item.score;
+      reasons.push(item.desc);
+    }
+  });
+  
+  // Analyze suspicious patterns
+  contextualPatterns.suspiciousPatterns.forEach(item => {
+    if (item.pattern.test(content)) {
+      truePositiveScore += item.score;
+      reasons.push(item.desc);
+    }
+  });
+  
+  // Analyze legitimate patterns
+  contextualPatterns.legitimatePatterns.forEach(item => {
+    if (item.pattern.test(content)) {
+      falsePositiveScore += item.score;
+      falsePositiveReasons.push(item.desc);
+    }
+  });
+  
+  // Advanced Behavioral Analysis
+  const behavioralScore = analyzeBehavioralPatterns(content, threatAnalysis);
+  truePositiveScore += behavioralScore.score;
+  if (behavioralScore.indicators.length > 0) {
+    reasons.push(...behavioralScore.indicators);
   }
   
-  if (content.includes('powershell') && (content.includes('-enc') || content.includes('bypass'))) {
-    suspicionScore += 25;
-    reasons.push('Obfuscated PowerShell execution');
+  // Time-based Analysis (detect unusual timing patterns)
+  const timeAnalysis = analyzeTemporalPatterns(content, incident);
+  if (timeAnalysis.suspicious) {
+    truePositiveScore += timeAnalysis.score;
+    reasons.push(timeAnalysis.reason);
   }
   
-  if (content.includes('lateral') || content.includes('privilege') || content.includes('escalation')) {
-    suspicionScore += 20;
-    reasons.push('Privilege escalation indicators');
+  // Network Anomaly Detection
+  if (threatAnalysis.networkIndicators && threatAnalysis.networkIndicators.length > 0) {
+    const networkScore = analyzeNetworkAnomalies(threatAnalysis.networkIndicators, content);
+    truePositiveScore += networkScore;
+    if (networkScore > 0) {
+      reasons.push(`Network anomalies detected (score: ${networkScore})`);
+    }
   }
   
-  // Medium-risk indicators
-  if (content.includes('reconnaissance') || content.includes('enumeration')) {
-    suspicionScore += 15;
-    reasons.push('Reconnaissance activity detected');
-  }
-  
-  if (content.includes('persistence') || content.includes('backdoor')) {
-    suspicionScore += 15;
-    reasons.push('Persistence mechanisms identified');
-  }
-  
-  // Context-based scoring
-  if (incident.severity === 'critical') suspicionScore += 10;
-  if (incident.severity === 'high') suspicionScore += 5;
-  
-  // Network indicators
-  if (threatAnalysis.networkIndicators.length > 0) {
-    suspicionScore += 10;
-    reasons.push('Suspicious network activity');
-  }
-  
-  // Threat Intelligence scoring
+  // Threat Intelligence Correlation (Enhanced)
   if (threatReport) {
-    if (threatReport.risk_score >= 80) {
-      suspicionScore += 30;
-      reasons.push(`Critical threat intelligence risk (${threatReport.risk_score}/100)`);
-    } else if (threatReport.risk_score >= 60) {
-      suspicionScore += 20;
-      reasons.push(`High threat intelligence risk (${threatReport.risk_score}/100)`);
-    } else if (threatReport.risk_score >= 40) {
-      suspicionScore += 10;
-      reasons.push(`Medium threat intelligence risk (${threatReport.risk_score}/100)`);
-    }
-    
-    // Check for malicious indicators
-    const maliciousCount = threatReport.indicators?.filter((i: any) => i.malicious).length || 0;
-    if (maliciousCount > 0) {
-      suspicionScore += maliciousCount * 5;
-      reasons.push(`${maliciousCount} malicious indicators detected via threat intelligence`);
+    const tiScore = correlateThreatIntelligence(threatReport, content, incident);
+    truePositiveScore += tiScore.score;
+    if (tiScore.score > 0) {
+      reasons.push(tiScore.reason);
     }
   }
   
-  // Final classification
-  const isPositive = suspicionScore >= 50;
-  const confidence = Math.min(95, Math.max(60, suspicionScore + Math.floor(Math.random() * 20)));
+  // Context-based Severity Adjustment
+  const contextScore = analyzeIncidentContext(incident, content);
+  truePositiveScore += contextScore.truePositive;
+  falsePositiveScore += contextScore.falsePositive;
+  if (contextScore.reason) {
+    if (contextScore.truePositive > 0) reasons.push(contextScore.reason);
+    else falsePositiveReasons.push(contextScore.reason);
+  }
   
-  const baseExplanation = isPositive ? 
-    `This incident is classified as a TRUE POSITIVE with ${confidence}% confidence. ` :
-    `This incident is classified as a FALSE POSITIVE with ${confidence}% confidence. `;
-    
-  const detailedExplanation = baseExplanation + 
-    `Key factors in this classification: ${reasons.join(', ')}. ` +
-    `The AI analysis considered multiple security indicators including behavioral patterns, ` +
-    `MITRE ATT&CK techniques, network indicators, and threat intelligence correlation.`;
+  // Statistical Anomaly Detection
+  const anomalyScore = detectStatisticalAnomalies(content, incident);
+  if (anomalyScore > 15) {
+    truePositiveScore += anomalyScore;
+    reasons.push(`Statistical anomalies detected (deviation score: ${anomalyScore})`);
+  }
+  
+  // Calculate final classification
+  const totalScore = truePositiveScore - falsePositiveScore;
+  const isPositive = totalScore >= 40; // Threshold for true positive
+  
+  // Calculate confidence based on score differential and evidence strength
+  let confidence;
+  const scoreDifferential = Math.abs(truePositiveScore - falsePositiveScore);
+  const evidenceCount = reasons.length + falsePositiveReasons.length;
+  
+  if (scoreDifferential > 80) {
+    confidence = Math.min(95, 85 + Math.floor(evidenceCount * 1.5));
+  } else if (scoreDifferential > 50) {
+    confidence = Math.min(90, 75 + Math.floor(evidenceCount * 1.2));
+  } else if (scoreDifferential > 30) {
+    confidence = Math.min(85, 65 + Math.floor(evidenceCount));
+  } else {
+    confidence = Math.min(75, 55 + Math.floor(evidenceCount * 0.8));
+  }
+  
+  // Generate detailed explanation
+  const primaryReasons = isPositive ? reasons : falsePositiveReasons;
+  const classification = isPositive ? 'TRUE POSITIVE' : 'FALSE POSITIVE';
+  
+  const detailedExplanation = `This incident is classified as a ${classification} with ${confidence}% confidence. ` +
+    `The AI analysis evaluated ${evidenceCount} distinct indicators using advanced pattern recognition, ` +
+    `behavioral analysis, and threat intelligence correlation. ` +
+    `True positive score: ${truePositiveScore}, False positive score: ${falsePositiveScore}. ` +
+    `Key factors: ${primaryReasons.slice(0, 5).join('; ')}. ` +
+    (isPositive ? 
+      `This appears to be a genuine security threat requiring immediate investigation.` :
+      `This appears to be legitimate activity or a benign anomaly that does not pose a security risk.`);
   
   return {
     result: isPositive ? 'true-positive' : 'false-positive',
     confidence: confidence,
     explanation: detailedExplanation,
-    reasons: reasons
+    reasons: primaryReasons,
+    scores: {
+      truePositive: truePositiveScore,
+      falsePositive: falsePositiveScore,
+      differential: scoreDifferential
+    }
   };
+}
+
+// Helper function: Analyze behavioral patterns
+function analyzeBehavioralPatterns(content: string, threatAnalysis: any) {
+  let score = 0;
+  const indicators = [];
+  
+  // Check for abnormal process chains
+  if (/cmd.*powershell.*cmd/i.test(content) || /wscript.*cscript.*cmd/i.test(content)) {
+    score += 18;
+    indicators.push('Suspicious process chain detected');
+  }
+  
+  // Check for rapid command execution
+  const commandCount = (content.match(/cmd\.exe|powershell\.exe|wmic\.exe/gi) || []).length;
+  if (commandCount > 5) {
+    score += Math.min(20, commandCount * 2);
+    indicators.push(`High command execution frequency (${commandCount} instances)`);
+  }
+  
+  // Check for encoded/obfuscated content
+  if (/[A-Za-z0-9+\/]{50,}={0,2}/g.test(content)) {
+    score += 15;
+    indicators.push('Base64 encoded content detected');
+  }
+  
+  // Analyze threat indicators from AI agent
+  if (threatAnalysis) {
+    if (threatAnalysis.behavioralIndicators?.length > 2) {
+      score += threatAnalysis.behavioralIndicators.length * 3;
+      indicators.push(`Multiple behavioral indicators (${threatAnalysis.behavioralIndicators.length})`);
+    }
+    if (threatAnalysis.processIndicators?.length > 1) {
+      score += threatAnalysis.processIndicators.length * 4;
+      indicators.push('Suspicious process activities detected');
+    }
+  }
+  
+  return { score, indicators };
+}
+
+// Helper function: Analyze temporal patterns
+function analyzeTemporalPatterns(content: string, incident: any) {
+  const hour = new Date(incident.createdAt || Date.now()).getHours();
+  
+  // Check for activity during unusual hours
+  if (hour >= 0 && hour <= 5) {
+    return {
+      suspicious: true,
+      score: 12,
+      reason: 'Activity detected during non-business hours (midnight-5am)'
+    };
+  } else if (hour >= 22) {
+    return {
+      suspicious: true,
+      score: 8,
+      reason: 'Late evening activity detected'
+    };
+  }
+  
+  // Check for rapid sequential events
+  if (/\d{2}:\d{2}:\d{2}.*\d{2}:\d{2}:\d{2}/g.test(content)) {
+    const timestamps = content.match(/\d{2}:\d{2}:\d{2}/g) || [];
+    if (timestamps.length > 10) {
+      return {
+        suspicious: true,
+        score: 15,
+        reason: `Rapid sequential events detected (${timestamps.length} timestamps)`
+      };
+    }
+  }
+  
+  return { suspicious: false, score: 0, reason: '' };
+}
+
+// Helper function: Analyze network anomalies
+function analyzeNetworkAnomalies(networkIndicators: any[], content: string) {
+  let score = 0;
+  
+  // Check for suspicious ports
+  const suspiciousPorts = [445, 3389, 22, 23, 21, 1433, 3306, 4444, 8080, 8443];
+  const portMatches = content.match(/:(\d{1,5})/g) || [];
+  portMatches.forEach(match => {
+    const port = parseInt(match.substring(1));
+    if (suspiciousPorts.includes(port)) {
+      score += 5;
+    }
+  });
+  
+  // Check for external IP connections
+  const externalIPs = content.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g) || [];
+  const nonPrivateIPs = externalIPs.filter(ip => {
+    const parts = ip.split('.').map(Number);
+    return !(parts[0] === 10 || 
+            (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+            (parts[0] === 192 && parts[1] === 168) ||
+            parts[0] === 127);
+  });
+  
+  if (nonPrivateIPs.length > 2) {
+    score += Math.min(15, nonPrivateIPs.length * 3);
+  }
+  
+  // Factor in AI-detected network indicators
+  if (networkIndicators.length > 3) {
+    score += networkIndicators.length * 2;
+  }
+  
+  return score;
+}
+
+// Helper function: Correlate threat intelligence
+function correlateThreatIntelligence(threatReport: any, content: string, incident: any) {
+  let score = 0;
+  let reason = '';
+  
+  if (!threatReport) return { score: 0, reason: '' };
+  
+  // Enhanced threat intelligence scoring
+  if (threatReport.risk_score >= 80) {
+    score = 35;
+    reason = `Critical threat intelligence match (risk: ${threatReport.risk_score}/100)`;
+  } else if (threatReport.risk_score >= 60) {
+    score = 25;
+    reason = `High threat intelligence correlation (risk: ${threatReport.risk_score}/100)`;
+  } else if (threatReport.risk_score >= 40) {
+    score = 15;
+    reason = `Moderate threat intelligence indicators (risk: ${threatReport.risk_score}/100)`;
+  } else if (threatReport.risk_score >= 20) {
+    score = 8;
+    reason = `Low threat intelligence match (risk: ${threatReport.risk_score}/100)`;
+  }
+  
+  // Check for malicious IOCs
+  const maliciousIOCs = threatReport.indicators?.filter((i: any) => i.malicious) || [];
+  if (maliciousIOCs.length > 0) {
+    score += Math.min(30, maliciousIOCs.length * 8);
+    const iocTypes = [...new Set(maliciousIOCs.map((i: any) => i.type))];
+    reason = `${maliciousIOCs.length} malicious IOCs detected (${iocTypes.join(', ')})`;
+  }
+  
+  // Check specific threat categories
+  if (threatReport.threat_level === 'critical') score += 20;
+  else if (threatReport.threat_level === 'high') score += 12;
+  
+  return { score, reason };
+}
+
+// Helper function: Analyze incident context
+function analyzeIncidentContext(incident: any, content: string) {
+  let truePositive = 0;
+  let falsePositive = 0;
+  let reason = '';
+  
+  // System context analysis
+  const systemContext = incident.systemContext?.toLowerCase() || '';
+  
+  // Check if it's a known test environment
+  if (systemContext.includes('test') || systemContext.includes('sandbox') || systemContext.includes('lab')) {
+    falsePositive += 20;
+    reason = 'Activity in test/sandbox environment';
+  }
+  
+  // Check for development environments
+  if (systemContext.includes('dev') || systemContext.includes('development') || content.includes('localhost')) {
+    falsePositive += 15;
+    reason = 'Development environment activity';
+  }
+  
+  // Check for production critical systems
+  if (systemContext.includes('production') || systemContext.includes('critical') || systemContext.includes('domain controller')) {
+    truePositive += 15;
+    reason = 'Activity on critical production system';
+  }
+  
+  // Severity-based context
+  if (incident.severity === 'critical') truePositive += 12;
+  else if (incident.severity === 'high') truePositive += 8;
+  else if (incident.severity === 'low') falsePositive += 5;
+  
+  // Check for user-reported incidents
+  if (incident.title?.toLowerCase().includes('suspicious') || incident.title?.toLowerCase().includes('alert')) {
+    truePositive += 5;
+  }
+  
+  return { truePositive, falsePositive, reason };
+}
+
+// Helper function: Detect statistical anomalies
+function detectStatisticalAnomalies(content: string, incident: any) {
+  let anomalyScore = 0;
+  
+  // Check for unusual character distributions
+  const specialChars = (content.match(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g) || []).length;
+  const totalChars = content.length;
+  const specialCharRatio = specialChars / totalChars;
+  
+  if (specialCharRatio > 0.15) {
+    anomalyScore += Math.min(10, Math.floor(specialCharRatio * 50));
+  }
+  
+  // Check for repetitive patterns
+  const words = content.toLowerCase().split(/\s+/);
+  const uniqueWords = new Set(words);
+  const repetitionRatio = 1 - (uniqueWords.size / words.length);
+  
+  if (repetitionRatio > 0.7 && words.length > 20) {
+    anomalyScore += 12;
+  }
+  
+  // Check for unusual data sizes
+  if (content.length > 10000) {
+    anomalyScore += Math.min(15, Math.floor(content.length / 2000));
+  }
+  
+  // Check for hex strings or binary patterns
+  const hexPattern = /[0-9a-fA-F]{8,}/g;
+  const hexMatches = content.match(hexPattern) || [];
+  if (hexMatches.length > 5) {
+    anomalyScore += Math.min(10, hexMatches.length);
+  }
+  
+  return anomalyScore;
 }
 
 // Purple Team AI Agent
