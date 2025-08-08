@@ -71,7 +71,8 @@ export default function AdvancedQuery() {
   const runQueryMutation = useMutation({
     mutationFn: async (queryData: any) => {
       setIsRunning(true);
-      return await apiRequest("POST", "/api/queries/run", queryData);
+      const response = await apiRequest("POST", "/api/queries/run", queryData);
+      return await response.json();
     },
     onSuccess: (data) => {
       setQueryResults(data);
@@ -96,7 +97,8 @@ export default function AdvancedQuery() {
   // Save query
   const saveQueryMutation = useMutation({
     mutationFn: async (queryData: any) => {
-      return await apiRequest("POST", "/api/queries/save", queryData);
+      const response = await apiRequest("POST", "/api/queries/save", queryData);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/queries/saved"] });
