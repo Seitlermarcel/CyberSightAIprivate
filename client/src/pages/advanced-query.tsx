@@ -41,6 +41,9 @@ import {
   Star,
   Code,
   FileJson,
+  Table2,
+  Info,
+  ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -52,6 +55,7 @@ export default function AdvancedQuery() {
   const [queryResults, setQueryResults] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [expandedTable, setExpandedTable] = useState<string | null>(null);
 
   // Fetch saved queries
   const { data: savedQueries } = useQuery({
@@ -147,6 +151,68 @@ export default function AdvancedQuery() {
     a.click();
     document.body.removeChild(a);
   };
+
+  const tableSchemas = [
+    {
+      name: "incidents",
+      description: "Security incidents and analysis results",
+      columns: [
+        { name: "id", type: "varchar", description: "Unique incident identifier" },
+        { name: "user_id", type: "varchar", description: "Owner user ID" },
+        { name: "title", type: "text", description: "Incident title" },
+        { name: "severity", type: "text", description: "critical, high, medium, low, informational" },
+        { name: "status", type: "text", description: "open, in-progress, closed" },
+        { name: "classification", type: "text", description: "true-positive, false-positive" },
+        { name: "confidence", type: "integer", description: "AI confidence score (0-100)" },
+        { name: "mitre_attack", type: "text[]", description: "MITRE ATT&CK techniques" },
+        { name: "created_at", type: "timestamp", description: "Creation timestamp" },
+      ]
+    },
+    {
+      name: "api_configurations",
+      description: "Log streaming and integration endpoints",
+      columns: [
+        { name: "id", type: "varchar", description: "Configuration ID" },
+        { name: "name", type: "text", description: "Configuration name" },
+        { name: "endpoint_type", type: "text", description: "webhook, syslog, splunk, elastic, azure-sentinel" },
+        { name: "endpoint_url", type: "text", description: "Endpoint URL" },
+        { name: "is_active", type: "boolean", description: "Active status" },
+        { name: "last_sync", type: "timestamp", description: "Last synchronization time" },
+      ]
+    },
+    {
+      name: "billing_transactions",
+      description: "Credit purchases and usage transactions",
+      columns: [
+        { name: "id", type: "varchar", description: "Transaction ID" },
+        { name: "type", type: "text", description: "credit-purchase, incident-analysis, storage-fee" },
+        { name: "amount", type: "decimal", description: "Transaction amount in EUR" },
+        { name: "status", type: "text", description: "pending, completed, failed, refunded" },
+        { name: "created_at", type: "timestamp", description: "Transaction date" },
+      ]
+    },
+    {
+      name: "usage_tracking",
+      description: "Monthly usage statistics for billing",
+      columns: [
+        { name: "month", type: "text", description: "YYYY-MM format" },
+        { name: "incidents_analyzed", type: "integer", description: "Number of incidents analyzed" },
+        { name: "storage_gb", type: "real", description: "Storage used in GB" },
+        { name: "total_cost", type: "decimal", description: "Total cost in EUR" },
+      ]
+    },
+    {
+      name: "query_history",
+      description: "Saved and executed queries",
+      columns: [
+        { name: "query_name", type: "text", description: "Query name (if saved)" },
+        { name: "query", type: "text", description: "Query text" },
+        { name: "query_type", type: "text", description: "kql, sql, custom" },
+        { name: "result_count", type: "integer", description: "Number of results" },
+        { name: "execution_time", type: "integer", description: "Execution time in ms" },
+      ]
+    }
+  ];
 
   const sampleQueries = {
     kql: `// Find all critical incidents in the last 24 hours
@@ -307,6 +373,55 @@ aggregate:
 
         {/* Saved Queries & History */}
         <div className="space-y-4">
+          {/* Table Schemas */}
+          <Card className="cyber-slate border-cyber-slate-light">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center">
+                <Table2 className="w-4 h-4 mr-2 text-purple-500" />
+                Table Schemas
+              </CardTitle>
+              <CardDescription>Available tables and columns for querying</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {tableSchemas.map((table) => (
+                  <div key={table.name} className="cyber-dark rounded-lg">
+                    <button
+                      className="w-full p-3 flex items-center justify-between hover:bg-gray-700 transition-colors"
+                      onClick={() => setExpandedTable(expandedTable === table.name ? null : table.name)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Database className="w-4 h-4 text-gray-400" />
+                        <div className="text-left">
+                          <p className="font-mono text-sm font-medium">{table.name}</p>
+                          <p className="text-xs text-gray-400">{table.description}</p>
+                        </div>
+                      </div>
+                      <ChevronRight
+                        className={`w-4 h-4 text-gray-400 transition-transform ${
+                          expandedTable === table.name ? "rotate-90" : ""
+                        }`}
+                      />
+                    </button>
+                    {expandedTable === table.name && (
+                      <div className="px-3 pb-3">
+                        <div className="border-t border-gray-700 pt-2 mt-1">
+                          {table.columns.map((col) => (
+                            <div key={col.name} className="py-1 flex items-start space-x-2">
+                              <code className="text-xs text-cyber-blue">{col.name}</code>
+                              <span className="text-xs text-gray-500">({col.type})</span>
+                              <span className="text-xs text-gray-400 flex-1">- {col.description}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Saved Queries */}
           <Card className="cyber-slate border-cyber-slate-light">
             <CardHeader>

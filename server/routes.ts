@@ -6,6 +6,7 @@ import { sendIncidentNotification, sendTestEmail } from "./gmail-email-service";
 import { threatIntelligence } from "./threat-intelligence";
 import { ThreatPredictionEngine } from "./threat-prediction";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import Stripe from "stripe";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -204,6 +205,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user data" });
+    }
+  });
+
+  // Update user account
+  app.patch("/api/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, email } = req.body;
+      
+      const updatedUser = await storage.updateUser(userId, {
+        firstName,
+        lastName,
+        email,
+      });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user account" });
     }
   });
 
