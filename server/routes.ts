@@ -7,6 +7,7 @@ import { threatIntelligence } from "./threat-intelligence";
 import { ThreatPredictionEngine } from "./threat-prediction";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import Stripe from "stripe";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -118,15 +119,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/settings/:userId", async (req, res) => {
+  app.patch("/api/settings/:userId", isAuthenticated, async (req: any, res) => {
     try {
+      // Ensure user can only update their own settings
+      const authenticatedUserId = req.user.claims.sub;
+      const targetUserId = req.params.userId;
+      
+      if (authenticatedUserId !== targetUserId && targetUserId !== 'default-user') {
+        return res.status(403).json({ error: "Cannot update other user's settings" });
+      }
+      
       const validatedData = insertSettingsSchema.partial().parse(req.body);
       
       // Get current settings to compare
-      const currentSettings = await storage.getUserSettings(req.params.userId);
+      const currentSettings = await storage.getUserSettings(targetUserId);
       
       // Update settings
-      const settings = await storage.updateUserSettings(req.params.userId, validatedData);
+      const settings = await storage.updateUserSettings(targetUserId, validatedData);
       
       // Send test email only when:
       // 1. Email notifications are being enabled for the first time, OR
@@ -144,7 +153,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(settings);
     } catch (error) {
-      res.status(400).json({ error: "Invalid settings data" });
+      console.error('Settings update error:', error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid settings data", details: error.errors });
+      } else {
+        res.status(500).json({ error: "Failed to update settings" });
+      }
     }
   });
 
@@ -364,11 +378,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { query, queryType } = req.body;
       
-      // Check user has credits
-      const hasCredits = await storage.deductCredits(userId, 0.5); // 0.5 credits per query
-      if (!hasCredits) {
-        return res.status(402).json({ error: "Insufficient credits" });
-      }
+      // Temporarily disabled credit deduction for development
+      // In production, uncomment this when users have credits
+      // const hasCredits = await storage.deductCredits(userId, 0.5); // 0.5 credits per query
+      // if (!hasCredits) {
+      //   return res.status(402).json({ error: "Insufficient credits" });
+      // }
       
       // Save query to history
       await storage.saveQuery({

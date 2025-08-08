@@ -361,22 +361,29 @@ export class ThreatIntelligenceService {
     const maliciousHashes = indicators.filter(i => i.type === 'hash' && i.malicious);
     
     if (maliciousIPs.length > 0) {
-      recommendations.push(`Block ${maliciousIPs.length} malicious IP address(es) at firewall level`);
-      recommendations.push('Investigate all connections to/from identified malicious IPs');
+      const ipList = maliciousIPs.slice(0, 3).map(ip => ip.value).join(', ');
+      const moreIPs = maliciousIPs.length > 3 ? ` and ${maliciousIPs.length - 3} more` : '';
+      recommendations.push(`Block malicious IPs at firewall: ${ipList}${moreIPs}`);
+      recommendations.push(`Investigate connections to/from: ${maliciousIPs[0].value}${maliciousIPs[0].country ? ' (' + maliciousIPs[0].country + ')' : ''}`);
     }
     
     if (maliciousDomains.length > 0) {
-      recommendations.push(`Add ${maliciousDomains.length} domain(s) to DNS blacklist`);
-      recommendations.push('Check proxy logs for users accessing malicious domains');
+      const domainList = maliciousDomains.slice(0, 3).map(d => d.value).join(', ');
+      const moreDomains = maliciousDomains.length > 3 ? ` and ${maliciousDomains.length - 3} more` : '';
+      recommendations.push(`Add to DNS blacklist: ${domainList}${moreDomains}`);
+      recommendations.push(`Check proxy logs for access to: ${maliciousDomains[0].value}`);
     }
     
     if (maliciousHashes.length > 0) {
-      recommendations.push(`Scan environment for ${maliciousHashes.length} malicious file hash(es)`);
-      recommendations.push('Initiate endpoint detection and response (EDR) investigation');
+      const hashSample = maliciousHashes[0].value.substring(0, 16) + '...';
+      recommendations.push(`Scan for malicious file hash: ${hashSample} (${maliciousHashes.length} total)`);
+      recommendations.push('Initiate EDR investigation for detected malware signatures');
     }
     
     if (iocs.cves.length > 0) {
-      recommendations.push(`Verify patches for ${iocs.cves.length} CVE(s) are applied`);
+      const cveList = iocs.cves.slice(0, 2).join(', ');
+      const moreCVEs = iocs.cves.length > 2 ? ` and ${iocs.cves.length - 2} more` : '';
+      recommendations.push(`Verify patches for: ${cveList}${moreCVEs}`);
     }
     
     if (recommendations.length === 0) {
