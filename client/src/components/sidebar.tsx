@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Shield, ChartLine, History, Settings, TriangleAlert, Clock, CheckCircle, Brain, LogOut } from "lucide-react";
+import { Shield, ChartLine, History, Settings, TriangleAlert, Clock, CheckCircle, Brain, LogOut, CreditCard, Webhook, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 
 interface SidebarProps {
   currentView: string;
@@ -41,6 +42,30 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
       icon: Settings,
       label: "Settings", 
       color: "text-gray-300",
+    },
+  ];
+
+  const externalPages = [
+    {
+      id: "advanced-query",
+      icon: Search,
+      label: "Advanced Query",
+      path: "/advanced-query",
+      color: "text-green-400",
+    },
+    {
+      id: "api-settings",
+      icon: Webhook,
+      label: "API Settings",
+      path: "/api-settings",
+      color: "text-orange-400",
+    },
+    {
+      id: "billing",
+      icon: CreditCard,
+      label: "Billing & Credits",
+      path: "/billing",
+      color: "text-yellow-400",
     },
   ];
 
@@ -148,6 +173,23 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
               </button>
             );
           })}
+          
+          {/* External Pages */}
+          <div className="mt-4 pt-4 border-t border-cyber-slate-light">
+            <h3 className="text-xs font-medium text-gray-400 mb-2 px-3">ADVANCED</h3>
+            {externalPages.map((item) => {
+              const Icon = item.icon;
+              
+              return (
+                <Link key={item.id} to={item.path}>
+                  <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-gray-300 hover:bg-cyber-slate-light">
+                    <Icon className={cn("w-4 h-4", item.color)} />
+                    <span>{item.label}</span>
+                  </button>
+                </Link>
+              );
+            })}
+          </div>
         </nav>
       </div>
 

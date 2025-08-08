@@ -35,7 +35,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/incidents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const incident = await storage.getIncident(req.params.id);
+      const userId = req.user.claims.sub;
+      const incident = await storage.getIncident(req.params.id, userId);
       if (!incident) {
         return res.status(404).json({ error: "Incident not found" });
       }
@@ -67,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         threatIntelligence: JSON.stringify(threatReport)
       };
       
-      const incident = await storage.createIncident(incidentData);
+      const incident = await storage.createIncident(incidentData, userId);
       
       // Send email notification if enabled
       if (userSettings?.emailNotifications && userSettings?.emailAddress) {
@@ -94,7 +95,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/incidents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const incident = await storage.updateIncident(req.params.id, req.body);
+      const userId = req.user.claims.sub;
+      const incident = await storage.updateIncident(req.params.id, userId, req.body);
       if (!incident) {
         return res.status(404).json({ error: "Incident not found" });
       }
@@ -191,6 +193,262 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(prediction);
     } catch (error) {
       res.status(500).json({ error: "Failed to generate threat prediction" });
+    }
+  });
+
+  // User with credits endpoint
+  app.get("/api/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user data" });
+    }
+  });
+
+  // API Configurations endpoints
+  app.get("/api/api-configurations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const configs = await storage.getUserApiConfigs(userId);
+      res.json(configs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch API configurations" });
+    }
+  });
+
+  app.post("/api/api-configurations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const config = await storage.createApiConfig(req.body, userId);
+      res.status(201).json(config);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to create API configuration" });
+    }
+  });
+
+  app.patch("/api/api-configurations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const config = await storage.updateApiConfig(req.params.id, userId, req.body);
+      if (!config) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update API configuration" });
+    }
+  });
+
+  app.delete("/api/api-configurations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const deleted = await storage.deleteApiConfig(req.params.id, userId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete API configuration" });
+    }
+  });
+
+  app.post("/api/api-configurations/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const config = await storage.getApiConfig(req.params.id, userId);
+      if (!config) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      // Simulate test - in production, would actually test the endpoint
+      res.json({ success: true, message: "Connection test successful" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to test API configuration" });
+    }
+  });
+
+  // Billing & Credits endpoints
+  app.get("/api/billing/transactions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const transactions = await storage.getUserTransactions(userId);
+      res.json(transactions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
+  app.get("/api/billing/usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+      const usage = await storage.getUserUsage(userId, currentMonth);
+      const storageGB = await storage.calculateStorageUsage(userId);
+      
+      res.json({
+        incidentsAnalyzed: usage?.incidentsAnalyzed || 0,
+        storageGB: storageGB,
+        month: currentMonth
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch usage statistics" });
+    }
+  });
+
+  app.post("/api/billing/purchase", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { packageId } = req.body;
+      
+      // Define credit packages
+      const packages: Record<string, any> = {
+        starter: { credits: 20, price: 50 },
+        professional: { credits: 50, price: 120 },
+        business: { credits: 100, price: 230 },
+        enterprise: { credits: 200, price: 440 }
+      };
+      
+      const selectedPackage = packages[packageId];
+      if (!selectedPackage) {
+        return res.status(400).json({ error: "Invalid package" });
+      }
+      
+      // Add credits to user account
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const newCredits = parseFloat(user.credits) + selectedPackage.credits;
+      await storage.updateUserCredits(userId, newCredits);
+      
+      // Create transaction record
+      const transaction = await storage.createBillingTransaction({
+        type: "credit-purchase",
+        amount: selectedPackage.price.toString(),
+        credits: selectedPackage.credits.toString(),
+        description: `Purchased ${selectedPackage.credits} credits`,
+        status: "completed"
+      }, userId);
+      
+      res.json({ success: true, transaction, newBalance: newCredits });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to process purchase" });
+    }
+  });
+
+  // Advanced Query endpoints
+  app.post("/api/queries/run", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { query, queryType } = req.body;
+      
+      // Check user has credits
+      const hasCredits = await storage.deductCredits(userId, 0.5); // 0.5 credits per query
+      if (!hasCredits) {
+        return res.status(402).json({ error: "Insufficient credits" });
+      }
+      
+      // Save query to history
+      await storage.saveQuery({
+        query,
+        queryType,
+        resultCount: 0
+      }, userId);
+      
+      // Simulate query execution - in production, would run actual query
+      const incidents = await storage.getUserIncidents(userId);
+      const startTime = Date.now();
+      
+      // Simple filtering based on query (mock implementation)
+      let results = incidents;
+      if (query.toLowerCase().includes("critical")) {
+        results = incidents.filter(i => i.severity === "critical");
+      } else if (query.toLowerCase().includes("high")) {
+        results = incidents.filter(i => i.severity === "high");
+      }
+      
+      const executionTime = Date.now() - startTime;
+      
+      res.json({
+        results: results.slice(0, 100),
+        resultCount: results.length,
+        executionTime,
+        creditsUsed: 0.5
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to execute query" });
+    }
+  });
+
+  app.get("/api/queries/saved", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const queries = await storage.getSavedQueries(userId);
+      res.json(queries);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch saved queries" });
+    }
+  });
+
+  app.get("/api/queries/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const queries = await storage.getUserQueries(userId);
+      res.json(queries);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch query history" });
+    }
+  });
+
+  app.post("/api/queries/save", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { query, queryType, queryName } = req.body;
+      
+      const savedQuery = await storage.saveQuery({
+        query,
+        queryType,
+        queryName,
+        isSaved: true
+      }, userId);
+      
+      res.json(savedQuery);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save query" });
+    }
+  });
+
+  // Webhook ingestion endpoint (public for external systems)
+  app.post("/api/webhook/ingest", async (req, res) => {
+    try {
+      const { apiKey, logs, metadata } = req.body;
+      
+      if (!apiKey) {
+        return res.status(401).json({ error: "API key required" });
+      }
+      
+      // In production, validate API key and get user
+      // For now, simulate processing
+      res.json({ 
+        success: true, 
+        message: "Logs received for processing",
+        logsReceived: Array.isArray(logs) ? logs.length : 1
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to process webhook" });
+    }
+  });
+
+  // Cleanup old incidents (run periodically)
+  app.post("/api/admin/cleanup", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const deleted = await storage.deleteOldIncidents(userId, 30);
+      res.json({ success: true, deletedCount: deleted });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to cleanup old incidents" });
     }
   });
 

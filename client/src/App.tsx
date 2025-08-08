@@ -6,6 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "@/pages/dashboard";
 import Landing from "@/pages/Landing";
+import ApiSettings from "@/pages/api-settings";
+import Billing from "@/pages/billing";
+import AdvancedQuery from "@/pages/advanced-query";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +21,9 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Dashboard} />
+          <Route path="/api-settings" component={ApiSettings} />
+          <Route path="/billing" component={Billing} />
+          <Route path="/advanced-query" component={AdvancedQuery} />
         </>
       )}
       <Route component={NotFound} />
