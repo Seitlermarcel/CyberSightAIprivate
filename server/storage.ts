@@ -428,14 +428,11 @@ export class DatabaseStorage implements IStorage {
     // Clean up any double spaces
     safeQuery = safeQuery.replace(/\s+/g, ' ').trim();
     
-    console.log('Executing SQL query:', safeQuery);
-    
     try {
       // Execute the safe SQL query
       const result = await db.execute(sql.raw(safeQuery));
       return result.rows || [];
     } catch (error: any) {
-      console.error('Query execution error:', error);
       throw new Error(`Query execution failed: ${error.message}`);
     }
   }

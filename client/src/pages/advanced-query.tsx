@@ -76,7 +76,8 @@ export default function AdvancedQuery() {
     },
     onSuccess: (data) => {
       setQueryResults(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/queries/history"] });
+      // Only invalidate if needed to reduce API calls
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/queries/history"] }), 1000);
       toast({
         title: "Query Executed",
         description: `Found ${data.resultCount || 0} results in ${data.executionTime || 0}ms`,
@@ -101,7 +102,8 @@ export default function AdvancedQuery() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/queries/saved"] });
+      // Delay invalidation to reduce rapid API calls
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/queries/saved"] }), 500);
       toast({
         title: "Query Saved",
         description: "Your query has been saved successfully.",
