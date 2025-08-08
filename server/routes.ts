@@ -901,6 +901,7 @@ function enrichIndicators(content: string, threatReport?: any) {
     let confidence = '30%';
     let threatInfo = 'No known threats';
     let geoLocation = 'No available info';
+    let hasAlienVaultGeoData = false;
     
     if (threatReport?.indicators) {
       const threatIndicator = threatReport.indicators.find((i: any) => i.type === 'ip' && i.value === ip);
@@ -913,23 +914,30 @@ function enrichIndicators(content: string, threatReport?: any) {
                     `Known threat - ${threatIndicator.pulse_count || 0} threat reports` : 
                     threatIndicator.threat_score > 50 ? 'Recently observed in attacks' : 'No known threats';
         
-        // Add geo-location data from threat intelligence
+        // PRIORITY: Always use geo-location data from AlienVault threat intelligence when available
         if (threatIndicator.country || threatIndicator.organization) {
           geoLocation = `${threatIndicator.country || 'Unknown Country'}${threatIndicator.organization ? ' - ' + threatIndicator.organization : ''}`;
+          hasAlienVaultGeoData = true;
         }
       }
-    } else {
-      // Fallback to simulated analysis if no threat intelligence
-      reputation = Math.random() > 0.7 ? 'Malicious' : Math.random() > 0.4 ? 'Suspicious' : 'Clean';
-      confidence = reputation === 'Malicious' ? '95%' : reputation === 'Suspicious' ? '70%' : '30%';
-      threatInfo = reputation === 'Malicious' ? 'Known C2 server' : reputation === 'Suspicious' ? 'Recently observed in attacks' : 'No known threats';
+    }
+    
+    // Only use fallback/simulated geolocation if AlienVault didn't provide any
+    if (!hasAlienVaultGeoData) {
+      // If no threat intelligence data at all, simulate reputation
+      if (!threatReport?.indicators) {
+        reputation = Math.random() > 0.7 ? 'Malicious' : Math.random() > 0.4 ? 'Suspicious' : 'Clean';
+        confidence = reputation === 'Malicious' ? '95%' : reputation === 'Suspicious' ? '70%' : '30%';
+        threatInfo = reputation === 'Malicious' ? 'Known C2 server' : reputation === 'Suspicious' ? 'Recently observed in attacks' : 'No known threats';
+      }
       
-      // Simulate geo-location for demo purposes
+      // Only simulate geo-location if AlienVault didn't provide it
       if (ip.startsWith('192.168')) {
         geoLocation = 'Private Network - Internal';
       } else if (ip.startsWith('10.')) {
         geoLocation = 'Private Network - Internal';
       } else {
+        // Note: This is fallback data only used when AlienVault doesn't provide geolocation
         const locations = ['United States - AWS', 'Russia - Unknown ISP', 'China - Alibaba Cloud', 'Netherlands - DigitalOcean', 'Germany - Hetzner'];
         geoLocation = reputation === 'Malicious' ? locations[Math.floor(Math.random() * 2) + 1] : 
                      reputation === 'Suspicious' ? locations[Math.floor(Math.random() * locations.length)] : 
@@ -969,6 +977,7 @@ function enrichIndicators(content: string, threatReport?: any) {
       let reputation = 'Unknown';
       let confidence = '50%';
       let threatInfo = 'Domain requires further investigation';
+      let hasAlienVaultGeoData = false;
       
       // Check threat intelligence for domain
       if (threatReport?.indicators) {
@@ -982,23 +991,29 @@ function enrichIndicators(content: string, threatReport?: any) {
                       `Known malicious domain - ${threatIndicator.pulse_count || 0} threat reports` : 
                       threatIndicator.threat_score > 50 ? 'Recently associated with attacks' : 'No known threats';
           
-          if (threatIndicator.country) {
-            geoLocation = threatIndicator.country;
+          // PRIORITY: Always use geo-location from AlienVault when available
+          if (threatIndicator.country || threatIndicator.organization) {
+            geoLocation = `${threatIndicator.country || 'Unknown Country'}${threatIndicator.organization ? ' - ' + threatIndicator.organization : ''}`;
+            hasAlienVaultGeoData = true;
           }
         }
-      } else {
-        // Simulate for known malicious domains
+      }
+      
+      // Only use fallback/simulated geolocation if AlienVault didn't provide any
+      if (!hasAlienVaultGeoData) {
+        // Simulate for known malicious domains only if no AlienVault data
         if (domain.includes('evil') || domain.includes('malware') || domain.includes('hack')) {
-          reputation = 'Malicious';
-          confidence = '90%';
-          threatInfo = 'Known malicious domain - phishing/malware distribution';
+          reputation = reputation === 'Unknown' ? 'Malicious' : reputation;
+          confidence = reputation === 'Malicious' ? '90%' : confidence;
+          threatInfo = threatInfo === 'Domain requires further investigation' ? 'Known malicious domain - phishing/malware distribution' : threatInfo;
           geoLocation = 'Russia - Bulletproof Hosting';
         } else if (domain.endsWith('.tk') || domain.endsWith('.ml')) {
-          reputation = 'Suspicious';
-          confidence = '60%';
-          threatInfo = 'Free domain - commonly abused for malicious purposes';
+          reputation = reputation === 'Unknown' ? 'Suspicious' : reputation;
+          confidence = reputation === 'Suspicious' ? '60%' : confidence;
+          threatInfo = threatInfo === 'Domain requires further investigation' ? 'Free domain - commonly abused for malicious purposes' : threatInfo;
           geoLocation = 'Unknown - Free Domain Service';
-        } else {
+        } else if (!threatReport?.indicators) {
+          // Only use default fallback if no threat intelligence at all
           geoLocation = 'United States - Cloudflare DNS';
         }
       }

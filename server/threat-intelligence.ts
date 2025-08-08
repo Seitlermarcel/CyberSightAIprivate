@@ -13,8 +13,8 @@ interface ThreatIndicator {
   first_seen?: string;
   last_seen?: string;
   country?: string;
-  asn?: string;
   organization?: string;
+  asn?: string;
   threat_score?: number;
 }
 
@@ -133,7 +133,8 @@ export class ThreatIntelligenceService {
         reputation: data.reputation || 0,
         malicious: data.pulse_info?.count > 0,
         pulse_count: data.pulse_info?.count || 0,
-        country: data.country_name,
+        country: data.country_name || data.country_code,
+        organization: data.asn ? `AS${data.asn}` : undefined,
         asn: data.asn,
         threat_score: this.calculateThreatScore(data)
       };
@@ -154,7 +155,8 @@ export class ThreatIntelligenceService {
       reputation: isSuspicious ? -1 : 0,
       malicious: isSuspicious,
       pulse_count: isSuspicious ? Math.floor(Math.random() * 50) + 10 : 0,
-      country: isSuspicious ? 'Unknown' : 'United States',
+      country: isSuspicious ? 'Russia' : 'United States',
+      organization: isSuspicious ? 'Unknown ISP' : 'AWS',
       threat_score: isSuspicious ? 75 : 10,
       tags: isSuspicious ? ['malware', 'botnet', 'scanner'] : []
     };
@@ -185,6 +187,8 @@ export class ThreatIntelligenceService {
         reputation: data.reputation || 0,
         malicious: data.pulse_info?.count > 0,
         pulse_count: data.pulse_info?.count || 0,
+        country: data.country || data.country_name || data.country_code,
+        organization: data.registrar || data.org || undefined,
         threat_score: this.calculateThreatScore(data)
       };
     } catch (error) {
@@ -204,6 +208,8 @@ export class ThreatIntelligenceService {
       reputation: isMalicious ? -1 : 0,
       malicious: isMalicious,
       pulse_count: isMalicious ? Math.floor(Math.random() * 30) + 5 : 0,
+      country: isMalicious ? 'Russia' : 'United States',
+      organization: isMalicious ? 'Bulletproof Hosting' : 'Cloudflare',
       threat_score: isMalicious ? 80 : 5,
       tags: isMalicious ? ['phishing', 'malware-distribution'] : []
     };
