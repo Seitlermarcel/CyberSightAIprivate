@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import * as React from "react";
+import type { User } from "@shared/schema";
 
 const settingsSchema = z.object({
   analysisDepth: z.string(),
@@ -37,7 +38,7 @@ export default function Settings() {
   const queryClient = useQueryClient();
   
   // Get the actual user from the auth endpoint
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
   });
   
