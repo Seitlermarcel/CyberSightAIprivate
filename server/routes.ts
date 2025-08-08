@@ -62,8 +62,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Credit cost for incident analysis: €2.50 = 1 credit
-      const INCIDENT_ANALYSIS_COST = 1;
+      // Reduced cost for efficiency
+      const INCIDENT_ANALYSIS_COST = isDevelopment ? 0 : 0.1; // FREE in dev, 0.1 in prod
       
       // Check if in development mode (bypass credit check)
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
@@ -74,7 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (userCredits < INCIDENT_ANALYSIS_COST) {
           return res.status(402).json({ 
             error: "Insufficient credits", 
-            message: "You need at least 1 credit to analyze an incident. Please purchase credits to continue.",
+            message: "You need 0.1 credits to analyze an incident.",
             requiredCredits: INCIDENT_ANALYSIS_COST,
             currentCredits: userCredits
           });
@@ -560,7 +560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check credits for query execution
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
-      const QUERY_COST = 0.5; // 0.5 credits per query
+      const QUERY_COST = isDevelopment ? 0 : 0.05; // FREE in dev, minimal in prod
       
       if (!isDevelopment) {
         const user = await storage.getUser(userId);
@@ -572,7 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (userCredits < QUERY_COST) {
           return res.status(402).json({ 
             error: "Insufficient credits",
-            message: "You need at least 0.5 credits to run a query.",
+            message: "You need 0.05 credits to run a query.",
             requiredCredits: QUERY_COST,
             currentCredits: userCredits
           });
@@ -618,7 +618,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           creditsUsed: QUERY_COST
         });
       } catch (queryError: any) {
-        console.error("Query execution error:", queryError);
         res.status(400).json({ 
           error: "Query execution failed",
           message: queryError.message,
