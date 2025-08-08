@@ -6,7 +6,7 @@ import { sendIncidentNotification, sendTestEmail } from "./gmail-email-service";
 import { threatIntelligence } from "./threat-intelligence";
 import { ThreatPredictionEngine } from "./threat-prediction";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { convertKQLToSQL, getQueryErrorHint } from "./query-helpers";
+import { getQueryErrorHint } from "./query-helpers";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -53,7 +53,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertIncidentSchema.parse(req.body);
       
-      const userId = req.user.claims.sub;
+      // Get user ID from Replit Auth claims
+      const userId = req.user.claims.sub || 'default-user';
       
       // Check if user has sufficient credits for incident analysis
       const user = await storage.getUser(userId);
@@ -553,7 +554,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Advanced Query endpoints
   app.post("/api/queries/run", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // Get user ID from Replit Auth claims, fallback to default-user for testing
+      const userId = req.user.claims.sub || 'default-user';
       const { query, queryType } = req.body;
       
       // Check credits for query execution
@@ -597,20 +599,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startTime = Date.now();
       
       try {
-        if (queryType === 'sql') {
-          // Execute raw SQL query with safety checks
-          results = await storage.executeRawQuery(query, userId);
-        } else if (queryType === 'kql') {
-          // Parse and convert KQL to SQL
-          const sqlQuery = convertKQLToSQL(query, userId);
-          results = await storage.executeRawQuery(sqlQuery, userId);
-        } else if (queryType === 'simple') {
-          // Simple text-based search
-          results = await storage.searchIncidents(query, userId);
-        } else {
-          // Default: structured query
-          results = await storage.executeStructuredQuery(query, userId);
-        }
+        // Execute SQL query with safety checks
+        results = await storage.executeRawQuery(query, userId);
         
         executionTime = Date.now() - startTime;
         

@@ -50,7 +50,7 @@ import { format } from "date-fns";
 export default function AdvancedQuery() {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
-  const [queryType, setQueryType] = useState("kql");
+  const [queryType, setQueryType] = useState("sql");
   const [queryName, setQueryName] = useState("");
   const [queryResults, setQueryResults] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -117,7 +117,7 @@ export default function AdvancedQuery() {
       });
       return;
     }
-    runQueryMutation.mutate({ query, queryType });
+    runQueryMutation.mutate({ query, queryType: "sql" });
   };
 
   const handleSaveQuery = () => {
@@ -129,12 +129,12 @@ export default function AdvancedQuery() {
       });
       return;
     }
-    saveQueryMutation.mutate({ query, queryType, queryName });
+    saveQueryMutation.mutate({ query, queryType: "sql", queryName });
   };
 
   const loadQuery = (savedQuery: any) => {
     setQuery(savedQuery.query);
-    setQueryType(savedQuery.queryType);
+    setQueryType("sql");
     setQueryName(savedQuery.queryName || "");
   };
 
@@ -215,12 +215,6 @@ export default function AdvancedQuery() {
   ];
 
   const sampleQueries = {
-    kql: `// Find all critical incidents in the last 24 hours
-Incidents
-| where Severity == "critical"
-| where Timestamp > ago(24h)
-| project Timestamp, Title, Classification, Confidence
-| order by Timestamp desc`,
     sql: `-- Find incidents with high confidence true positives
 SELECT id, title, severity, confidence, created_at
 FROM incidents
@@ -228,16 +222,6 @@ WHERE classification = 'true-positive'
   AND confidence > 90
 ORDER BY created_at DESC
 LIMIT 100`,
-    custom: `// Custom threat hunting query
-search:
-  - mitre_attack: "T1055"
-  - severity: ["critical", "high"]
-  - time_range: "last_7_days"
-  
-aggregate:
-  - group_by: "attacker_ip"
-  - count: "incidents"
-  - avg: "confidence"`,
   };
 
   return (
@@ -253,25 +237,15 @@ aggregate:
           <Card className="cyber-slate border-cyber-slate-light">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Query Editor</CardTitle>
+                <CardTitle>SQL Query Editor</CardTitle>
                 <div className="flex items-center space-x-2">
-                  <Select value={queryType} onValueChange={setQueryType}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="kql">KQL</SelectItem>
-                      <SelectItem value="sql">SQL</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setQuery(sampleQueries[queryType as keyof typeof sampleQueries])}
+                    onClick={() => setQuery(sampleQueries.sql)}
                   >
                     <Code className="w-4 h-4 mr-1" />
-                    Sample
+                    Sample Query
                   </Button>
                 </div>
               </div>
@@ -280,7 +254,7 @@ aggregate:
               <Textarea
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Enter your ${queryType.toUpperCase()} query here...`}
+                placeholder="Enter your SQL query here..."
                 className="font-mono min-h-[300px] cyber-dark border-cyber-slate-light"
               />
               <div className="flex items-center justify-between mt-4">

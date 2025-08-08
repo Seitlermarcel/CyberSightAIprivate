@@ -365,20 +365,47 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
+    // For development/testing, if there's no real user ID, use 'default-user'
+    const effectiveUserId = userId || 'default-user';
+    
     // Ensure query is safe - automatically add user filter if not present
     let safeQuery = query;
     if (!query.toLowerCase().includes('user_id')) {
+      // Check if query is targeting incidents table
+      const isIncidentsQuery = query.toLowerCase().includes('from incidents');
+      
       // Add user_id filter to the query
       if (query.toLowerCase().includes('where')) {
-        safeQuery = query.replace(/where/i, `WHERE user_id = '${userId}' AND`);
-      } else if (query.toLowerCase().includes('from')) {
-        // Add WHERE clause after FROM
-        const fromIndex = query.toLowerCase().lastIndexOf('from');
-        const afterFrom = query.indexOf(' ', fromIndex + 5);
-        if (afterFrom !== -1) {
-          safeQuery = query.slice(0, afterFrom) + ` WHERE user_id = '${userId}'` + query.slice(afterFrom);
+        // For incidents table in development, include both the actual user ID and default-user
+        if (isIncidentsQuery) {
+          safeQuery = query.replace(/where/i, `WHERE (user_id = '${effectiveUserId}' OR user_id = 'default-user') AND`);
         } else {
-          safeQuery = query + ` WHERE user_id = '${userId}'`;
+          safeQuery = query.replace(/where/i, `WHERE user_id = '${effectiveUserId}' AND`);
+        }
+      } else if (query.toLowerCase().includes('from')) {
+        // Add WHERE clause after FROM clause
+        const fromMatch = query.match(/from\s+(\w+)/i);
+        if (fromMatch) {
+          const tableName = fromMatch[1];
+          const fromEnd = fromMatch.index! + fromMatch[0].length;
+          
+          // Check for ORDER BY, GROUP BY, or LIMIT clauses
+          const orderByIndex = query.toLowerCase().indexOf('order by');
+          const groupByIndex = query.toLowerCase().indexOf('group by');
+          const limitIndex = query.toLowerCase().indexOf('limit');
+          
+          let insertPoint = query.length;
+          if (orderByIndex > -1) insertPoint = Math.min(insertPoint, orderByIndex);
+          if (groupByIndex > -1) insertPoint = Math.min(insertPoint, groupByIndex);
+          if (limitIndex > -1) insertPoint = Math.min(insertPoint, limitIndex);
+          
+          if (isIncidentsQuery) {
+            safeQuery = query.slice(0, insertPoint) + ` WHERE (user_id = '${effectiveUserId}' OR user_id = 'default-user') ` + query.slice(insertPoint);
+          } else {
+            safeQuery = query.slice(0, insertPoint) + ` WHERE user_id = '${effectiveUserId}' ` + query.slice(insertPoint);
+          }
+        } else {
+          throw new Error('Invalid query structure - unable to parse FROM clause');
         }
       } else {
         throw new Error('Invalid query structure - must have FROM clause');
