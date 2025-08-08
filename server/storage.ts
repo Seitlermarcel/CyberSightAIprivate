@@ -29,7 +29,9 @@ export interface IStorage {
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUser(userId: string, updates: Partial<User>): Promise<User | undefined>;
   updateUserCredits(userId: string, credits: number): Promise<User | undefined>;
+  addCredits(userId: string, amount: number): Promise<User | undefined>;
   deductCredits(userId: string, amount: number): Promise<boolean>;
   
   // Incidents - now user-scoped
@@ -91,6 +93,15 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUser(userId: string, updates: Partial<User>): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
   async updateUserCredits(userId: string, credits: number): Promise<User | undefined> {
     const [user] = await db
       .update(users)
@@ -98,6 +109,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async addCredits(userId: string, amount: number): Promise<User | undefined> {
+    const user = await this.getUser(userId);
+    if (!user) return undefined;
+    
+    const currentCredits = parseFloat(user.credits);
+    const newCredits = currentCredits + amount;
+    return this.updateUserCredits(userId, newCredits);
   }
 
   async deductCredits(userId: string, amount: number): Promise<boolean> {

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -36,6 +38,107 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
+// Make sure to call `loadStripe` outside of a component's render to avoid
+// recreating the `Stripe` object on every render.
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "");
+
+function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements || !selectedPackage) {
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      // Create payment intent
+      const response = await apiRequest("POST", "/api/billing/purchase", {
+        packageId: selectedPackage.id
+      });
+
+      if (response.clientSecret) {
+        // Confirm payment with Stripe
+        const { error } = await stripe.confirmCardPayment(response.clientSecret, {
+          payment_method: {
+            card: elements.getElement(CardElement)!,
+          }
+        });
+
+        if (error) {
+          toast({
+            title: "Payment Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Payment Successful",
+            description: "Credits have been added to your account!",
+          });
+          onSuccess();
+        }
+      } else {
+        // Mock payment succeeded
+        toast({
+          title: "Purchase Successful",
+          description: "Credits have been added to your account!",
+        });
+        onSuccess();
+      }
+    } catch (error) {
+      toast({
+        title: "Purchase Failed",
+        description: "Unable to complete the purchase. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="p-4 cyber-dark rounded-lg">
+        <CardElement
+          options={{
+            style: {
+              base: {
+                fontSize: '16px',
+                color: '#ffffff',
+                '::placeholder': {
+                  color: '#9ca3af',
+                },
+              },
+              invalid: {
+                color: '#ef4444',
+              },
+            },
+          }}
+        />
+      </div>
+      <div className="flex justify-end space-x-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button 
+          type="submit" 
+          className="cyber-blue hover:bg-blue-600"
+          disabled={!stripe || isProcessing}
+        >
+          {isProcessing ? "Processing..." : `Purchase ${selectedPackage?.name}`}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function Billing() {
   const { toast } = useToast();
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
@@ -56,28 +159,12 @@ export default function Billing() {
     queryKey: ["/api/billing/usage"],
   });
 
-  // Purchase credits
-  const purchaseCreditsMutation = useMutation({
-    mutationFn: async (packageId: string) => {
-      return await apiRequest("POST", "/api/billing/purchase", { packageId });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/billing/transactions"] });
-      toast({
-        title: "Purchase Successful",
-        description: "Credits have been added to your account.",
-      });
-      setShowPurchaseDialog(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "Purchase Failed",
-        description: "Unable to complete the purchase. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  const handlePurchaseSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/billing/transactions"] });
+    setShowPurchaseDialog(false);
+    setSelectedPackage(null);
+  };
 
   const creditPackages = [
     { id: "starter", name: "Starter Pack", credits: 20, price: 50, savings: 0 },
@@ -322,13 +409,44 @@ export default function Billing() {
             <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
               Cancel
             </Button>
-            <Button 
-              className="cyber-blue hover:bg-blue-600"
-              disabled={!selectedPackage}
-              onClick={() => selectedPackage && purchaseCreditsMutation.mutate(selectedPackage.id)}
-            >
-              Purchase {selectedPackage?.name}
-            </Button>
+            {stripePromise && import.meta.env.VITE_STRIPE_PUBLIC_KEY ? (
+              <Elements stripe={stripePromise}>
+                <CheckoutForm 
+                  selectedPackage={selectedPackage}
+                  onSuccess={handlePurchaseSuccess}
+                  onCancel={() => setShowPurchaseDialog(false)}
+                />
+              </Elements>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-400">Stripe is not configured. Using development mode.</p>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    className="cyber-blue hover:bg-blue-600"
+                    disabled={!selectedPackage}
+                    onClick={async () => {
+                      if (selectedPackage) {
+                        try {
+                          await apiRequest("POST", "/api/billing/purchase", { packageId: selectedPackage.id });
+                          handlePurchaseSuccess();
+                        } catch (error) {
+                          toast({
+                            title: "Purchase Failed",
+                            description: "Unable to complete the purchase.",
+                            variant: "destructive",
+                          });
+                        }
+                      }
+                    }}
+                  >
+                    Purchase {selectedPackage?.name}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

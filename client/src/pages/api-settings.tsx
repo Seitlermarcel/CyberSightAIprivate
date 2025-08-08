@@ -62,6 +62,11 @@ export default function ApiSettings() {
     queryKey: ["/api/api-configurations"],
   });
 
+  // Fetch user data for webhook endpoints
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/user"],
+  });
+
   // Create API configuration
   const createConfigMutation = useMutation({
     mutationFn: async (config: any) => {
@@ -337,39 +342,76 @@ export default function ApiSettings() {
         </Dialog>
       </div>
 
-      {/* Your Webhook Endpoint */}
-      <Card className="cyber-slate border-cyber-slate-light">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Webhook className="text-cyber-blue" />
-            <span>Your Webhook Endpoint</span>
-          </CardTitle>
-          <CardDescription>
-            Send logs to CyberSight AI using this endpoint
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Input
-                value={`${window.location.origin}/api/webhook/ingest`}
-                readOnly
-                className="font-mono text-sm"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => copyToClipboard(`${window.location.origin}/api/webhook/ingest`)}
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
+      {/* Your Webhook Endpoints */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="cyber-slate border-cyber-slate-light">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Webhook className="text-cyber-blue" />
+              <span>Generic Webhook</span>
+            </CardTitle>
+            <CardDescription>
+              Send logs with API key authentication
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Input
+                  value={`${window.location.origin}/api/webhook/ingest`}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard(`${window.location.origin}/api/webhook/ingest`)}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="p-2 cyber-dark rounded text-xs">
+                <p className="text-gray-400 mb-1">Required headers:</p>
+                <code className="text-cyber-blue">apiKey: cybersight_{user?.id || 'USER_ID'}_TOKEN</code>
+              </div>
             </div>
-            <p className="text-xs text-gray-400">
-              Use this endpoint to send logs directly to CyberSight AI for analysis
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card className="cyber-slate border-cyber-slate-light">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Key className="text-green-500" />
+              <span>Personal Endpoint</span>
+            </CardTitle>
+            <CardDescription>
+              Your unique user-specific webhook URL
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Input
+                  value={`${window.location.origin}/api/webhook/ingest/${user?.id || 'USER_ID'}/TOKEN`}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => copyToClipboard(`${window.location.origin}/api/webhook/ingest/${user?.id || 'USER_ID'}/TOKEN`)}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="p-2 cyber-dark rounded text-xs">
+                <p className="text-gray-400 mb-1">Replace TOKEN with your unique token</p>
+                <p className="text-green-400">No API key required in headers</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* API Configurations List */}
       <div className="grid gap-4">
