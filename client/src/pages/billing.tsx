@@ -40,7 +40,10 @@ import { format } from "date-fns";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || "");
+// Validate that we're not using a secret key (which starts with sk_)
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY || "";
+const isValidPublishableKey = stripeKey.startsWith("pk_");
+const stripePromise = isValidPublishableKey ? loadStripe(stripeKey) : null;
 
 function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
   const stripe = useStripe();
@@ -409,7 +412,7 @@ export default function Billing() {
             <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
               Cancel
             </Button>
-            {stripePromise && import.meta.env.VITE_STRIPE_PUBLIC_KEY ? (
+            {stripePromise && isValidPublishableKey ? (
               <Elements stripe={stripePromise}>
                 <CheckoutForm 
                   selectedPackage={selectedPackage}
@@ -419,7 +422,11 @@ export default function Billing() {
               </Elements>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-gray-400">Stripe is not configured. Using development mode.</p>
+                <p className="text-sm text-red-400">
+                  {stripeKey.startsWith("sk_") 
+                    ? "Error: Secret key detected. Please configure VITE_STRIPE_PUBLIC_KEY with a publishable key (starts with pk_)" 
+                    : "Stripe is not configured. Please set VITE_STRIPE_PUBLIC_KEY environment variable."}
+                </p>
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
                     Cancel
