@@ -365,8 +365,12 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    // For development/testing, if there's no real user ID, use 'default-user'
-    const effectiveUserId = userId || 'default-user';
+    // Require valid user ID for all queries
+    if (!userId) {
+      throw new Error('Authentication required to execute queries');
+    }
+    
+    const effectiveUserId = userId;
     
     // Parse the query to understand its structure
     let safeQuery = query.trim();
@@ -398,12 +402,8 @@ export class DatabaseStorage implements IStorage {
         const beforeWhere = query.substring(0, whereIndex + 5);
         const afterWhere = query.substring(whereIndex + 5);
         
-        if (isIncidentsTable) {
-          // For incidents, include both user's incidents and default-user incidents
-          safeQuery = beforeWhere + ` (user_id = '${effectiveUserId}' OR user_id = 'default-user') AND` + afterWhere;
-        } else {
-          safeQuery = beforeWhere + ` user_id = '${effectiveUserId}' AND` + afterWhere;
-        }
+        // Always filter by user_id only - no access to other users' data
+        safeQuery = beforeWhere + ` user_id = '${effectiveUserId}' AND` + afterWhere;
       } else {
         // No WHERE clause, need to add one
         let insertPoint = query.length;
@@ -416,12 +416,8 @@ export class DatabaseStorage implements IStorage {
         const beforeInsert = query.substring(0, insertPoint).trim();
         const afterInsert = query.substring(insertPoint).trim();
         
-        if (isIncidentsTable) {
-          // For incidents, include both user's incidents and default-user incidents
-          safeQuery = beforeInsert + ` WHERE (user_id = '${effectiveUserId}' OR user_id = 'default-user') ` + afterInsert;
-        } else {
-          safeQuery = beforeInsert + ` WHERE user_id = '${effectiveUserId}' ` + afterInsert;
-        }
+        // Always filter by user_id only - no access to other users' data
+        safeQuery = beforeInsert + ` WHERE user_id = '${effectiveUserId}' ` + afterInsert;
       }
     }
     

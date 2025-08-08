@@ -54,7 +54,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertIncidentSchema.parse(req.body);
       
       // Get user ID from Replit Auth claims
-      const userId = req.user.claims.sub || 'default-user';
+      const userId = req.user.claims.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       
       // Check if user has sufficient credits for incident analysis
       const user = await storage.getUser(userId);
@@ -98,15 +101,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'completed'
         }, userId);
       }
-      // Try to get user settings, fall back to default-user settings for email
-      let userSettings = await storage.getUserSettings(userId);
-      if (!userSettings || !userSettings.emailNotifications) {
-        // Try default-user settings as fallback
-        const defaultSettings = await storage.getUserSettings('default-user');
-        if (defaultSettings && defaultSettings.emailNotifications) {
-          userSettings = defaultSettings;
-        }
-      }
+      // Get user settings for email notifications
+      const userSettings = await storage.getUserSettings(userId);
       
       // Analyze threat intelligence
       const threatReport = await threatIntelligence.analyzeThreatIntelligence(
@@ -187,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const authenticatedUserId = req.user.claims.sub;
       const targetUserId = req.params.userId;
       
-      if (authenticatedUserId !== targetUserId && targetUserId !== 'default-user') {
+      if (authenticatedUserId !== targetUserId) {
         return res.status(403).json({ error: "Cannot update other user's settings" });
       }
       
@@ -554,8 +550,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Advanced Query endpoints
   app.post("/api/queries/run", isAuthenticated, async (req: any, res) => {
     try {
-      // Get user ID from Replit Auth claims, fallback to default-user for testing
-      const userId = req.user.claims.sub || 'default-user';
+      // Get user ID from Replit Auth claims
+      const userId = req.user.claims.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const { query, queryType } = req.body;
       
       // Check credits for query execution
