@@ -206,7 +206,7 @@ export class DatabaseStorage implements IStorage {
       .insert(settings)
       .values({ userId, ...settingsData })
       .onConflictDoUpdate({
-        target: settings.userId,
+        target: [settings.userId], // Fix: target should be an array
         set: settingsData,
       })
       .returning();
