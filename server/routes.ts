@@ -53,7 +53,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertIncidentSchema.parse(req.body);
       
       const userId = req.user.claims.sub;
-      const userSettings = await storage.getUserSettings(userId);
+      // Try to get user settings, fall back to default-user settings for email
+      let userSettings = await storage.getUserSettings(userId);
+      if (!userSettings || !userSettings.emailNotifications) {
+        // Try default-user settings as fallback
+        const defaultSettings = await storage.getUserSettings('default-user');
+        if (defaultSettings && defaultSettings.emailNotifications) {
+          userSettings = defaultSettings;
+        }
+      }
       
       // Analyze threat intelligence
       const threatReport = await threatIntelligence.analyzeThreatIntelligence(
@@ -74,18 +82,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send email notification if enabled
       if (userSettings?.emailNotifications && userSettings?.emailAddress) {
+        console.log(`Attempting to send email notification to ${userSettings.emailAddress} for incident ${incident.id}`);
         const user = await storage.getUser(userId);
         if (user) {
           const isHighSeverity = ['critical', 'high'].includes(incident.severity?.toLowerCase() || '');
           const shouldSendHighSeverityAlert = userSettings.highSeverityAlerts && isHighSeverity;
           
-          await sendIncidentNotification({
+          const emailSent = await sendIncidentNotification({
             incident,
             user,
             recipientEmail: userSettings.emailAddress,
             isHighSeverityAlert: shouldSendHighSeverityAlert
           });
+          
+          if (emailSent) {
+            console.log(`Email notification sent successfully to ${userSettings.emailAddress}`);
+          } else {
+            console.log(`Failed to send email notification to ${userSettings.emailAddress}`);
+          }
         }
+      } else {
+        console.log(`Email notifications not configured. Settings exist: ${!!userSettings}, Email enabled: ${userSettings?.emailNotifications}, Email address: ${userSettings?.emailAddress}`);
       }
       
       res.status(201).json(incident);
@@ -618,11 +635,8 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
     }
   }
   
-  // Confidence threshold adjustments
-  if (finalConfidence < config.confidenceThreshold && finalClassification === 'true-positive') {
-    finalClassification = 'false-positive';
-    finalConfidence = Math.max(60, config.confidenceThreshold - 10);
-  }
+  // Note: Removed incorrect confidence threshold adjustment that was changing true-positives to false-positives
+  // The classification should remain as determined by the AI analysis logic
 
   return {
     classification: finalClassification,
