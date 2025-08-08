@@ -2,7 +2,7 @@
 
 ## Overview
 
-CyberSight AI is a cybersecurity incident analysis platform that uses artificial intelligence to analyze security logs, detect threats, and map incidents to the MITRE ATT&CK framework. The platform provides professional security analysts with automated incident classification, confidence scoring, and comprehensive analysis capabilities. It features a dark cyber-themed interface with real-time incident processing, historical tracking, and configurable AI analysis settings.
+CyberSight AI is a multi-tenant SaaS cybersecurity incident analysis platform that uses artificial intelligence to analyze security logs, detect threats, and map incidents to the MITRE ATT&CK framework. The platform provides professional security analysts with automated incident classification, confidence scoring, and comprehensive analysis capabilities. It features a dark cyber-themed interface with real-time incident processing, historical tracking, API-based log streaming, usage-based billing, and advanced query capabilities similar to Microsoft Advanced Hunting.
 
 ## User Preferences
 
@@ -48,7 +48,11 @@ Preferred communication style: Simple, everyday language.
 - **Multi-AI Analysis System**: 8 specialized AI agents providing comprehensive cybersecurity analysis
 - **Dual-AI Workflow**: Tactical, Strategic, and Chief Analyst roles for enhanced decision-making
 - **Investigation Metrics**: AI Investigation percentage and Confidence scoring with detailed explanations
-- **Multi-user Architecture**: User-specific incident isolation with secure database separation
+- **Multi-tenant SaaS Architecture**: Complete user workspace isolation with individual credits and billing
+- **Usage-Based Billing System**: €2.50 per incident analyzed, €1/GB/month storage with credit packages
+- **API Configuration Management**: Multiple log streaming endpoints with webhook, syslog, Splunk, Elastic integration
+- **Advanced Query Capabilities**: KQL, SQL, and custom query languages similar to Microsoft Advanced Hunting
+- **Automatic Data Management**: Incidents automatically deleted after 30 days to optimize storage
 - **Enhanced Classification**: True/false positive detection with detailed cybersecurity reasoning
 - **Clickable Similar Incidents**: Real incident navigation with match percentage calculations
 - **Functional Settings**: All configuration options impact application behavior and analysis
@@ -70,7 +74,32 @@ Preferred communication style: Simple, everyday language.
 - **Error Recovery**: Graceful failure handling with detailed error logging and process termination
 - **Environment Variables**: Mandatory DATABASE_URL validation with clear error messages
 
-### Recent Changes (January 7, 2025)
+### Recent Changes
+
+#### Multi-tenant SaaS Transformation (January 8, 2025)
+- **Implemented Complete Multi-tenant Architecture**:
+  - Added user credits system with usage-based billing (€2.50/incident, €1/GB/month)
+  - Created API configuration management for log streaming endpoints (webhooks, syslog, Splunk, Elastic)
+  - Built advanced query system with KQL, SQL, and custom query support
+  - Added billing & credits page with transaction history and credit packages
+  - Implemented automatic incident deletion after 30 days
+  - Created usage tracking for incidents and storage consumption
+  - Added query history and saved queries functionality
+  - Built webhook ingestion endpoint for external log sources
+- **Database Schema Updates**:
+  - Added apiConfigurations table for managing log streaming endpoints
+  - Added billingTransactions table for tracking all financial transactions
+  - Added usageTracking table for monthly usage metrics
+  - Added queryHistory table for saving and tracking advanced queries
+  - Updated users table with credits, subscription plan fields
+  - Enhanced all storage methods to be user-scoped for complete isolation
+- **UI Enhancements**:
+  - Created API Settings page for configuring log streaming endpoints
+  - Created Billing & Credits page with purchase flow and transaction history
+  - Created Advanced Query page with query editor and results viewer
+  - Updated sidebar navigation with links to new advanced features
+
+#### Previous Changes (January 7, 2025)
 - Fixed deployment failure by uncommenting database initialization in server/index.ts
 - Added comprehensive error handling around database startup with connection testing
 - Implemented health check endpoint for deployment validation
