@@ -251,7 +251,6 @@ export default function ApiSettings() {
               <SelectItem value="none">None</SelectItem>
               <SelectItem value="api-key">API Key</SelectItem>
               <SelectItem value="oauth">OAuth 2.0</SelectItem>
-              <SelectItem value="basic">Basic Auth</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -267,14 +266,14 @@ export default function ApiSettings() {
               />
             </div>
 
-            {formData.authType === "basic" && (
+            {formData.authType === "oauth" && (
               <div>
-                <Label>API Secret / Password</Label>
+                <Label>OAuth Client Secret</Label>
                 <Input
                   type="password"
                   value={formData.apiSecret}
                   onChange={(e) => setFormData({ ...formData, apiSecret: e.target.value })}
-                  placeholder="Enter API secret or password"
+                  placeholder="Enter OAuth client secret"
                 />
               </div>
             )}

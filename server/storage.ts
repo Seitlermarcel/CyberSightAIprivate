@@ -21,7 +21,7 @@ import {
   type InsertQueryHistory
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, or, asc } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -351,6 +351,88 @@ export class DatabaseStorage implements IStorage {
       .from(queryHistory)
       .where(and(eq(queryHistory.userId, userId), eq(queryHistory.isSaved, true)))
       .orderBy(desc(queryHistory.createdAt));
+  }
+  
+  // Advanced Query Execution Methods
+  async executeRawQuery(query: string, userId: string): Promise<any[]> {
+    // Security: Prevent dangerous SQL operations
+    const dangerousKeywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE', 'GRANT', 'REVOKE'];
+    const upperQuery = query.toUpperCase();
+    
+    for (const keyword of dangerousKeywords) {
+      if (upperQuery.includes(keyword)) {
+        throw new Error(`Dangerous operation '${keyword}' not allowed in queries`);
+      }
+    }
+    
+    // Ensure query includes user filter
+    if (!query.toLowerCase().includes('user_id')) {
+      throw new Error('Query must filter by user_id for security');
+    }
+    
+    try {
+      // Execute the raw SQL query
+      const result = await db.execute(sql.raw(query));
+      return result.rows || [];
+    } catch (error: any) {
+      throw new Error(`Query execution failed: ${error.message}`);
+    }
+  }
+  
+  async executeStructuredQuery(query: string, userId: string): Promise<any[]> {
+    try {
+      // Parse structured query (JSON format)
+      const queryObj = JSON.parse(query);
+      
+      let dbQuery = db.select().from(incidents).where(eq(incidents.userId, userId));
+      
+      // Apply filters
+      if (queryObj.severity) {
+        dbQuery = dbQuery.where(eq(incidents.severity, queryObj.severity));
+      }
+      if (queryObj.status) {
+        dbQuery = dbQuery.where(eq(incidents.status, queryObj.status));
+      }
+      if (queryObj.classification) {
+        dbQuery = dbQuery.where(eq(incidents.classification, queryObj.classification));
+      }
+      
+      // Apply ordering
+      if (queryObj.orderBy) {
+        const field = incidents[queryObj.orderBy as keyof typeof incidents];
+        dbQuery = queryObj.order === 'asc' ? dbQuery.orderBy(asc(field)) : dbQuery.orderBy(desc(field));
+      } else {
+        dbQuery = dbQuery.orderBy(desc(incidents.createdAt));
+      }
+      
+      // Apply limit
+      const limit = queryObj.limit || 100;
+      dbQuery = dbQuery.limit(limit);
+      
+      return await dbQuery;
+    } catch (error: any) {
+      throw new Error(`Structured query failed: ${error.message}`);
+    }
+  }
+  
+  async searchIncidents(searchTerm: string, userId: string): Promise<Incident[]> {
+    // Simple text search across multiple fields
+    const searchPattern = `%${searchTerm}%`;
+    
+    return await db
+      .select()
+      .from(incidents)
+      .where(and(
+        eq(incidents.userId, userId),
+        or(
+          sql`${incidents.title} ILIKE ${searchPattern}`,
+          sql`${incidents.logData} ILIKE ${searchPattern}`,
+          sql`${incidents.aiAnalysis} ILIKE ${searchPattern}`,
+          sql`${incidents.analysisExplanation} ILIKE ${searchPattern}`
+        )
+      ))
+      .orderBy(desc(incidents.createdAt))
+      .limit(100);
   }
 }
 
