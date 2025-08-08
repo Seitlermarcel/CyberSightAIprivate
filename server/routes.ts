@@ -6,6 +6,7 @@ import { sendIncidentNotification, sendTestEmail } from "./gmail-email-service";
 import { threatIntelligence } from "./threat-intelligence";
 import { ThreatPredictionEngine } from "./threat-prediction";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { convertKQLToSQL, getQueryErrorHint } from "./query-helpers";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -53,6 +54,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertIncidentSchema.parse(req.body);
       
       const userId = req.user.claims.sub;
+      
+      // Check if user has sufficient credits for incident analysis
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Credit cost for incident analysis: €2.50 = 1 credit
+      const INCIDENT_ANALYSIS_COST = 1;
+      
+      // Check if in development mode (bypass credit check)
+      const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
+      
+      if (!isDevelopment) {
+        // Production mode: Enforce credit requirements
+        const userCredits = parseFloat(user.credits || '0');
+        if (userCredits < INCIDENT_ANALYSIS_COST) {
+          return res.status(402).json({ 
+            error: "Insufficient credits", 
+            message: "You need at least 1 credit to analyze an incident. Please purchase credits to continue.",
+            requiredCredits: INCIDENT_ANALYSIS_COST,
+            currentCredits: userCredits
+          });
+        }
+        
+        // Deduct credits for incident analysis
+        const success = await storage.deductCredits(userId, INCIDENT_ANALYSIS_COST);
+        if (!success) {
+          return res.status(402).json({ 
+            error: "Failed to deduct credits", 
+            message: "Unable to process payment. Please try again."
+          });
+        }
+        
+        // Log the transaction
+        await storage.createBillingTransaction({
+          type: 'usage',
+          amount: (INCIDENT_ANALYSIS_COST * 2.50).toString(), // €2.50 per credit
+          credits: INCIDENT_ANALYSIS_COST.toString(),
+          description: `Incident analysis: ${validatedData.title}`,
+          status: 'completed'
+        }, userId);
+      }
       // Try to get user settings, fall back to default-user settings for email
       let userSettings = await storage.getUserSettings(userId);
       if (!userSettings || !userSettings.emailNotifications) {
@@ -347,17 +391,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/billing/purchase", isAuthenticated, async (req: any, res) => {
+  // Stripe payment intent creation for credit packages
+  app.post("/api/billing/create-payment-intent", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { packageId } = req.body;
       
-      // Define credit packages
+      // Define credit packages with subscription tiers and benefits
       const packages: Record<string, any> = {
-        starter: { credits: 20, price: 50 },
-        professional: { credits: 50, price: 120 },
-        business: { credits: 100, price: 230 },
-        enterprise: { credits: 200, price: 440 }
+        starter: { 
+          credits: 20, 
+          price: 50,
+          name: 'Starter Package',
+          description: '20 credits - Basic incident analysis',
+          dataRetention: 30, // days
+          features: ['Basic Analysis', '30-day data retention']
+        },
+        professional: { 
+          credits: 55, // 10% bonus
+          price: 120,
+          name: 'Professional Package', 
+          description: '55 credits with 10% bonus - Enhanced analysis',
+          dataRetention: 60, // days
+          features: ['Enhanced Analysis', '60-day data retention', '10% bonus credits']
+        },
+        business: { 
+          credits: 115, // 15% bonus
+          price: 230,
+          name: 'Business Package',
+          description: '115 credits with 15% bonus - Advanced features',
+          dataRetention: 90, // days
+          features: ['Advanced Analysis', '90-day data retention', '15% bonus credits', 'Priority support']
+        },
+        enterprise: { 
+          credits: 240, // 20% bonus
+          price: 440,
+          name: 'Enterprise Package',
+          description: '240 credits with 20% bonus - Full features',
+          dataRetention: 365, // days
+          features: ['Full Analysis Suite', '365-day data retention', '20% bonus credits', 'Dedicated support']
+        }
       };
       
       const selectedPackage = packages[packageId];
@@ -365,27 +438,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid package" });
       }
       
-      // Add credits to user account
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
+      // Check if in development mode
+      const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
+      
+      if (isDevelopment || !process.env.STRIPE_SECRET_KEY) {
+        // Development mode: Add credits without payment
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+        
+        const newCredits = parseFloat(user.credits) + selectedPackage.credits;
+        await storage.updateUserCredits(userId, newCredits);
+        await storage.updateUser(userId, { subscriptionPlan: packageId });
+        
+        // Create transaction record
+        const transaction = await storage.createBillingTransaction({
+          type: "credit-purchase",
+          amount: selectedPackage.price.toString(),
+          credits: selectedPackage.credits.toString(),
+          description: `${selectedPackage.name} (Dev Mode)`,
+          status: "completed"
+        }, userId);
+        
+        return res.json({ 
+          success: true,
+          devMode: true,
+          transaction,
+          newBalance: newCredits,
+          message: "Development mode: Credits added without payment"
+        });
       }
       
-      const newCredits = parseFloat(user.credits) + selectedPackage.credits;
-      await storage.updateUserCredits(userId, newCredits);
+      // Production mode: Create Stripe payment intent
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+        apiVersion: "2023-10-16"
+      });
       
-      // Create transaction record
-      const transaction = await storage.createBillingTransaction({
-        type: "credit-purchase",
-        amount: selectedPackage.price.toString(),
-        credits: selectedPackage.credits.toString(),
-        description: `Purchased ${selectedPackage.credits} credits`,
-        status: "completed"
-      }, userId);
+      const user = await storage.getUser(userId);
       
-      res.json({ success: true, transaction, newBalance: newCredits });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to process purchase" });
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(selectedPackage.price * 100), // Convert to cents
+        currency: "eur",
+        metadata: {
+          userId,
+          packageId,
+          credits: selectedPackage.credits.toString(),
+          dataRetention: selectedPackage.dataRetention.toString()
+        },
+        description: `${selectedPackage.name} - ${user?.email || 'CyberSight AI User'}`
+      });
+      
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        package: selectedPackage
+      });
+    } catch (error: any) {
+      console.error("Payment intent creation error:", error);
+      res.status(500).json({ 
+        error: "Failed to create payment",
+        message: error.message
+      });
+    }
+  });
+  
+  // Stripe webhook endpoint for payment confirmation
+  app.post("/api/billing/stripe-webhook", async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+      return res.status(400).json({ error: "Stripe not configured" });
+    }
+    
+    try {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+        apiVersion: "2023-10-16"
+      });
+      
+      const event = stripe.webhooks.constructEvent(
+        req.body,
+        sig as string,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+      
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object as any;
+        const { userId, packageId, credits, dataRetention } = paymentIntent.metadata;
+        
+        // Add credits to user account
+        const user = await storage.getUser(userId);
+        if (user) {
+          const newCredits = parseFloat(user.credits) + parseFloat(credits);
+          await storage.updateUserCredits(userId, newCredits);
+          await storage.updateUser(userId, { subscriptionPlan: packageId });
+          
+          // Create billing transaction
+          await storage.createBillingTransaction({
+            type: 'credit-purchase',
+            amount: (paymentIntent.amount / 100).toString(),
+            credits: credits,
+            description: `Credit package purchase via Stripe`,
+            status: 'completed'
+          }, userId);
+        }
+      }
+      
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error("Webhook error:", error);
+      res.status(400).json({ error: `Webhook Error: ${error.message}` });
     }
   });
 
@@ -395,40 +556,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { query, queryType } = req.body;
       
-      // Temporarily disabled credit deduction for development
-      // In production, uncomment this when users have credits
-      // const hasCredits = await storage.deductCredits(userId, 0.5); // 0.5 credits per query
-      // if (!hasCredits) {
-      //   return res.status(402).json({ error: "Insufficient credits" });
-      // }
+      // Check credits for query execution
+      const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
+      const QUERY_COST = 0.5; // 0.5 credits per query
       
-      // Save query to history
-      await storage.saveQuery({
-        query,
-        queryType,
-        resultCount: 0
-      }, userId);
-      
-      // Simulate query execution - in production, would run actual query
-      const incidents = await storage.getUserIncidents(userId);
-      const startTime = Date.now();
-      
-      // Simple filtering based on query (mock implementation)
-      let results = incidents;
-      if (query.toLowerCase().includes("critical")) {
-        results = incidents.filter(i => i.severity === "critical");
-      } else if (query.toLowerCase().includes("high")) {
-        results = incidents.filter(i => i.severity === "high");
+      if (!isDevelopment) {
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+        
+        const userCredits = parseFloat(user.credits || '0');
+        if (userCredits < QUERY_COST) {
+          return res.status(402).json({ 
+            error: "Insufficient credits",
+            message: "You need at least 0.5 credits to run a query.",
+            requiredCredits: QUERY_COST,
+            currentCredits: userCredits
+          });
+        }
+        
+        const hasCredits = await storage.deductCredits(userId, QUERY_COST);
+        if (!hasCredits) {
+          return res.status(402).json({ error: "Failed to deduct credits" });
+        }
+        
+        // Log the transaction
+        await storage.createBillingTransaction({
+          type: 'usage',
+          amount: (QUERY_COST * 2.50).toString(),
+          credits: QUERY_COST.toString(),
+          description: `Advanced query: ${queryType}`,
+          status: 'completed'
+        }, userId);
       }
       
-      const executionTime = Date.now() - startTime;
+      // Parse and execute query based on type
+      let results: any[] = [];
+      let executionTime = 0;
+      const startTime = Date.now();
       
-      res.json({
-        results: results.slice(0, 100),
-        resultCount: results.length,
-        executionTime,
-        creditsUsed: 0.5
-      });
+      try {
+        if (queryType === 'sql') {
+          // Execute raw SQL query with safety checks
+          results = await storage.executeRawQuery(query, userId);
+        } else if (queryType === 'kql') {
+          // Parse and convert KQL to SQL
+          const sqlQuery = convertKQLToSQL(query, userId);
+          results = await storage.executeRawQuery(sqlQuery, userId);
+        } else if (queryType === 'simple') {
+          // Simple text-based search
+          results = await storage.searchIncidents(query, userId);
+        } else {
+          // Default: structured query
+          results = await storage.executeStructuredQuery(query, userId);
+        }
+        
+        executionTime = Date.now() - startTime;
+        
+        // Save successful query to history
+        await storage.saveQuery({
+          query,
+          queryType,
+          resultCount: results.length
+        }, userId);
+        
+        res.json({
+          results: results.slice(0, 100), // Limit to 100 results
+          resultCount: results.length,
+          executionTime,
+          creditsUsed: QUERY_COST
+        });
+      } catch (queryError: any) {
+        console.error("Query execution error:", queryError);
+        res.status(400).json({ 
+          error: "Query execution failed",
+          message: queryError.message,
+          hint: getQueryErrorHint(queryError.message)
+        });
+      }
     } catch (error) {
       res.status(500).json({ error: "Failed to execute query" });
     }

@@ -62,7 +62,7 @@ function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
 
     try {
       // Create payment intent
-      const response = await apiRequest("POST", "/api/billing/purchase", {
+      const response = await apiRequest("POST", "/api/billing/create-payment-intent", {
         packageId: selectedPackage.id
       });
 
@@ -437,8 +437,15 @@ export default function Billing() {
                     onClick={async () => {
                       if (selectedPackage) {
                         try {
-                          await apiRequest("POST", "/api/billing/purchase", { packageId: selectedPackage.id });
-                          handlePurchaseSuccess();
+                          const result = await apiRequest("POST", "/api/billing/create-payment-intent", { packageId: selectedPackage.id });
+                          const data = await result.json();
+                          if (data.devMode) {
+                            handlePurchaseSuccess();
+                            toast({
+                              title: "Development Mode",
+                              description: data.message,
+                            });
+                          }
                         } catch (error) {
                           toast({
                             title: "Purchase Failed",
