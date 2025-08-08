@@ -35,10 +35,17 @@ export default function Settings() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const userId = "default-user"; // In a real app, this would come from auth context
+  
+  // Get the actual user from the auth endpoint
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/user"],
+  });
+  
+  const userId = user?.id || "default-user"; // Use actual user ID
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["/api/settings", userId],
+    enabled: !!user, // Only fetch settings when user is loaded
   });
 
   const form = useForm<SettingsFormData>({
@@ -110,7 +117,7 @@ export default function Settings() {
     saveSettingsMutation.mutate(data);
   };
 
-  if (isLoading) {
+  if (!user || isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
