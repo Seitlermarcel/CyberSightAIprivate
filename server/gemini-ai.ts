@@ -85,7 +85,7 @@ export class GeminiCyberAnalyst {
       ] = await Promise.race([
         Promise.all(agentPromises),
         overallTimeout
-      ]).catch(() => {
+      ]).catch((): any[] => {
         console.error('⚠️ Analysis timeout - using fallback responses');
         return [
           this.getFailsafeResponse("Pattern Recognition", fullContent),
@@ -139,11 +139,11 @@ export class GeminiCyberAnalyst {
       
       console.log('✨ Analysis result completed successfully');
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Gemini AI analysis error:', error);
-      console.error('📋 Error message:', error.message);
-      console.error('🔍 Error stack:', error.stack);
-      throw new Error(`AI analysis failed: ${error.message}`);
+      console.error('📋 Error message:', error?.message);
+      console.error('🔍 Error stack:', error?.stack);
+      throw new Error(`AI analysis failed: ${error?.message || 'Unknown error'}`);
     }
   }
 

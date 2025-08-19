@@ -373,8 +373,19 @@ export class ThreatIntelligenceService {
     logData: string, 
     additionalContext?: string
   ): Promise<ThreatIntelligenceReport> {
+    console.log('🔍 Starting threat intelligence analysis...');
+    console.log('📝 Log data length:', logData.length);
+    console.log('🔑 OTX API key available:', !!this.apiKey);
+    
     // Extract IOCs from logs
     const iocs = this.extractIOCs(logData + (additionalContext || ''));
+    console.log('📊 Extracted IOCs:', {
+      ips: iocs.ips.length,
+      domains: iocs.domains.length,
+      hashes: iocs.hashes.length,
+      urls: iocs.urls.length,
+      cves: iocs.cves.length
+    });
     
     const indicators: ThreatIndicator[] = [];
     
@@ -382,18 +393,21 @@ export class ThreatIntelligenceService {
     for (const ip of iocs.ips.slice(0, 10)) { // Limit to 10 IPs
       const indicator = await this.checkIPReputation(ip);
       indicators.push(indicator);
+      console.log(`✅ IP ${ip}: threat_score=${indicator.threat_score}, malicious=${indicator.malicious}`);
     }
     
     // Check domain reputations
     for (const domain of iocs.domains.slice(0, 10)) { // Limit to 10 domains
       const indicator = await this.checkDomainReputation(domain);
       indicators.push(indicator);
+      console.log(`✅ Domain ${domain}: threat_score=${indicator.threat_score}, malicious=${indicator.malicious}`);
     }
     
     // Check hash reputations
     for (const hash of iocs.hashes.slice(0, 5)) { // Limit to 5 hashes
       const indicator = await this.checkHashReputation(hash);
       indicators.push(indicator);
+      console.log(`✅ Hash ${hash}: threat_score=${indicator.threat_score}, malicious=${indicator.malicious}`);
     }
     
     // Calculate overall risk score
@@ -410,7 +424,7 @@ export class ThreatIntelligenceService {
     // Generate recommendations
     const recommendations = this.generateRecommendations(indicators, iocs);
     
-    return {
+    const report = {
       indicators,
       risk_score: Math.round(riskScore),
       threat_level: this.calculateRiskLevel(riskScore),
@@ -418,6 +432,15 @@ export class ThreatIntelligenceService {
       recommendations,
       iocs
     };
+    
+    console.log('📈 Threat intelligence report generated:', {
+      risk_score: report.risk_score,
+      threat_level: report.threat_level,
+      indicator_count: indicators.length,
+      malicious_count: maliciousIndicators.length
+    });
+    
+    return report;
   }
 
   private generateSummary(indicators: ThreatIndicator[], iocs: any): string {

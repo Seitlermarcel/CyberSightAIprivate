@@ -197,7 +197,7 @@ export async function sendIncidentNotification(data: EmailNotificationData): Pro
           <div style="padding: 25px 0; text-align: center; background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border-radius: 12px; margin: 20px 0; border: 2px solid #00BFFF;">
             <h3 style="color: #00BFFF; margin: 0 0 15px; font-size: 18px; font-weight: bold;">📊 COMPREHENSIVE ANALYSIS REPORT</h3>
             <p style="color: #d1d5db; margin: 0 0 20px; font-size: 14px;">Complete incident analysis with AI insights, threat intelligence, and visual analytics</p>
-            <a href="${process.env.REPLIT_URL || 'http://localhost:5000'}/api/incidents/${incident.id}/pdf" 
+            <a href="${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${incident.id}?export=pdf" 
                style="display: inline-block; background: linear-gradient(135deg, #00BFFF 0%, #0080FF 100%); 
                       color: white; text-decoration: none; padding: 18px 40px; border-radius: 10px; 
                       font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; 
