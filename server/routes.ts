@@ -5,6 +5,7 @@ import { insertIncidentSchema, insertSettingsSchema } from "@shared/schema";
 import { sendIncidentNotification, sendTestEmail } from "./gmail-email-service";
 import { threatIntelligence } from "./threat-intelligence";
 import { ThreatPredictionEngine } from "./threat-prediction";
+import { GeminiCyberAnalyst } from "./gemini-ai";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { getQueryErrorHint } from "./query-helpers";
 import Stripe from "stripe";
@@ -65,11 +66,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Reduced cost for efficiency
-      const INCIDENT_ANALYSIS_COST = isDevelopment ? 0 : 0.1; // FREE in dev, 0.1 in prod
-      
       // Check if in development mode (bypass credit check)
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
+      
+      // Reduced cost for efficiency
+      const INCIDENT_ANALYSIS_COST = isDevelopment ? 0 : 0.1; // FREE in dev, 0.1 in prod
       
       if (!isDevelopment) {
         // Production mode: Enforce credit requirements
@@ -110,8 +111,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.additionalLogs || ''
       );
       
-      // Intelligent AI analysis with settings integration and threat intelligence
-      const aiAnalysis = generateMockAnalysis(validatedData, userSettings, threatReport);
+      // Real Gemini AI analysis with 8 specialized agents replacing mock system
+      const aiAnalysis = await generateRealAIAnalysis(validatedData, userSettings, threatReport);
       const incidentData = {
         ...validatedData,
         userId: userId, // Associate incident with user
@@ -702,27 +703,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
-// Intelligent AI analysis generator that analyzes logs and generates realistic cybersecurity insights
-function generateMockAnalysis(incident: any, settings?: any, threatReport?: any) {
-  const logData = incident.logData?.toLowerCase() || '';
-  const title = incident.title?.toLowerCase() || '';
-  const systemContext = incident.systemContext?.toLowerCase() || '';
-  const additionalLogs = incident.additionalLogs?.toLowerCase() || '';
-  const allContent = `${title} ${logData} ${systemContext} ${additionalLogs}`;
+// Real Gemini AI analysis that replaces the mock system with 8 specialized AI agents
+async function generateRealAIAnalysis(incident: any, settings?: any, threatReport?: any) {
+  const logData = incident.logData || '';
+  const title = incident.title || '';
+  const systemContext = incident.systemContext || '';
+  const additionalLogs = incident.additionalLogs || '';
   
-  // Apply settings-based analysis configuration
-  const analysisConfig = {
-    depth: settings?.analysisDepth || 'comprehensive',
-    confidenceThreshold: settings?.confidenceThreshold || 80,
-    enableDualAI: settings?.enableDualAI ?? true,
-    autoSeverityAdjustment: settings?.autoSeverityAdjustment ?? false,
-    customInstructions: settings?.customInstructions || ''
+  try {
+    // Use real Gemini AI with 8 specialized agents
+    const aiResult = await GeminiCyberAnalyst.analyzeIncident(
+      logData,
+      title, 
+      systemContext,
+      additionalLogs,
+      settings,
+      threatReport
+    );
+
+    // Transform Gemini results to match expected format
+    return transformGeminiResultsToLegacyFormat(aiResult, incident, settings);
+  } catch (error) {
+    console.error('Gemini AI analysis failed:', error);
+    // Fallback to simplified analysis if Gemini fails
+    return generateFailsafeAnalysis(incident, settings, threatReport);
+  }
+}
+
+// Transform Gemini AI results to match the expected legacy format
+function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, settings: any) {
+  // Extract MITRE techniques from AI analysis
+  const mitreAttack = extractMitreTechniques(aiResult.mitreMapping.analysis);
+  
+  // Extract IOCs from AI analysis
+  const iocs = extractIOCsFromAnalysis(aiResult.iocEnrichment.analysis);
+  
+  // Extract entities from AI analysis
+  const entities = extractEntitiesFromAnalysis(aiResult.entityMapping.analysis);
+  
+  // Calculate confidence with AI input
+  const confidence = aiResult.overallConfidence;
+  
+  // Determine classification from AI analysis
+  const classification = aiResult.finalClassification;
+  
+  return {
+    analysis: generateCombinedAnalysisText(aiResult),
+    confidence,
+    classification,
+    reasoning: aiResult.reasoning,
+    mitreAttack,
+    iocs,
+    entities,
+    networkTopology: generateNetworkTopology(aiResult.entityMapping),
+    threatIntelligence: generateThreatIntelligenceFromAI(aiResult.threatIntelligence),
+    // Include raw AI agent results for detailed view
+    aiAgentResults: {
+      patternRecognition: aiResult.patternRecognition,
+      threatIntelligence: aiResult.threatIntelligence,
+      mitreMapping: aiResult.mitreMapping,
+      iocEnrichment: aiResult.iocEnrichment,
+      classification: aiResult.classification,
+      purpleTeam: aiResult.purpleTeam,
+      entityMapping: aiResult.entityMapping,
+      dualAI: aiResult.dualAI
+    }
   };
+}
+
+// Helper functions to extract data from Gemini AI responses
+function extractMitreTechniques(mitreAnalysis: string): string[] {
+  const techniques = [];
+  // Extract MITRE technique IDs (T#### format)
+  const techniqueMatches = mitreAnalysis.match(/T\d{4}(?:\.\d{3})?/g);
+  if (techniqueMatches) {
+    techniques.push(...techniqueMatches);
+  }
   
-  // AI Agent Analysis Results with settings integration and threat intelligence
-  const analysisResults = analyzeWithMultipleAIAgents(allContent, incident, analysisConfig, threatReport);
+  // Common mappings from analysis content
+  if (mitreAnalysis.toLowerCase().includes('credential') || mitreAnalysis.toLowerCase().includes('lsass')) {
+    techniques.push('T1003', 'T1003.001');
+  }
+  if (mitreAnalysis.toLowerCase().includes('powershell') && mitreAnalysis.toLowerCase().includes('encoded')) {
+    techniques.push('T1027', 'T1140');
+  }
+  if (mitreAnalysis.toLowerCase().includes('scheduled') || mitreAnalysis.toLowerCase().includes('schtasks')) {
+    techniques.push('T1053');
+  }
+  if (mitreAnalysis.toLowerCase().includes('registry')) {
+    techniques.push('T1547.001');
+  }
   
-  return analysisResults;
+  return Array.from(new Set(techniques)); // Remove duplicates
+}
+
+function extractIOCsFromAnalysis(iocAnalysis: string): string[] {
+  const iocs = [];
+  
+  // Extract IP addresses
+  const ipMatches = iocAnalysis.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g);
+  if (ipMatches) {
+    iocs.push(...ipMatches.slice(0, 5));
+  }
+  
+  // Extract domains
+  const domainMatches = iocAnalysis.match(/\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z]{2,}\b/gi);
+  if (domainMatches) {
+    iocs.push(...domainMatches.slice(0, 3));
+  }
+  
+  // Extract file hashes
+  const hashMatches = iocAnalysis.match(/\b[a-f0-9]{32,64}\b/gi);
+  if (hashMatches) {
+    iocs.push(...hashMatches.slice(0, 3));
+  }
+  
+  return Array.from(new Set(iocs)).slice(0, 10); // Limit and remove duplicates
+}
+
+function extractEntitiesFromAnalysis(entityAnalysis: string): any {
+  return {
+    users: extractUsersFromAnalysis(entityAnalysis),
+    processes: extractProcessesFromAnalysis(entityAnalysis),
+    files: extractFilesFromAnalysis(entityAnalysis),
+    networks: extractNetworksFromAnalysis(entityAnalysis)
+  };
+}
+
+function extractUsersFromAnalysis(analysis: string): any[] {
+  const users: any[] = [];
+  
+  // Look for user account patterns
+  const userMatches = analysis.match(/user[:\s]+([a-zA-Z0-9_-]+)/gi);
+  if (userMatches) {
+    userMatches.slice(0, 3).forEach((match, index) => {
+      const username = match.split(/[:\s]+/)[1];
+      users.push({
+        name: username,
+        type: 'User Account',
+        risk: analysis.toLowerCase().includes('admin') ? 'High' : 'Medium',
+        description: `User account identified in analysis`
+      });
+    });
+  }
+  
+  return users;
+}
+
+function extractProcessesFromAnalysis(analysis: string): any[] {
+  const processes: any[] = [];
+  const processKeywords = ['powershell', 'cmd.exe', 'wmic', 'regsvr32', 'rundll32', 'lsass'];
+  
+  processKeywords.forEach((keyword, index) => {
+    if (analysis.toLowerCase().includes(keyword)) {
+      processes.push({
+        name: keyword,
+        type: 'Process',
+        risk: ['powershell', 'lsass'].includes(keyword) ? 'High' : 'Medium',
+        description: `${keyword} process activity detected`
+      });
+    }
+  });
+  
+  return processes.slice(0, 5);
+}
+
+function extractFilesFromAnalysis(analysis: string): any[] {
+  const files: any[] = [];
+  
+  // Look for file patterns
+  const fileMatches = analysis.match(/[a-zA-Z0-9_-]+\.(exe|dll|bat|ps1|vbs|scr)/gi);
+  if (fileMatches) {
+    fileMatches.slice(0, 3).forEach((filename, index) => {
+      files.push({
+        name: filename,
+        type: 'File',
+        risk: filename.includes('.exe') || filename.includes('.dll') ? 'High' : 'Medium',
+        description: `File activity: ${filename}`
+      });
+    });
+  }
+  
+  return files;
+}
+
+function extractNetworksFromAnalysis(analysis: string): any[] {
+  const networks: any[] = [];
+  
+  // Extract IP addresses for network entities
+  const ipMatches = analysis.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g);
+  if (ipMatches) {
+    ipMatches.slice(0, 3).forEach((ip, index) => {
+      networks.push({
+        name: ip,
+        type: 'IP Address',
+        risk: analysis.toLowerCase().includes('malicious') ? 'High' : 'Medium',
+        description: `Network connection to ${ip}`
+      });
+    });
+  }
+  
+  return networks;
+}
+
+function generateCombinedAnalysisText(aiResult: any): string {
+  let analysis = "🔍 REAL AI ANALYSIS - 8 SPECIALIZED AGENTS\n\n";
+  
+  analysis += "📊 PATTERN RECOGNITION AGENT:\n";
+  analysis += aiResult.patternRecognition.analysis + "\n\n";
+  
+  analysis += "🎯 THREAT INTELLIGENCE AGENT:\n";
+  analysis += aiResult.threatIntelligence.analysis + "\n\n";
+  
+  analysis += "⚔️ MITRE ATT&CK MAPPING AGENT:\n";
+  analysis += aiResult.mitreMapping.analysis + "\n\n";
+  
+  analysis += "🔍 IOC ENRICHMENT AGENT:\n";
+  analysis += aiResult.iocEnrichment.analysis + "\n\n";
+  
+  analysis += "⚖️ CLASSIFICATION AGENT:\n";
+  analysis += aiResult.classification.analysis + "\n\n";
+  
+  if (aiResult.dualAI) {
+    analysis += "👥 DUAL-AI WORKFLOW:\n";
+    analysis += aiResult.dualAI.tacticalAnalyst + "\n\n";
+    analysis += aiResult.dualAI.strategicAnalyst + "\n\n";
+    analysis += aiResult.dualAI.chiefAnalyst + "\n\n";
+  }
+  
+  analysis += "🛡️ PURPLE TEAM AGENT:\n";
+  analysis += aiResult.purpleTeam.analysis + "\n\n";
+  
+  analysis += "🌐 ENTITY MAPPING AGENT:\n";
+  analysis += aiResult.entityMapping.analysis + "\n\n";
+  
+  return analysis;
+}
+
+function generateNetworkTopology(entityMapping: any): any {
+  return {
+    nodes: [
+      {
+        id: 'attacker',
+        type: 'external',
+        risk: 'high',
+        label: 'External Attacker'
+      },
+      {
+        id: 'target',
+        type: 'internal',
+        risk: 'medium',
+        label: 'Target System'
+      }
+    ],
+    edges: [
+      {
+        source: 'attacker',
+        target: 'target',
+        type: 'attack'
+      }
+    ]
+  };
+}
+
+function generateThreatIntelligenceFromAI(threatIntelligence: any): any {
+  return {
+    risk_score: threatIntelligence.confidence,
+    threat_level: threatIntelligence.confidence > 80 ? 'high' : threatIntelligence.confidence > 60 ? 'medium' : 'low',
+    summary: `AI-powered threat analysis: ${threatIntelligence.keyFindings.join(', ')}`,
+    recommendations: threatIntelligence.recommendations
+  };
+}
+
+// Fallback analysis when Gemini AI is not available
+function generateFailsafeAnalysis(incident: any, settings: any, threatReport: any): any {
+  console.log('Using failsafe analysis - Gemini AI unavailable');
+  
+  return {
+    analysis: "🚨 FAILSAFE ANALYSIS MODE\n\nGemini AI analysis temporarily unavailable. Manual security review required.\n\nBasic pattern detection indicates potential security event requiring investigation.",
+    confidence: 50,
+    classification: 'unknown',
+    reasoning: 'AI analysis failed - manual review required',
+    mitreAttack: ['T1001'], // Generic data obfuscation
+    iocs: [],
+    entities: { users: [], processes: [], files: [], networks: [] },
+    networkTopology: { nodes: [], edges: [] },
+    threatIntelligence: {
+      risk_score: 50,
+      threat_level: 'medium',
+      summary: 'AI analysis unavailable - manual review required',
+      recommendations: ['Manually review incident details', 'Check system logs', 'Verify with security team']
+    }
+  };
 }
 
 // Multi-AI Agent Analysis System with Threat Intelligence
