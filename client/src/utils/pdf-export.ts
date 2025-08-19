@@ -278,8 +278,39 @@ export function generateIncidentPDF(incident: Incident, user: any) {
         ` : ''}
         </div>
 
-        <div class="metadata">
-            <div>
+        <!-- Business Impact Assessment Section -->
+        <div class="section">
+            <div class="section-title">💼 Business Impact Assessment</div>
+            <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #dc2626;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dc2626;">
+                        <div style="font-size: 18px; font-weight: bold; color: #dc2626; margin-bottom: 8px;">
+                            ${incident.severity === 'critical' ? 'EXTREME' : incident.severity === 'high' ? 'HIGH' : 'MODERATE'}
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Risk Level</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dc2626;">
+                        <div style="font-size: 14px; font-weight: bold; color: #dc2626; margin-bottom: 8px;">
+                            ${incident.severity === 'critical' ? '$50K-500K+' : incident.severity === 'high' ? '$10K-50K' : '$1K-10K'}
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Potential Loss</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dc2626;">
+                        <div style="font-size: 14px; font-weight: bold; color: #dc2626; margin-bottom: 8px;">
+                            ${incident.severity === 'critical' ? 'Mandatory' : 'Required'}
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Compliance Review</div>
+                    </div>
+                </div>
+                <div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #dc2626;">
+                    <strong style="color: #dc2626;">Impact Summary:</strong>
+                    <ul style="margin: 10px 0; color: #374151;">
+                        <li><strong>Financial:</strong> ${incident.severity === 'critical' ? 'Major downtime costs, potential compliance fines' : incident.severity === 'high' ? 'Significant productivity loss' : 'Investigation and remediation costs'}</li>
+                        <li><strong>Regulatory:</strong> ${incident.severity === 'critical' ? 'GDPR/SOX/HIPAA violations likely' : 'Regulatory review required'}</li>
+                        <li><strong>Reputation:</strong> ${incident.severity === 'critical' ? 'Major brand damage risk' : 'Minor reputation impact'}</li>
+                        <li><strong>Operations:</strong> ${incident.severity === 'critical' ? 'Critical system disruption' : incident.severity === 'high' ? 'Service degradation' : 'Minimal operational impact'}</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -317,6 +348,7 @@ export function generateIncidentPDF(incident: Incident, user: any) {
         ${incident.purpleTeam ? generatePurpleTeamSection(incident.purpleTeam) : ''}
         ${incident.entityMapping ? generateEntitySection(incident.entityMapping) : ''}
         ${incident.codeAnalysis ? generateCodeSection(incident.codeAnalysis) : ''}
+        ${(incident as any).patternAnalysis ? generateSandboxSection((incident as any).patternAnalysis) : ''}
         ${incident.attackVectors ? generateAttackVectorSection(incident.attackVectors) : ''}
         ${incident.complianceImpact ? generateComplianceSection(incident.complianceImpact) : ''}
         ${incident.similarIncidents ? generateSimilarIncidentsSection(incident.similarIncidents) : ''}
@@ -551,6 +583,52 @@ function generateCodeSection(codeAnalysisJson: string): string {
           <h4>Sandbox Output</h4>
           <div class="code-block">${codeAnalysis.sandboxOutput}</div>
         ` : ''}
+      </div>
+    `;
+  } catch {
+    return '';
+  }
+}
+
+function generateSandboxSection(patternAnalysisJson: string): string {
+  try {
+    const patternAnalysis = JSON.parse(patternAnalysisJson);
+    if (!patternAnalysis.sandboxOutput && !patternAnalysis.codeGeneration) return '';
+
+    return `
+      <div class="section">
+        <div class="section-title">🔬 Gemini AI Pattern Recognition & Code Analysis</div>
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 25px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px;">
+          ${patternAnalysis.codeGeneration ? `
+            <div style="margin-bottom: 25px;">
+              <h4 style="color: #fbbf24; margin-bottom: 15px; font-size: 16px; display: flex; align-items: center;">
+                <span style="margin-right: 8px;">🛠️</span> Generated Investigation Scripts
+              </h4>
+              <div style="background: #1a1a1a; color: #00ff00; padding: 20px; border-radius: 10px; font-family: 'Courier New', monospace; overflow-x: auto; border: 1px solid #334155; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${patternAnalysis.codeGeneration}</pre>
+              </div>
+            </div>
+          ` : ''}
+          ${patternAnalysis.sandboxOutput ? `
+            <div>
+              <h4 style="color: #22d3ee; margin-bottom: 15px; font-size: 16px; display: flex; align-items: center;">
+                <span style="margin-right: 8px;">⚡</span> Sandbox Execution Results
+              </h4>
+              <div style="background: #0a0a0a; color: #00ff00; padding: 20px; border-radius: 10px; font-family: 'Courier New', monospace; overflow-x: auto; border: 1px solid #16a34a; box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);">
+                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${patternAnalysis.sandboxOutput}</pre>
+              </div>
+              <div style="margin-top: 15px; padding: 15px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #3b82f6; border-radius: 8px; font-size: 13px;">
+                <div style="display: flex; align-items: center; color: #1e40af;">
+                  <span style="margin-right: 8px; font-size: 16px;">ℹ️</span>
+                  <strong>AI-Generated Analysis:</strong>
+                </div>
+                <div style="color: #1e40af; margin-top: 5px; line-height: 1.5;">
+                  This sandbox output was generated by Gemini AI's Pattern Recognition agent for investigative purposes. The results show simulated command execution and analysis patterns derived from the incident data.
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
       </div>
     `;
   } catch {

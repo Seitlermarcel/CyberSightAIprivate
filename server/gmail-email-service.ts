@@ -182,17 +182,32 @@ export async function sendIncidentNotification(data: EmailNotificationData): Pro
             }
           })() : ''}
           
-          <!-- Call to Action -->
-          <div style="margin: 30px 0; padding: 20px; background-color: #0d1117; border-radius: 8px; text-align: center;">
-            <p style="color: #ccc; margin: 0 0 15px;">
-              ${isHighSeverity ? 
-                'This incident requires immediate attention. Please review and respond promptly.' : 
-                'Please review this incident in the CyberSight AI dashboard.'}
-            </p>
-            <a href="${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${incident.id}" 
-               style="display: inline-block; background: linear-gradient(135deg, #00BFFF, #0080FF); color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
-              View Incident Details
+          <!-- Business Impact Analysis -->
+          <div style="background: linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%); padding: 20px; margin: 20px 0; border-radius: 8px; border: 1px solid #dc2626;">
+            <h3 style="color: #fff; margin: 0 0 15px; font-size: 16px; font-weight: bold;">⚡ BUSINESS IMPACT ASSESSMENT</h3>
+            <div style="color: #fecaca;">
+              <p style="margin: 8px 0;"><strong>Risk Level:</strong> ${incident.severity === 'critical' ? 'EXTREME' : incident.severity === 'high' ? 'HIGH' : 'MODERATE'} Financial & Operational Impact</p>
+              <p style="margin: 8px 0;"><strong>Potential Losses:</strong> ${incident.severity === 'critical' ? '$50K-500K+ in downtime, compliance fines' : incident.severity === 'high' ? '$10K-50K in productivity loss' : '$1K-10K in investigation costs'}</p>
+              <p style="margin: 8px 0;"><strong>Compliance:</strong> ${incident.severity === 'critical' ? 'GDPR/SOX/HIPAA violations likely' : 'Regulatory review required'}</p>
+              <p style="margin: 8px 0;"><strong>Reputation:</strong> ${incident.severity === 'critical' ? 'Major brand damage risk' : 'Minor reputation impact'}</p>
+            </div>
+          </div>
+
+          <!-- Instant PDF Report -->
+          <div style="padding: 25px 0; text-align: center; background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border-radius: 12px; margin: 20px 0; border: 2px solid #00BFFF;">
+            <h3 style="color: #00BFFF; margin: 0 0 15px; font-size: 18px; font-weight: bold;">📊 COMPREHENSIVE ANALYSIS REPORT</h3>
+            <p style="color: #d1d5db; margin: 0 0 20px; font-size: 14px;">Complete incident analysis with AI insights, threat intelligence, and visual analytics</p>
+            <a href="${process.env.REPLIT_URL || 'http://localhost:5000'}/api/incidents/${incident.id}/pdf" 
+               style="display: inline-block; background: linear-gradient(135deg, #00BFFF 0%, #0080FF 100%); 
+                      color: white; text-decoration: none; padding: 18px 40px; border-radius: 10px; 
+                      font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; 
+                      box-shadow: 0 6px 20px rgba(0, 191, 255, 0.4); 
+                      border: 2px solid #00BFFF; font-size: 16px;">
+              📄 DOWNLOAD FULL PDF REPORT
             </a>
+            <p style="color: #9ca3af; margin: 15px 0 0; font-size: 12px;">
+              Includes: AI Analysis • Threat Intel • MITRE Mapping • Visual Charts • Executive Summary
+            </p>
           </div>
         </div>
         

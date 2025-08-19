@@ -729,6 +729,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PDF Export Route
+  app.get("/api/incidents/:id/pdf", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const incidentId = req.params.id;
+      
+      const incident = await storage.getIncident(incidentId, userId);
+      if (!incident) {
+        return res.status(404).json({ message: "Incident not found" });
+      }
+      
+      // Redirect to client-side PDF export
+      res.redirect(`${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${incidentId}?export=pdf`);
+      
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
