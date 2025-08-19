@@ -20,7 +20,8 @@ import {
   Info,
   Target,
   AlertTriangle,
-  Activity
+  Activity,
+  Terminal
 } from "lucide-react";
 import { generateIncidentPDF } from "@/utils/pdf-export";
 import { Button } from "@/components/ui/button";

@@ -866,8 +866,21 @@ function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, sett
     analysisExplanation: cleanGeminiText(aiResult?.classification?.analysis || 'Cybersecurity analysis completed with advanced intelligence'),
     
     // JSON string fields that frontend expects
-    mitreDetails: JSON.stringify(mitreDetails),
-    iocDetails: JSON.stringify(iocDetails), 
+    mitreMapping: JSON.stringify(mitreDetails),
+    threatIntelligence: JSON.stringify({
+      indicators: iocDetails.indicators || [],
+      risk_score: iocDetails.risk_score || 75,
+      threat_level: iocDetails.threat_level || 'medium',
+      summary: iocDetails.summary || 'Threat intelligence analysis completed',
+      recommendations: iocDetails.recommendations || [],
+      iocs: {
+        ips: iocs.filter(ioc => ioc.type.includes('IP')).map(ioc => ioc.value),
+        domains: iocs.filter(ioc => ioc.type === 'Domain').map(ioc => ioc.value),
+        hashes: iocs.filter(ioc => ioc.type.includes('Hash')).map(ioc => ioc.value),
+        cves: iocs.filter(ioc => ioc.type === 'CVE').map(ioc => ioc.value),
+        urls: iocs.filter(ioc => ioc.type === 'URL').map(ioc => ioc.value)
+      }
+    }),
     patternAnalysis: JSON.stringify(patternAnalysis),
     purpleTeam: JSON.stringify(purpleTeam),
     entityMapping: JSON.stringify(entityMapping),
@@ -881,8 +894,7 @@ function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, sett
     
     // Legacy fields for backward compatibility
     entities,
-    networkTopology: generateNetworkTopology(entities),
-    threatIntelligence: generateThreatIntelligenceFromAI(aiResult?.threatIntelligence)
+    networkTopology: generateNetworkTopology(entities)
   };
 }
 
