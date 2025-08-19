@@ -76,6 +76,23 @@ Preferred communication style: Simple, everyday language.
 
 ### Recent Changes
 
+#### Enhanced AlienVault OTX Threat Intelligence Integration (August 19, 2025)
+- **Refined IOC Validation and Filtering**:
+  - Added strict filtering to exclude user accounts from threat intelligence searches (user accounts remain in entity mapping only)
+  - Implemented time data filtering to exclude timestamps, dates, and time-related strings from IOC detection
+  - Enhanced IP address validation to only process valid public IPs, excluding private ranges and invalid formats
+  - Improved domain validation to filter out malformed or suspicious domain-like strings
+  - Maintained read-only access to AlienVault OTX API with no data upload capabilities
+- **Threat Intelligence Integration with Gemini AI**:
+  - Threat intelligence data now feeds directly into Gemini AI analysis through the IOC enrichment agent
+  - Enhanced overall confidence calculation by incorporating AlienVault OTX reputation scores
+  - Real-time correlation between detected IOCs and known threat intelligence indicators
+  - Improved incident classification accuracy through threat intelligence context
+- **Fixed Threat Prediction Functionality**:
+  - Resolved storage method error preventing threat prediction analysis
+  - Added `getIncidentsByUserId` method to support historical incident analysis for predictions
+  - Enhanced PDF export to include comprehensive threat prediction data and metrics
+
 #### Real Gemini AI Integration (January 19, 2025)
 - **Replaced Mock AI System with Real Gemini AI**:
   - Integrated Google Gemini 2.5 Flash model for authentic cybersecurity analysis

@@ -40,7 +40,7 @@ export class ThreatIntelligenceService {
     this.apiKey = process.env.OTX_API_KEY;
   }
 
-  // Extract IOCs from log data
+  // Extract IOCs from log data (filtering out user accounts and time data)
   private extractIOCs(logData: string): {
     ips: string[];
     domains: string[];
@@ -56,15 +56,20 @@ export class ThreatIntelligenceService {
       cves: [] as string[]
     };
 
-    // Extract IP addresses
+    // Extract IP addresses (real IPs only, not user accounts)
     const ipRegex = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
     const ips = logData.match(ipRegex) || [];
-    iocs.ips = Array.from(new Set(ips)).filter(ip => !this.isPrivateIP(ip));
+    iocs.ips = Array.from(new Set(ips)).filter(ip => !this.isPrivateIP(ip) && this.isValidPublicIP(ip));
 
-    // Extract domains
+    // Extract domains (real domains only, not user accounts or time strings)
     const domainRegex = /\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]\b/gi;
     const domains = logData.match(domainRegex) || [];
-    iocs.domains = Array.from(new Set(domains)).filter(d => !this.isCommonDomain(d));
+    iocs.domains = Array.from(new Set(domains)).filter(d => 
+      !this.isCommonDomain(d) && 
+      !this.isUserAccount(d) && 
+      !this.isTimeData(d) &&
+      this.isValidDomain(d)
+    );
 
     // Extract URLs
     const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
@@ -106,6 +111,80 @@ export class ThreatIntelligenceService {
       'microsoft.com', 'windows.com', 'apple.com', 'amazon.com'
     ];
     return commonDomains.some(common => domain.includes(common));
+  }
+
+  // Filter out user accounts (not IOCs)
+  private isUserAccount(input: string): boolean {
+    // Check for common user account patterns
+    const userAccountPatterns = [
+      /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,  // Email addresses
+      /^[a-zA-Z0-9._-]+$/,                                // Simple usernames
+      /^user\d+/i,                                        // user1, user2, etc.
+      /^admin/i,                                          // admin accounts
+      /^root$/i,                                          // root account
+      /^guest/i,                                          // guest accounts
+      /^service/i,                                        // service accounts
+      /^system/i                                          // system accounts
+    ];
+    
+    return userAccountPatterns.some(pattern => pattern.test(input));
+  }
+
+  // Filter out time-related data
+  private isTimeData(input: string): boolean {
+    const timePatterns = [
+      /^\d{4}-\d{2}-\d{2}$/,                             // Date format YYYY-MM-DD
+      /^\d{2}:\d{2}:\d{2}$/,                             // Time format HH:MM:SS
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,           // ISO datetime
+      /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i, // Month names
+      /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i, // Day names
+      /^\d{10}$/,                                        // Unix timestamp (10 digits)
+      /^\d{13}$/,                                        // Unix timestamp (13 digits, milliseconds)
+      /^(am|pm)$/i                                       // AM/PM
+    ];
+    
+    return timePatterns.some(pattern => pattern.test(input));
+  }
+
+  // Validate public IP addresses
+  private isValidPublicIP(ip: string): boolean {
+    const parts = ip.split('.').map(Number);
+    
+    // Check if all parts are valid numbers (0-255)
+    if (parts.length !== 4 || parts.some(part => isNaN(part) || part < 0 || part > 255)) {
+      return false;
+    }
+
+    // Exclude broadcast, multicast, and reserved ranges
+    if (parts[0] === 0 || parts[0] >= 224 || 
+        (parts[0] === 169 && parts[1] === 254) || // APIPA range
+        parts.join('.') === '255.255.255.255') {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Validate domain names
+  private isValidDomain(domain: string): boolean {
+    // Must contain at least one dot
+    if (!domain.includes('.')) return false;
+    
+    // Must have valid TLD (at least 2 characters)
+    const tld = domain.split('.').pop();
+    if (!tld || tld.length < 2) return false;
+    
+    // Cannot start or end with dot or hyphen
+    if (domain.startsWith('.') || domain.endsWith('.') || 
+        domain.startsWith('-') || domain.endsWith('-')) return false;
+    
+    // Must contain only valid characters
+    if (!/^[a-z0-9.-]+$/i.test(domain)) return false;
+    
+    // Cannot be longer than 253 characters
+    if (domain.length > 253) return false;
+    
+    return true;
   }
 
   // Query OTX API for IP reputation

@@ -36,6 +36,7 @@ export interface IStorage {
   
   // Incidents - now user-scoped
   getUserIncidents(userId: string): Promise<Incident[]>;
+  getIncidentsByUserId(userId: string, options?: { limit?: number }): Promise<Incident[]>;
   getIncident(id: string, userId: string): Promise<Incident | undefined>;
   createIncident(incident: InsertIncident, userId: string): Promise<Incident>;
   updateIncident(id: string, userId: string, incident: Partial<Incident>): Promise<Incident | undefined>;
@@ -149,6 +150,20 @@ export class DatabaseStorage implements IStorage {
       .from(incidents)
       .where(eq(incidents.userId, userId))
       .orderBy(desc(incidents.createdAt));
+  }
+
+  async getIncidentsByUserId(userId: string, options?: { limit?: number }): Promise<Incident[]> {
+    const query = db
+      .select()
+      .from(incidents)
+      .where(eq(incidents.userId, userId))
+      .orderBy(desc(incidents.createdAt));
+    
+    if (options?.limit) {
+      return await query.limit(options.limit);
+    }
+    
+    return await query;
   }
 
   async getIncident(id: string, userId: string): Promise<Incident | undefined> {
