@@ -1,7 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { Incident } from '../shared/schema';
-// Remove PDF import that causes server-side issues
-// import { generateIncidentPDF } from '../client/src/utils/pdf-export.js';
+import { generateIncidentPDF } from './pdf-service';
 
 // Create reusable transporter object using Gmail SMTP
 let transporter: nodemailer.Transporter | null = null;
@@ -35,6 +34,20 @@ export async function sendIncidentNotification(data: EmailNotificationData): Pro
   }
 
   const { recipientEmail: to, incident, isHighSeverityAlert: isHighSeverity } = data;
+  
+  // Generate PDF attachment
+  let pdfAttachment = null;
+  try {
+    const pdfBuffer = await generateIncidentPDF({ incident });
+    pdfAttachment = {
+      filename: `incident-report-${incident.id.substring(0, 8)}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf'
+    };
+    console.log(`Generated PDF attachment: ${pdfAttachment.filename}`);
+  } catch (error) {
+    console.error('Failed to generate PDF attachment:', error);
+  }
   
   // Determine email priority and subject
   const priority = isHighSeverity ? 'URGENT' : 'NEW';
@@ -258,9 +271,11 @@ View Details: ${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${i
 This is an automated alert from CyberSight AI
   `.trim();
   
-  // TODO: Implement server-side PDF generation for email attachments
-  // Current client-side PDF generation uses window object which doesn't exist on server
+  // Add PDF attachment if generated successfully
   const attachments: any[] = [];
+  if (pdfAttachment) {
+    attachments.push(pdfAttachment);
+  }
 
   try {
     const mailOptions = {
