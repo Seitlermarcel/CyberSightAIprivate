@@ -52,7 +52,27 @@ export class GeminiCyberAnalyst {
     
     try {
       console.log('🚀 Starting parallel execution of 8 AI agents...');
-      // Run all 8 AI agents in parallel for efficiency
+      // Run all 8 AI agents in parallel with timeout protection
+      const agentPromises = [
+        this.runPatternRecognitionAgent(fullContent).catch(e => this.getFailsafeResponse("Pattern Recognition", fullContent)),
+        this.runThreatIntelligenceAgent(fullContent).catch(e => this.getFailsafeResponse("Threat Intelligence", fullContent)),
+        this.runMitreAttackAgent(fullContent).catch(e => this.getFailsafeResponse("MITRE ATT&CK Mapping", fullContent)),
+        this.runIOCEnrichmentAgent(fullContent, threatReport).catch(e => this.getFailsafeResponse("IOC Enrichment", fullContent)),
+        this.runClassificationAgent(fullContent, settings).catch(e => this.getFailsafeResponse("Classification", fullContent)),
+        this.runDualAIWorkflow(fullContent, settings).catch(e => ({
+          tacticalAnalyst: "Tactical analysis failed",
+          strategicAnalyst: "Strategic analysis failed", 
+          chiefAnalyst: "Chief analyst synthesis failed"
+        })),
+        this.runPurpleTeamAgent(fullContent).catch(e => this.getFailsafeResponse("Purple Team", fullContent)),
+        this.runEntityMappingAgent(fullContent).catch(e => this.getFailsafeResponse("Entity Mapping", fullContent))
+      ];
+      
+      // Add overall timeout for all agents
+      const overallTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Overall analysis timeout')), 120000)
+      );
+      
       const [
         patternRecognition,
         threatIntelligence,
@@ -62,16 +82,22 @@ export class GeminiCyberAnalyst {
         dualAI,
         purpleTeam,
         entityMapping
-      ] = await Promise.all([
-        this.runPatternRecognitionAgent(fullContent),
-        this.runThreatIntelligenceAgent(fullContent),
-        this.runMitreAttackAgent(fullContent),
-        this.runIOCEnrichmentAgent(fullContent, threatReport),
-        this.runClassificationAgent(fullContent, settings),
-        this.runDualAIWorkflow(fullContent, settings),
-        this.runPurpleTeamAgent(fullContent),
-        this.runEntityMappingAgent(fullContent)
-      ]);
+      ] = await Promise.race([
+        Promise.all(agentPromises),
+        overallTimeout
+      ]).catch(() => {
+        console.error('⚠️ Analysis timeout - using fallback responses');
+        return [
+          this.getFailsafeResponse("Pattern Recognition", fullContent),
+          this.getFailsafeResponse("Threat Intelligence", fullContent),
+          this.getFailsafeResponse("MITRE ATT&CK Mapping", fullContent),
+          this.getFailsafeResponse("IOC Enrichment", fullContent),
+          this.getFailsafeResponse("Classification", fullContent),
+          { tacticalAnalyst: "Analysis timeout", strategicAnalyst: "Analysis timeout", chiefAnalyst: "Analysis timeout" },
+          this.getFailsafeResponse("Purple Team", fullContent),
+          this.getFailsafeResponse("Entity Mapping", fullContent)
+        ];
+      });
       
       console.log('✅ All AI agents completed successfully');
       console.log('📊 Agent results summary:', {
@@ -146,15 +172,22 @@ KEY FINDINGS: [3-5 bullet points]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
-      const response = await ai.models.generateContent({
+      console.log('🔍 Pattern Recognition Agent starting...');
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Pattern Recognition timeout')), 30000)
+      );
+      
+      const analysisPromise = ai.models.generateContent({
         model: this.MODEL,
         contents: prompt,
       });
 
+      const response = await Promise.race([analysisPromise, timeoutPromise]);
       const analysis = response.text || "Analysis failed";
+      console.log('✅ Pattern Recognition Agent completed');
       return this.parseAgentResponse("Pattern Recognition", analysis);
     } catch (error) {
-      console.error('Pattern Recognition Agent error:', error);
+      console.error('❌ Pattern Recognition Agent error:', error);
       return this.getFailsafeResponse("Pattern Recognition", content);
     }
   }
@@ -182,15 +215,22 @@ KEY FINDINGS: [3-5 bullet points]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
-      const response = await ai.models.generateContent({
+      console.log('🔍 Threat Intelligence Agent starting...');
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Threat Intelligence timeout')), 30000)
+      );
+      
+      const analysisPromise = ai.models.generateContent({
         model: this.MODEL,
         contents: prompt,
       });
 
+      const response = await Promise.race([analysisPromise, timeoutPromise]);
       const analysis = response.text || "Analysis failed";
+      console.log('✅ Threat Intelligence Agent completed');
       return this.parseAgentResponse("Threat Intelligence", analysis);
     } catch (error) {
-      console.error('Threat Intelligence Agent error:', error);
+      console.error('❌ Threat Intelligence Agent error:', error);
       return this.getFailsafeResponse("Threat Intelligence", content);
     }
   }
@@ -223,15 +263,22 @@ KEY FINDINGS: [3-5 bullet points]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
-      const response = await ai.models.generateContent({
+      console.log('🔍 MITRE ATT&CK Agent starting...');
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('MITRE ATT&CK timeout')), 30000)
+      );
+      
+      const analysisPromise = ai.models.generateContent({
         model: this.MODEL,
         contents: prompt,
       });
 
+      const response = await Promise.race([analysisPromise, timeoutPromise]);
       const analysis = response.text || "Analysis failed";
+      console.log('✅ MITRE ATT&CK Agent completed');
       return this.parseAgentResponse("MITRE ATT&CK Mapping", analysis);
     } catch (error) {
-      console.error('MITRE ATT&CK Agent error:', error);
+      console.error('❌ MITRE ATT&CK Agent error:', error);
       return this.getFailsafeResponse("MITRE ATT&CK Mapping", content);
     }
   }

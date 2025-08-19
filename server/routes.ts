@@ -118,14 +118,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let aiAnalysis;
       try {
-        aiAnalysis = await generateRealAIAnalysis(validatedData, userSettings, threatReport);
+        console.log('⏱️ Starting AI analysis with 3-minute timeout...');
+        const analysisTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Analysis timeout after 3 minutes')), 180000)
+        );
+        
+        aiAnalysis = await Promise.race([
+          generateRealAIAnalysis(validatedData, userSettings, threatReport),
+          analysisTimeout
+        ]);
+        
         console.log('✅ Gemini AI analysis completed successfully');
         console.log('📈 Analysis confidence:', aiAnalysis?.confidence);
         console.log('🔍 Analysis classification:', aiAnalysis?.classification);
       } catch (error) {
-        console.error('❌ Gemini AI analysis failed:', error);
+        console.error('❌ Gemini AI analysis failed:', error.message);
         console.log('🔄 Using fallback analysis');
         aiAnalysis = generateFailsafeAnalysis(validatedData, userSettings, threatReport);
+        console.log('✅ Fallback analysis completed');
       }
       const incidentData = {
         ...validatedData,
