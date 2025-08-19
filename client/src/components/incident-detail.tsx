@@ -17,7 +17,10 @@ import {
   EyeOff,
   Send,
   RotateCcw,
-  Info
+  Info,
+  Target,
+  AlertTriangle,
+  Activity
 } from "lucide-react";
 import { generateIncidentPDF } from "@/utils/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -223,6 +226,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   const attackVectors = incident.attackVectors ? JSON.parse(incident.attackVectors) : [];
   const complianceImpact = incident.complianceImpact ? JSON.parse(incident.complianceImpact) : [];
   const similarIncidents = incident.similarIncidents ? JSON.parse(incident.similarIncidents) : [];
+  const threatPrediction = incident.threatPrediction ? JSON.parse(incident.threatPrediction) : { threatScenarios: [], environmentalImpact: {} };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -459,7 +463,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
         {/* Tab Navigation */}
         <div className="border-b border-cyber-slate-light">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-11 bg-transparent">
+            <TabsList className="grid w-full grid-cols-12 bg-transparent">
               <TabsTrigger value="workflow" className="text-xs">Workflow</TabsTrigger>
               <TabsTrigger value="threat-intel" className="text-xs">Threat Intel</TabsTrigger>
               <TabsTrigger value="mitre" className="text-xs">MITRE</TabsTrigger>
@@ -471,6 +475,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
               <TabsTrigger value="vectors" className="text-xs">Vectors</TabsTrigger>
               <TabsTrigger value="compliance" className="text-xs">Compliance</TabsTrigger>
               <TabsTrigger value="similar" className="text-xs">Similar</TabsTrigger>
+              <TabsTrigger value="threat-prediction" className="text-xs">Prediction</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -1168,6 +1173,197 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   </div>
                 ) : (
                   <p className="text-gray-400 text-center py-8">No similar incidents found in the database</p>
+                )}
+              </div>
+            </TabsContent>
+            
+            {/* Threat Prediction Tab */}
+            <TabsContent value="threat-prediction" className="p-6 space-y-6">
+              <div className="cyber-slate rounded-xl p-6">
+                <div className="flex items-center space-x-2 mb-6">
+                  <Target className="text-severity-high" />
+                  <h3 className="text-lg font-semibold">Threat Prediction Analysis</h3>
+                </div>
+                
+                {/* Overall Threat Level */}
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  <div className="cyber-dark rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Overall Threat Level</span>
+                      <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                    </div>
+                    <div className="text-2xl font-bold mb-2">{incident.predictionConfidence || 75}%</div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-yellow-500 to-red-500 h-2 rounded-full transition-all duration-700"
+                        style={{ width: `${incident.predictionConfidence || 75}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="cyber-dark rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Risk Trend</span>
+                      <Activity className="h-4 w-4 text-blue-400" />
+                    </div>
+                    <div className={`text-lg font-semibold capitalize mb-2 ${
+                      incident.riskTrend === 'increasing' ? 'text-red-400' :
+                      incident.riskTrend === 'decreasing' ? 'text-green-400' :
+                      'text-blue-400'
+                    }`}>
+                      {incident.riskTrend || 'stable'}
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      {incident.riskTrend === 'increasing' && (
+                        <>
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                          <span className="text-xs text-red-400">Escalating</span>
+                        </>
+                      )}
+                      {incident.riskTrend === 'decreasing' && (
+                        <>
+                          <div className="w-2 h-2 bg-green-500 rounded-full" />
+                          <span className="text-xs text-green-400">Improving</span>
+                        </>
+                      )}
+                      {(incident.riskTrend === 'stable' || !incident.riskTrend) && (
+                        <>
+                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          <span className="text-xs text-blue-400">Consistent</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="cyber-dark rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Confidence</span>
+                      <Brain className="h-4 w-4 text-purple-400" />
+                    </div>
+                    <div className="text-2xl font-bold mb-2">{incident.confidence || 82}%</div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-700"
+                        style={{ width: `${incident.confidence || 82}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Threat Scenarios */}
+                {threatPrediction.threatScenarios && threatPrediction.threatScenarios.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-md font-semibold mb-4 flex items-center space-x-2">
+                      <TrendingUp className="h-4 w-4 text-cyan-400" />
+                      <span>Threat Scenarios</span>
+                    </h4>
+                    <div className="space-y-4">
+                      {threatPrediction.threatScenarios.map((scenario: any, index: number) => (
+                        <div key={index} className="cyber-dark rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h5 className="font-semibold text-cyan-400">{scenario.timeframe}</h5>
+                            <div className="flex items-center space-x-2">
+                              <Badge className={`${
+                                scenario.likelihood === 'High' ? 'bg-red-600' :
+                                scenario.likelihood === 'Medium' ? 'bg-yellow-600' :
+                                'bg-green-600'
+                              } text-white`}>
+                                {scenario.likelihood}
+                              </Badge>
+                              <Badge className={`${
+                                scenario.impact === 'Critical' ? 'bg-red-700' :
+                                scenario.impact === 'High' ? 'bg-orange-600' :
+                                scenario.impact === 'Medium' ? 'bg-yellow-600' :
+                                'bg-blue-600'
+                              } text-white`}>
+                                {scenario.impact} Impact
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          {scenario.threats && scenario.threats.length > 0 && (
+                            <div className="mb-3">
+                              <h6 className="text-sm font-medium text-gray-300 mb-2">Potential Threats:</h6>
+                              <ul className="space-y-1">
+                                {scenario.threats.map((threat: string, threatIndex: number) => (
+                                  <li key={threatIndex} className="text-sm text-gray-400 flex items-center space-x-2">
+                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                                    <span>{threat}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {scenario.recommendations && scenario.recommendations.length > 0 && (
+                            <div>
+                              <h6 className="text-sm font-medium text-gray-300 mb-2">Recommendations:</h6>
+                              <ul className="space-y-1">
+                                {scenario.recommendations.map((rec: string, recIndex: number) => (
+                                  <li key={recIndex} className="text-sm text-gray-400 flex items-center space-x-2">
+                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                    <span>{rec}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Environmental Impact */}
+                {threatPrediction.environmentalImpact && Object.keys(threatPrediction.environmentalImpact).length > 0 && (
+                  <div>
+                    <h4 className="text-md font-semibold mb-4 flex items-center space-x-2">
+                      <Shield className="h-4 w-4 text-green-400" />
+                      <span>Environmental Impact Assessment</span>
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {Object.entries(threatPrediction.environmentalImpact).map(([key, impact]: [string, any]) => (
+                        <div key={key} className="cyber-dark rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-200 mb-2 capitalize">
+                            {key.replace(/([A-Z])/g, ' $1').trim()}
+                          </h5>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <div className={`w-3 h-3 rounded-full ${
+                              impact.riskLevel === 'High' ? 'bg-red-500' :
+                              impact.riskLevel === 'Medium' ? 'bg-yellow-500' :
+                              'bg-green-500'
+                            }`} />
+                            <span className={`text-sm font-medium ${
+                              impact.riskLevel === 'High' ? 'text-red-400' :
+                              impact.riskLevel === 'Medium' ? 'text-yellow-400' :
+                              'text-green-400'
+                            }`}>
+                              {impact.riskLevel} Risk
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">{impact.description}</p>
+                          {impact.mitigationPriority && (
+                            <Badge className={`${
+                              impact.mitigationPriority === 'Critical' ? 'bg-red-600' :
+                              impact.mitigationPriority === 'High' ? 'bg-orange-600' :
+                              impact.mitigationPriority === 'Medium' ? 'bg-yellow-600' :
+                              'bg-blue-600'
+                            } text-white`}>
+                              {impact.mitigationPriority} Priority
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Prediction Summary */}
+                {threatPrediction.predictionSummary && (
+                  <div className="cyber-dark rounded-lg p-4 mt-6">
+                    <h5 className="font-semibold text-gray-200 mb-2">Executive Summary</h5>
+                    <p className="text-sm text-gray-300">{threatPrediction.predictionSummary}</p>
+                  </div>
                 )}
               </div>
             </TabsContent>

@@ -286,11 +286,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/threat-prediction", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const incidents = await storage.getUserIncidents(userId);
-      const prediction = ThreatPredictionEngine.generatePrediction(incidents);
+      const incidents = await storage.getIncidentsByUserId(userId, { limit: 10 });
+      const prediction = await generateThreatPredictionFromIncidents(incidents, userId);
       res.json(prediction);
     } catch (error) {
-      res.status(500).json({ error: "Failed to generate threat prediction" });
+      console.error('Error generating threat prediction:', error);
+      res.status(500).json({ 
+        error: "Failed to generate threat prediction",
+        overallThreatLevel: 50,
+        confidence: 60,
+        riskTrend: "stable"
+      });
     }
   });
 
@@ -828,16 +834,15 @@ function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, sett
     summary: aiResult?.patternRecognition?.analysis?.substring(0, 300) || "No code analysis available",
     language: "Multiple",
     findings: aiResult?.patternRecognition?.keyFindings || [],
-    sandboxOutput: "Gemini AI analysis - no sandbox execution",
+    sandboxOutput: "Advanced AI analysis - no sandbox execution",
     executionOutput: aiResult?.patternRecognition?.analysis || "No execution output"
   };
   
-  // Compliance impact analysis
-  const complianceImpact = [{
-    framework: "ISO 27001",
-    impact: "Medium",
-    description: aiResult?.classification?.analysis || "Security incident requiring documentation"
-  }];
+  // Enhanced compliance impact analysis
+  const complianceImpact = generateDetailedComplianceImpact(aiResult, incident);
+  
+  // Generate threat prediction analysis
+  const threatPrediction = generateThreatPredictionAnalysis(aiResult, incident);
   
   // Similar incidents (mock for now - would need database lookup)
   const similarIncidents = [];
@@ -856,7 +861,7 @@ function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, sett
     strategicAnalyst: aiResult?.dualAI?.strategicAnalyst || 'Strategic analysis completed', 
     chiefAnalyst: aiResult?.dualAI?.chiefAnalyst || 'Executive analysis completed',
     aiInvestigation: Math.round((aiResult?.overallConfidence || 50) * 0.9), // Slightly lower than confidence
-    analysisExplanation: aiResult?.classification?.analysis || 'AI analysis completed with Gemini intelligence',
+    analysisExplanation: cleanGeminiText(aiResult?.classification?.analysis || 'Cybersecurity analysis completed with advanced intelligence'),
     
     // JSON string fields that frontend expects
     mitreDetails: JSON.stringify(mitreDetails),
@@ -868,6 +873,9 @@ function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, sett
     attackVectors: JSON.stringify(attackVectors),
     complianceImpact: JSON.stringify(complianceImpact),
     similarIncidents: JSON.stringify(similarIncidents),
+    threatPrediction: JSON.stringify(threatPrediction.prediction),
+    predictionConfidence: threatPrediction.confidence,
+    riskTrend: threatPrediction.trend,
     
     // Legacy fields for backward compatibility
     entities,
@@ -1040,44 +1048,44 @@ function generateCombinedAnalysisText(aiResult: any): string {
   
   // Pattern Recognition Analysis
   if (aiResult.patternRecognition?.analysis) {
-    sections.push(`PATTERN RECOGNITION:\n${aiResult.patternRecognition.analysis}\n`);
+    sections.push(`PATTERN ANALYSIS:\n${cleanGeminiText(aiResult.patternRecognition.analysis)}\n`);
   }
   
   // Threat Intelligence Analysis
   if (aiResult.threatIntelligence?.analysis) {
-    sections.push(`THREAT INTELLIGENCE:\n${aiResult.threatIntelligence.analysis}\n`);
+    sections.push(`THREAT INTELLIGENCE:\n${cleanGeminiText(aiResult.threatIntelligence.analysis)}\n`);
   }
   
   // MITRE ATT&CK Mapping
   if (aiResult.mitreMapping?.analysis) {
-    sections.push(`MITRE ATT&CK ANALYSIS:\n${aiResult.mitreMapping.analysis}\n`);
+    sections.push(`MITRE FRAMEWORK ANALYSIS:\n${cleanGeminiText(aiResult.mitreMapping.analysis)}\n`);
   }
   
   // Classification Analysis
   if (aiResult.classification?.analysis) {
-    sections.push(`INCIDENT CLASSIFICATION:\n${aiResult.classification.analysis}\n`);
+    sections.push(`INCIDENT CLASSIFICATION:\n${cleanGeminiText(aiResult.classification.analysis)}\n`);
   }
   
   // Purple Team Analysis
   if (aiResult.purpleTeam?.analysis) {
-    sections.push(`PURPLE TEAM ANALYSIS:\n${aiResult.purpleTeam.analysis}\n`);
+    sections.push(`PURPLE TEAM ASSESSMENT:\n${cleanGeminiText(aiResult.purpleTeam.analysis)}\n`);
   }
   
   // Dual-AI Analysis
   if (aiResult.dualAI) {
-    sections.push(`DUAL-AI ANALYSIS:\n`);
+    sections.push(`MULTI-ANALYST ASSESSMENT:\n`);
     if (aiResult.dualAI.tacticalAnalyst) {
-      sections.push(`Tactical Analyst: ${aiResult.dualAI.tacticalAnalyst}\n`);
+      sections.push(`Tactical Analysis: ${cleanGeminiText(aiResult.dualAI.tacticalAnalyst)}\n`);
     }
     if (aiResult.dualAI.strategicAnalyst) {
-      sections.push(`Strategic Analyst: ${aiResult.dualAI.strategicAnalyst}\n`);
+      sections.push(`Strategic Analysis: ${cleanGeminiText(aiResult.dualAI.strategicAnalyst)}\n`);
     }
     if (aiResult.dualAI.chiefAnalyst) {
-      sections.push(`Chief Analyst: ${aiResult.dualAI.chiefAnalyst}\n`);
+      sections.push(`Executive Assessment: ${cleanGeminiText(aiResult.dualAI.chiefAnalyst)}\n`);
     }
   }
   
-  return sections.join('\n');
+  return sections.join('\n') || 'Cybersecurity analysis completed';
 }
 
 // Generate attack vector analysis from Gemini AI results
@@ -1174,20 +1182,71 @@ function generateThreatIntelligenceFromAI(threatIntelligence: any): any {
 
 // Fallback analysis when Gemini AI is not available
 // Helper functions for data extraction and transformation
+function cleanGeminiText(text: string): string {
+  if (!text) return text;
+  
+  // Remove markdown formatting symbols
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold **text**
+    .replace(/\*([^*]+)\*/g, '$1')     // Remove italic *text*
+    .replace(/#+\s/g, '')              // Remove headers #
+    .replace(/```[^`]*```/g, '')       // Remove code blocks
+    .replace(/`([^`]+)`/g, '$1')       // Remove inline code
+    .replace(/^\s*[-*+]\s/gm, '• ')    // Standardize bullet points
+    .replace(/\n\s*\n\s*\n/g, '\n\n')  // Remove excessive line breaks
+    .trim();
+}
+
+function isValidIP(ip: string): boolean {
+  // Validate IP format and exclude private/local ranges
+  const ipPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  if (!ipPattern.test(ip)) return false;
+  
+  // Exclude private and local IP ranges
+  const parts = ip.split('.').map(Number);
+  const [a, b] = parts;
+  
+  // Private ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
+  if (a === 10) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 192 && b === 168) return false;
+  if (a === 127) return false; // Localhost
+  if (a === 169 && b === 254) return false; // Link-local
+  
+  return true;
+}
+
+function isUserAccount(text: string): boolean {
+  // Identify if text is likely a user account
+  const userPatterns = [
+    /^[a-zA-Z][a-zA-Z0-9._-]*$/, // Username format
+    /@.*\.(com|org|net|edu|gov)$/, // Email format
+    /\\[A-Z]+\\[a-zA-Z0-9]+/, // Domain\User format
+    /^(admin|user|guest|service|system|root|administrator)$/i // Common account names
+  ];
+  
+  return userPatterns.some(pattern => pattern.test(text));
+}
+
 function extractMitreTactics(analysis: string): Array<any> {
   const tactics = [];
+  const cleanAnalysis = cleanGeminiText(analysis);
+  
   // Look for MITRE tactic patterns like TA0001
-  const tacticMatches = analysis.match(/TA\d{4}[:\-\s]([^\n\r.]+)/gi);
+  const tacticMatches = cleanAnalysis.match(/TA\d{4}[:\-\s]([^\n\r.]+)/gi);
   if (tacticMatches) {
     tacticMatches.forEach((match, index) => {
       const parts = match.split(/[:\-\s]/);
       const id = parts[0];
-      const name = parts.slice(1).join(' ').trim();
-      tactics.push({
-        id,
-        name: name || `MITRE Tactic ${index + 1}`,
-        description: `Identified through Gemini AI analysis: ${name}`
-      });
+      const name = cleanGeminiText(parts.slice(1).join(' ').trim());
+      if (name && name.length > 3) {
+        tactics.push({
+          id,
+          name: name || `MITRE Tactic ${index + 1}`,
+          description: `Security analysis identified: ${name}`,
+          phase: getTacticPhase(id)
+        });
+      }
     });
   }
   
@@ -1196,11 +1255,30 @@ function extractMitreTactics(analysis: string): Array<any> {
     tactics.push({
       id: "TA0001",
       name: "Initial Access",
-      description: "Potential initial access vector identified in logs"
+      description: "Potential initial access vector identified in security logs",
+      phase: "Initial Compromise"
     });
   }
   
   return tactics;
+}
+
+function getTacticPhase(tacticId: string): string {
+  const phases = {
+    'TA0001': 'Initial Compromise',
+    'TA0002': 'Execution',
+    'TA0003': 'Persistence',
+    'TA0004': 'Privilege Escalation',
+    'TA0005': 'Defense Evasion',
+    'TA0006': 'Credential Access',
+    'TA0007': 'Discovery',
+    'TA0008': 'Lateral Movement',
+    'TA0009': 'Collection',
+    'TA0010': 'Exfiltration',
+    'TA0011': 'Command and Control',
+    'TA0040': 'Impact'
+  };
+  return phases[tacticId] || 'Analysis Phase';
 }
 
 function extractMitreTechniquesDetailed(analysis: string): Array<any> {
@@ -1300,47 +1378,87 @@ function extractBlueTeamDefenses(analysis: string): Array<any> {
 
 function extractStructuredEntities(analysis: string): Array<any> {
   const entities = [];
+  const cleanAnalysis = cleanGeminiText(analysis);
   
-  // Extract different entity types from analysis
-  const userMatches = analysis.match(/(?:user|account)[:\s]([A-Za-z0-9_\-\.@]+)/gi);
-  const processMatches = analysis.match(/(?:process|executable)[:\s]([A-Za-z0-9_\-\.\\\/]+)/gi);
-  const fileMatches = analysis.match(/(?:file|path)[:\s]([A-Za-z0-9_\-\.\\\/\:]+)/gi);
-  const ipMatches = analysis.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g);
-  
-  // Add user entities
+  // Extract user account entities (including those that shouldn't be IOCs)
+  const userMatches = cleanAnalysis.match(/(?:user|account|login)[:\s]([A-Za-z0-9_\-\.@\\]+)/gi);
   if (userMatches) {
-    userMatches.forEach((match, index) => {
+    [...new Set(userMatches)].forEach((match, index) => {
       const value = match.split(/[:\s]/).pop();
-      entities.push({
-        type: "User Account",
-        category: "user",
-        value: value,
-        description: "User entity identified in incident logs"
-      });
+      if (value && value.length > 2 && isUserAccount(value)) {
+        entities.push({
+          type: "User Account", 
+          category: "user",
+          value: value,
+          description: `User account identified in security logs`,
+          riskLevel: value.toLowerCase().includes('admin') ? "High" : "Medium",
+          accountType: value.includes('@') ? "Email Account" : "System Account"
+        });
+      }
     });
   }
   
-  // Add process entities
+  // Extract process entities
+  const processMatches = cleanAnalysis.match(/(?:process|executable|service)[:\s]([A-Za-z0-9_\-\.\\\/]+\.exe|[A-Za-z0-9_\-\.\\\/]+)/gi);
   if (processMatches) {
-    processMatches.forEach((match, index) => {
+    [...new Set(processMatches)].forEach((match, index) => {
       const value = match.split(/[:\s]/).pop();
-      entities.push({
-        type: "Process",
-        category: "process", 
-        value: value,
-        description: "Process identified in security analysis"
-      });
+      if (value && value.length > 3) {
+        entities.push({
+          type: "Process",
+          category: "process",
+          value: value,
+          description: `Process identified in security analysis`,
+          riskLevel: value.toLowerCase().includes('cmd') || value.toLowerCase().includes('powershell') ? "High" : "Medium",
+          processType: value.includes('.exe') ? "Executable" : "System Process"
+        });
+      }
     });
   }
   
-  // Add network entities
+  // Extract file entities
+  const fileMatches = cleanAnalysis.match(/(?:file|path)[:\s]([A-Za-z]:[A-Za-z0-9_\-\.\\\/\:]+|\/[A-Za-z0-9_\-\.\/]+)/gi);
+  if (fileMatches) {
+    [...new Set(fileMatches)].slice(0, 10).forEach((match, index) => {
+      const value = match.split(/[:\s]/).pop();
+      if (value && value.length > 5) {
+        entities.push({
+          type: "File Path",
+          category: "file",
+          value: value,
+          description: `File path identified in security analysis`,
+          riskLevel: value.toLowerCase().includes('temp') || value.toLowerCase().includes('downloads') ? "Medium" : "Low",
+          fileType: value.includes('.') ? value.split('.').pop().toUpperCase() : "Unknown"
+        });
+      }
+    });
+  }
+  
+  // Extract network entities (all IPs, including internal ones for entity mapping)
+  const ipMatches = cleanAnalysis.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g);
   if (ipMatches) {
-    ipMatches.forEach((ip, index) => {
+    [...new Set(ipMatches)].forEach((ip, index) => {
+      const parts = ip.split('.').map(Number);
+      const [a, b] = parts;
+      let networkType = "External";
+      let riskLevel = "High";
+      
+      // Identify network type
+      if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
+        networkType = "Internal";
+        riskLevel = "Low";
+      } else if (a === 127) {
+        networkType = "Localhost";
+        riskLevel = "Low";
+      }
+      
       entities.push({
         type: "IP Address",
         category: "network",
         value: ip,
-        description: "Network entity from incident data"
+        description: `${networkType} IP address from security logs`,
+        riskLevel,
+        networkType
       });
     });
   }
@@ -1384,36 +1502,71 @@ function extractEntityRelationships(analysis: string): Array<any> {
 
 function transformIOCsToDetailedFormat(analysis: string): Array<any> {
   const iocs = [];
+  const cleanAnalysis = cleanGeminiText(analysis);
   
-  // Extract IP addresses
-  const ipMatches = analysis.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g);
+  // Extract and validate IP addresses (exclude user accounts and private IPs)
+  const ipMatches = cleanAnalysis.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g);
   if (ipMatches) {
-    ipMatches.forEach(ip => {
+    const validIPs = [...new Set(ipMatches)].filter(ip => isValidIP(ip));
+    validIPs.forEach(ip => {
+      // Only add if it's not in a user context
+      const ipContext = cleanAnalysis.toLowerCase();
+      if (!ipContext.includes(`user ${ip}`) && !ipContext.includes(`account ${ip}`)) {
+        iocs.push({
+          type: "IP Address",
+          value: ip,
+          confidence: "High",
+          reputation: "Suspicious - External IP",
+          geoLocation: "External Network",
+          threatIntelligence: "External IP address identified in security logs",
+          riskLevel: "Medium",
+          firstSeen: new Date().toISOString().split('T')[0]
+        });
+      }
+    });
+  }
+  
+  // Extract domain patterns (exclude common legitimate domains)
+  const domainMatches = cleanAnalysis.match(/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}/g);
+  if (domainMatches) {
+    const suspiciousDomains = [...new Set(domainMatches)].filter(domain => {
+      const lowerDomain = domain.toLowerCase();
+      return !lowerDomain.includes('example') && 
+             !lowerDomain.includes('localhost') &&
+             !lowerDomain.includes('microsoft') &&
+             !lowerDomain.includes('google') &&
+             !lowerDomain.includes('windows') &&
+             lowerDomain.length > 6;
+    });
+    
+    suspiciousDomains.slice(0, 5).forEach(domain => {
       iocs.push({
-        type: "IP Address",
-        value: ip,
-        confidence: "high",
-        reputation: "Under analysis",
+        type: "Domain",
+        value: domain,
+        confidence: "Medium",
+        reputation: "Requires Investigation",
         geoLocation: "Unknown",
-        threatIntelligence: "Identified in security logs"
+        threatIntelligence: "Domain identified in incident analysis",
+        riskLevel: "Medium",
+        firstSeen: new Date().toISOString().split('T')[0]
       });
     });
   }
   
-  // Extract domain/URL patterns
-  const domainMatches = analysis.match(/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}/g);
-  if (domainMatches) {
-    domainMatches.slice(0, 3).forEach(domain => {
-      if (!domain.includes('example') && !domain.includes('localhost')) {
-        iocs.push({
-          type: "Domain",
-          value: domain,
-          confidence: "medium",
-          reputation: "Requires investigation",
-          geoLocation: "Unknown",
-          threatIntelligence: "Domain found in incident data"
-        });
-      }
+  // Extract file hashes if present
+  const hashMatches = cleanAnalysis.match(/\b[a-fA-F0-9]{32,64}\b/g);
+  if (hashMatches) {
+    [...new Set(hashMatches)].slice(0, 3).forEach(hash => {
+      iocs.push({
+        type: hash.length === 32 ? "MD5 Hash" : "SHA256 Hash",
+        value: hash,
+        confidence: "High",
+        reputation: "Suspicious File",
+        geoLocation: "N/A",
+        threatIntelligence: "File hash identified in security analysis",
+        riskLevel: "High",
+        firstSeen: new Date().toISOString().split('T')[0]
+      });
     });
   }
   
@@ -1491,8 +1644,271 @@ function extractAttackVectors(aiResult: any): Array<any> {
   return vectors;
 }
 
+function generateDetailedComplianceImpact(aiResult: any, incident: any): Array<any> {
+  const impacts = [];
+  const analysis = aiResult?.classification?.analysis || '';
+  const cleanAnalysis = cleanGeminiText(analysis);
+  
+  // Determine severity level for compliance impact
+  const severityLevel = aiResult?.finalClassification || 'medium';
+  const confidence = aiResult?.overallConfidence || 50;
+  
+  // ISO 27001 Analysis
+  let isoImpact = "Low";
+  let isoDescription = "Standard security documentation required";
+  if (severityLevel === 'high' || severityLevel === 'critical') {
+    isoImpact = "High";
+    isoDescription = "Significant security incident requiring comprehensive documentation, management notification, and potential security control review";
+  } else if (severityLevel === 'medium') {
+    isoImpact = "Medium";
+    isoDescription = "Security incident requiring formal documentation and investigation under information security management system";
+  }
+  
+  impacts.push({
+    framework: "ISO 27001",
+    impact: isoImpact,
+    description: isoDescription,
+    requirements: ["Document incident details", "Notify ISMS team", "Review security controls"],
+    timeline: isoImpact === "High" ? "Immediate" : "Within 24 hours"
+  });
+  
+  // GDPR Analysis (if data-related)
+  if (cleanAnalysis.toLowerCase().includes('data') || cleanAnalysis.toLowerCase().includes('personal') || cleanAnalysis.toLowerCase().includes('privacy')) {
+    impacts.push({
+      framework: "GDPR",
+      impact: "High",
+      description: "Potential personal data breach requiring notification assessment under GDPR Article 33/34",
+      requirements: ["Assess personal data involvement", "Document breach details", "Evaluate notification requirements"],
+      timeline: "Within 72 hours"
+    });
+  }
+  
+  // SOX Compliance (if financial systems involved)
+  if (cleanAnalysis.toLowerCase().includes('financial') || cleanAnalysis.toLowerCase().includes('accounting') || cleanAnalysis.toLowerCase().includes('transaction')) {
+    impacts.push({
+      framework: "SOX",
+      impact: "High", 
+      description: "Security incident affecting financial reporting systems requiring executive notification",
+      requirements: ["Assess financial system impact", "Document control deficiencies", "Management disclosure evaluation"],
+      timeline: "Immediate executive notification required"
+    });
+  }
+  
+  // NIST Cybersecurity Framework
+  impacts.push({
+    framework: "NIST CSF",
+    impact: confidence > 70 ? "High" : "Medium",
+    description: `Security incident requiring response under NIST framework - ${getFunctionImpacted(cleanAnalysis)}`,
+    requirements: ["Identify affected systems", "Protect critical assets", "Detect similar threats", "Respond to incident", "Recover operations"],
+    timeline: "Ongoing response required"
+  });
+  
+  return impacts;
+}
+
+function getFunctionImpacted(analysis: string): string {
+  if (analysis.toLowerCase().includes('detect')) return "Detection function impacted";
+  if (analysis.toLowerCase().includes('protect')) return "Protection function impacted"; 
+  if (analysis.toLowerCase().includes('respond')) return "Response function activated";
+  if (analysis.toLowerCase().includes('recover')) return "Recovery function required";
+  return "Multiple functions may be impacted";
+}
+
+async function generateThreatPredictionFromIncidents(incidents: any[], userId: string): Promise<any> {
+  if (!incidents || incidents.length === 0) {
+    return {
+      overallThreatLevel: 45,
+      confidence: 60,
+      riskTrend: "stable",
+      threatScenarios: [],
+      environmentalImpact: {}
+    };
+  }
+
+  // Analyze recent incident patterns
+  const recentSeverities = incidents.map(inc => inc.severity);
+  const highSeverityCount = recentSeverities.filter(s => s === 'high' || s === 'critical').length;
+  const avgConfidence = incidents.reduce((sum, inc) => sum + (inc.confidence || 50), 0) / incidents.length;
+  
+  const overallThreatLevel = Math.min(95, Math.max(20, 
+    (highSeverityCount * 15) + (avgConfidence * 0.5) + 25
+  ));
+  
+  let riskTrend = "stable";
+  if (incidents.length >= 3) {
+    const recentThree = incidents.slice(0, 3);
+    const severityTrend = recentThree.map(inc => {
+      switch(inc.severity) {
+        case 'critical': return 5;
+        case 'high': return 4;
+        case 'medium': return 3;
+        case 'low': return 2;
+        default: return 1;
+      }
+    });
+    
+    const trendDirection = severityTrend[0] - severityTrend[2];
+    if (trendDirection > 0) riskTrend = "increasing";
+    else if (trendDirection < 0) riskTrend = "decreasing";
+  }
+
+  return {
+    overallThreatLevel: Math.round(overallThreatLevel),
+    confidence: Math.round(avgConfidence),
+    riskTrend,
+    recentIncidents: incidents.length,
+    threatScenarios: [
+      {
+        timeframe: "Immediate (0-24 hours)",
+        likelihood: highSeverityCount > 0 ? "High" : "Medium",
+        impact: highSeverityCount > 2 ? "Critical" : "Medium",
+        threats: [
+          "Continued exploitation of identified vulnerabilities",
+          "Lateral movement within network infrastructure", 
+          "Data exfiltration attempts from compromised systems"
+        ]
+      }
+    ],
+    environmentalImpact: {
+      networkInfrastructure: {
+        riskLevel: highSeverityCount > 1 ? "High" : "Medium",
+        description: "Network security posture based on recent incident analysis"
+      }
+    }
+  };
+}
+
+function generateThreatPredictionAnalysis(aiResult: any, incident: any): { prediction: any, confidence: number, trend: string } {
+  const allAnalysis = [
+    aiResult?.patternRecognition?.analysis || '',
+    aiResult?.threatIntelligence?.analysis || '',
+    aiResult?.classification?.analysis || '',
+    aiResult?.purpleTeam?.analysis || ''
+  ].join(' ');
+  
+  const cleanAnalysis = cleanGeminiText(allAnalysis);
+  const overallConfidence = aiResult?.overallConfidence || 50;
+  const severityLevel = aiResult?.finalClassification || 'medium';
+  
+  // Determine threat trend based on analysis
+  let trend = "stable";
+  if (cleanAnalysis.toLowerCase().includes('increasing') || 
+      cleanAnalysis.toLowerCase().includes('escalating') ||
+      cleanAnalysis.toLowerCase().includes('growing')) {
+    trend = "increasing";
+  } else if (cleanAnalysis.toLowerCase().includes('decreasing') || 
+             cleanAnalysis.toLowerCase().includes('declining') ||
+             cleanAnalysis.toLowerCase().includes('contained')) {
+    trend = "decreasing";
+  }
+  
+  // Calculate prediction confidence (slightly higher than overall for prediction-focused analysis)
+  const predictionConfidence = Math.min(95, overallConfidence + 10);
+  
+  // Generate threat prediction scenarios
+  const threatScenarios = [];
+  
+  // Immediate threats (0-24 hours)
+  threatScenarios.push({
+    timeframe: "Immediate (0-24 hours)",
+    likelihood: overallConfidence > 70 ? "High" : "Medium",
+    impact: severityLevel === 'critical' ? "Critical" : severityLevel === 'high' ? "High" : "Medium",
+    threats: [
+      "Continued exploitation of identified vulnerabilities",
+      "Lateral movement within network infrastructure",
+      "Data exfiltration attempts from compromised systems"
+    ],
+    recommendations: [
+      "Implement immediate containment measures",
+      "Monitor critical systems for suspicious activity",
+      "Activate incident response team"
+    ]
+  });
+  
+  // Short-term threats (1-7 days)
+  threatScenarios.push({
+    timeframe: "Short-term (1-7 days)",
+    likelihood: "Medium",
+    impact: "Medium",
+    threats: [
+      "Similar attack patterns targeting related infrastructure",
+      "Credential compromise leading to privileged access",
+      "Deployment of persistence mechanisms"
+    ],
+    recommendations: [
+      "Strengthen monitoring and detection capabilities",
+      "Review and update security policies",
+      "Conduct threat hunting activities"
+    ]
+  });
+  
+  // Long-term threats (1-30 days)
+  if (overallConfidence > 60) {
+    threatScenarios.push({
+      timeframe: "Long-term (1-30 days)",
+      likelihood: overallConfidence > 80 ? "Medium" : "Low",
+      impact: "Medium",
+      threats: [
+        "Advanced persistent threat establishment",
+        "Supply chain attack propagation",
+        "Coordinated multi-vector campaigns"
+      ],
+      recommendations: [
+        "Implement comprehensive security architecture review",
+        "Enhance third-party security assessments",
+        "Develop long-term threat intelligence capabilities"
+      ]
+    });
+  }
+  
+  // Environmental impact assessment
+  const environmentalImpact = {
+    networkInfrastructure: {
+      riskLevel: severityLevel === 'critical' ? "High" : "Medium",
+      description: "Network segmentation and monitoring capabilities may be compromised",
+      mitigationPriority: "High"
+    },
+    dataAssets: {
+      riskLevel: cleanAnalysis.toLowerCase().includes('data') ? "High" : "Medium",
+      description: "Sensitive data assets may be at risk of unauthorized access",
+      mitigationPriority: "Critical"
+    },
+    businessOperations: {
+      riskLevel: severityLevel === 'critical' ? "High" : "Low",
+      description: "Business continuity may be impacted by security incident",
+      mitigationPriority: "Medium"
+    }
+  };
+  
+  // Overall threat prediction summary
+  const prediction = {
+    overallThreatLevel: overallConfidence,
+    predictionSummary: `Based on security analysis, threat level is assessed as ${severityLevel.toUpperCase()} with ${predictionConfidence}% confidence. Environmental monitoring indicates ${trend} risk trend.`,
+    threatScenarios,
+    environmentalImpact,
+    confidenceFactors: [
+      "Pattern recognition accuracy",
+      "Threat intelligence correlation",
+      "Historical incident comparison",
+      "Multi-analyst consensus"
+    ],
+    monitoringRecommendations: [
+      "Implement continuous security monitoring",
+      "Establish threat intelligence feeds", 
+      "Deploy advanced analytics capabilities",
+      "Maintain incident response readiness"
+    ]
+  };
+  
+  return {
+    prediction,
+    confidence: predictionConfidence,
+    trend
+  };
+}
+
 function generateFailsafeAnalysis(incident: any, settings: any, threatReport: any): any {
-  console.log('Using failsafe analysis - Gemini AI unavailable');
+  console.log('Using failsafe analysis - AI services unavailable');
   
   // Create failsafe data in the correct format that frontend expects
   const mitreDetails = {
