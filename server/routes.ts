@@ -112,7 +112,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       // Real Gemini AI analysis with 8 specialized agents replacing mock system
-      const aiAnalysis = await generateRealAIAnalysis(validatedData, userSettings, threatReport);
+      console.log('🔍 Starting Gemini AI analysis for incident:', validatedData.title);
+      console.log('📊 Log data length:', (validatedData.logData || '').length, 'characters');
+      console.log('⚙️ User settings:', JSON.stringify(userSettings, null, 2));
+      
+      let aiAnalysis;
+      try {
+        aiAnalysis = await generateRealAIAnalysis(validatedData, userSettings, threatReport);
+        console.log('✅ Gemini AI analysis completed successfully');
+        console.log('📈 Analysis confidence:', aiAnalysis?.confidence);
+        console.log('🔍 Analysis classification:', aiAnalysis?.classification);
+      } catch (error) {
+        console.error('❌ Gemini AI analysis failed:', error);
+        console.log('🔄 Using fallback analysis');
+        aiAnalysis = generateFailsafeAnalysis(validatedData, userSettings, threatReport);
+      }
       const incidentData = {
         ...validatedData,
         userId: userId, // Associate incident with user
@@ -710,7 +724,16 @@ async function generateRealAIAnalysis(incident: any, settings?: any, threatRepor
   const systemContext = incident.systemContext || '';
   const additionalLogs = incident.additionalLogs || '';
   
+  console.log('🚀 generateRealAIAnalysis called with:');
+  console.log('  - Title:', title);
+  console.log('  - Log data chars:', logData.length);
+  console.log('  - System context chars:', systemContext.length);
+  console.log('  - Additional logs chars:', additionalLogs.length);
+  console.log('  - Has settings:', !!settings);
+  console.log('  - Has threat report:', !!threatReport);
+  
   try {
+    console.log('📞 Calling GeminiCyberAnalyst.analyzeIncident...');
     // Use real Gemini AI with 8 specialized agents
     const aiResult = await GeminiCyberAnalyst.analyzeIncident(
       logData,
@@ -720,12 +743,33 @@ async function generateRealAIAnalysis(incident: any, settings?: any, threatRepor
       settings,
       threatReport
     );
+    
+    console.log('✨ GeminiCyberAnalyst returned result:', {
+      hasPatternRecognition: !!aiResult?.patternRecognition,
+      hasThreatIntelligence: !!aiResult?.threatIntelligence,
+      hasMitreMapping: !!aiResult?.mitreMapping,
+      hasClassification: !!aiResult?.classification,
+      overallConfidence: aiResult?.overallConfidence,
+      finalClassification: aiResult?.finalClassification
+    });
 
     // Transform Gemini results to match expected format
-    return transformGeminiResultsToLegacyFormat(aiResult, incident, settings);
+    const transformedResult = transformGeminiResultsToLegacyFormat(aiResult, incident, settings);
+    console.log('🔄 Transformation completed:', {
+      hasAnalysis: !!transformedResult?.analysis,
+      confidence: transformedResult?.confidence,
+      classification: transformedResult?.classification,
+      mitreCount: transformedResult?.mitreAttack?.length || 0,
+      iocCount: transformedResult?.iocs?.length || 0
+    });
+    
+    return transformedResult;
   } catch (error) {
-    console.error('Gemini AI analysis failed:', error);
+    console.error('❌ Gemini AI analysis failed with error:', error);
+    console.error('📋 Error details:', error.message);
+    console.error('🔍 Error stack:', error.stack);
     // Fallback to simplified analysis if Gemini fails
+    console.log('🔄 Falling back to failsafe analysis...');
     return generateFailsafeAnalysis(incident, settings, threatReport);
   }
 }

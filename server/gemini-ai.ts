@@ -45,7 +45,13 @@ export class GeminiCyberAnalyst {
   ): Promise<AIAnalysisResult> {
     const fullContent = `${title} ${logData} ${systemContext} ${additionalLogs}`;
     
+    console.log('🤖 GeminiCyberAnalyst.analyzeIncident starting...');
+    console.log('📝 Full content length:', fullContent.length);
+    console.log('🔑 API key exists:', !!process.env.GEMINI_API_KEY);
+    console.log('🎯 Model:', this.MODEL);
+    
     try {
+      console.log('🚀 Starting parallel execution of 8 AI agents...');
       // Run all 8 AI agents in parallel for efficiency
       const [
         patternRecognition,
@@ -66,14 +72,29 @@ export class GeminiCyberAnalyst {
         this.runPurpleTeamAgent(fullContent),
         this.runEntityMappingAgent(fullContent)
       ]);
+      
+      console.log('✅ All AI agents completed successfully');
+      console.log('📊 Agent results summary:', {
+        patternRecognition: patternRecognition?.confidence || 0,
+        threatIntelligence: threatIntelligence?.confidence || 0,
+        mitreMapping: mitreMapping?.confidence || 0,
+        iocEnrichment: iocEnrichment?.confidence || 0,
+        classification: classification?.confidence || 0,
+        purpleTeam: purpleTeam?.confidence || 0,
+        entityMapping: entityMapping?.confidence || 0
+      });
 
       // Calculate overall confidence and final classification
       const overallConfidence = this.calculateOverallConfidence([
         patternRecognition, threatIntelligence, mitreMapping, 
         iocEnrichment, classification, purpleTeam, entityMapping
       ]);
+      
+      const finalClassification = classification?.analysis?.includes('TRUE POSITIVE') ? 'true-positive' : 'false-positive';
+      console.log('🎯 Overall confidence:', overallConfidence);
+      console.log('📋 Final classification:', finalClassification);
 
-      return {
+      const result = {
         patternRecognition,
         threatIntelligence,
         mitreMapping,
@@ -83,15 +104,20 @@ export class GeminiCyberAnalyst {
         purpleTeam,
         entityMapping,
         overallConfidence,
-        finalClassification: classification.analysis.includes('TRUE POSITIVE') ? 'true-positive' : 'false-positive',
+        finalClassification,
         reasoning: this.synthesizeReasoning([
           patternRecognition, threatIntelligence, mitreMapping,
           iocEnrichment, classification, purpleTeam, entityMapping
         ])
       };
+      
+      console.log('✨ Analysis result completed successfully');
+      return result;
     } catch (error) {
-      console.error('Gemini AI analysis error:', error);
-      throw new Error(`AI analysis failed: ${error}`);
+      console.error('❌ Gemini AI analysis error:', error);
+      console.error('📋 Error message:', error.message);
+      console.error('🔍 Error stack:', error.stack);
+      throw new Error(`AI analysis failed: ${error.message}`);
     }
   }
 
@@ -543,6 +569,8 @@ RECOMMENDATIONS: [3-4 actionable items]`;
       recommendations: [`Manually review ${agent.toLowerCase()} aspects`, "Retry analysis when service is available"]
     };
   }
+
+
 
   /**
    * Calculate overall confidence from all agents
