@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { Incident } from '../shared/schema';
+import { generateIncidentPDF } from '../client/src/utils/pdf-export.js';
 
 // Create reusable transporter object using Gmail SMTP
 let transporter: nodemailer.Transporter | null = null;
@@ -193,18 +194,17 @@ export async function sendIncidentNotification(data: EmailNotificationData): Pro
             </div>
           </div>
 
-          <!-- Instant PDF Report -->
+          <!-- PDF Report Notice -->
           <div style="padding: 25px 0; text-align: center; background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border-radius: 12px; margin: 20px 0; border: 2px solid #00BFFF;">
             <h3 style="color: #00BFFF; margin: 0 0 15px; font-size: 18px; font-weight: bold;">📊 COMPREHENSIVE ANALYSIS REPORT</h3>
             <p style="color: #d1d5db; margin: 0 0 20px; font-size: 14px;">Complete incident analysis with AI insights, threat intelligence, and visual analytics</p>
-            <a href="${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${incident.id}?export=pdf" 
-               style="display: inline-block; background: linear-gradient(135deg, #00BFFF 0%, #0080FF 100%); 
-                      color: white; text-decoration: none; padding: 18px 40px; border-radius: 10px; 
-                      font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; 
-                      box-shadow: 0 6px 20px rgba(0, 191, 255, 0.4); 
-                      border: 2px solid #00BFFF; font-size: 16px;">
-              📄 DOWNLOAD FULL PDF REPORT
-            </a>
+            <div style="background: linear-gradient(135deg, #00BFFF 0%, #0080FF 100%); 
+                       color: white; padding: 18px 40px; border-radius: 10px; 
+                       font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; 
+                       box-shadow: 0 6px 20px rgba(0, 191, 255, 0.4); 
+                       border: 2px solid #00BFFF; font-size: 16px; display: inline-block;">
+              📎 ATTACHED: FULL PDF REPORT
+            </div>
             <p style="color: #9ca3af; margin: 15px 0 0; font-size: 12px;">
               Includes: AI Analysis • Threat Intel • MITRE Mapping • Visual Charts • Executive Summary
             </p>
@@ -257,6 +257,27 @@ View Details: ${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${i
 This is an automated alert from CyberSight AI
   `.trim();
   
+  // Generate PDF attachment
+  let pdfBuffer: Buffer | null = null;
+  try {
+    console.log('Generating PDF attachment for incident:', incident.id);
+    pdfBuffer = await generateIncidentPDF(incident);
+    console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes');
+  } catch (error) {
+    console.error('Failed to generate PDF attachment:', error);
+    // Continue without PDF attachment if generation fails
+  }
+
+  // Prepare email attachments
+  const attachments: any[] = [];
+  if (pdfBuffer) {
+    attachments.push({
+      filename: `CyberSight_Incident_${incident.id.substring(0, 8)}_Report.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    });
+  }
+
   try {
     const mailOptions = {
       from: `CyberSight AI <${process.env.GMAIL_EMAIL}>`,
@@ -264,11 +285,12 @@ This is an automated alert from CyberSight AI
       subject,
       text: textContent,
       html: htmlContent,
+      attachments,
       priority: (isHighSeverity ? 'high' : 'normal') as 'high' | 'normal'
     };
     
     await transport.sendMail(mailOptions);
-    console.log(`Email notification sent to ${to} for incident ${incident.id}`);
+    console.log(`Email notification sent to ${to} for incident ${incident.id}${pdfBuffer ? ' with PDF attachment' : ''}`);
     return true;
   } catch (error) {
     console.error('Failed to send email notification:', error);
