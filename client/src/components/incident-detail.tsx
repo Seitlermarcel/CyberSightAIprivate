@@ -1238,7 +1238,11 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                             <h4 className="font-medium hover:text-cyan-400 transition-colors">{similar.title}</h4>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Badge className="bg-green-600 text-white">{similar.match}</Badge>
+                            <Badge className="bg-green-600 text-white">
+                              {typeof similar.match === 'string' && similar.match.includes('%') 
+                                ? similar.match 
+                                : `${similar.match}%`}
+                            </Badge>
                             <Button
                               variant="ghost"
                               size="sm"

@@ -173,17 +173,31 @@ Identify and score these pattern categories:
 
 Generate executable code for:
 - PowerShell deobfuscation scripts
-- Registry analysis commands
+- Registry analysis commands  
 - Network traffic queries
 - File hash verification
 
+CRITICAL: For sandbox output, simulate ACTUAL command execution results with realistic data, errors, and outputs that would occur when running the generated code.
+
 Provide your analysis in this format:
 PATTERNS DETECTED: [concise findings]
-CODE GENERATION: [executable scripts for investigation]
-SANDBOX OUTPUT: [simulated execution results showing script output]
+CODE GENERATION: [complete executable scripts with proper syntax]
+SANDBOX OUTPUT: [realistic simulation of running the code with actual outputs, including command prompts, results, errors, and data that would be returned]
 CONFIDENCE: [1-100]
 KEY FINDINGS: [3-5 bullet points with short titles]
-RECOMMENDATIONS: [3-4 actionable items]`;
+RECOMMENDATIONS: [3-4 actionable items]
+
+Example sandbox output format:
+PS C:\> Get-Process | Where-Object {$_.Name -eq "powershell"}
+Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  SI ProcessName
+-------  ------    -----      -----     ------     --  -- -----------
+    692      31    45236      52464       2.34   4832   1 powershell
+    
+PS C:\> Get-WinEvent -LogName Security -MaxEvents 5
+TimeCreated                     Id LevelDisplayName Message
+-----------                     -- ---------------- -------
+1/19/2025 4:20:15 PM          4624 Information      An account was successfully logged on...`;
+
 
     try {
       console.log('🔍 Pattern Recognition Agent starting...');
