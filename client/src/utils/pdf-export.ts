@@ -153,8 +153,8 @@ export function generateIncidentPDF(incident: Incident, user: any) {
         <div class="metadata">
             <div>
                 <div class="metadata-item">
-                    <div class="metadata-label">Incident ID</div>
-                    <div>${incident.id}</div>
+                    <div class="metadata-label">Entity ID</div>
+                    <div>${getEntityIdFromIncident(incident)}</div>
                 </div>
                 <div class="metadata-item">
                     <div class="metadata-label">Status</div>
@@ -844,4 +844,46 @@ function renderEnvironmentalImpact(threatPrediction: any): string {
       </div>
     </div>
   `;
+}
+
+// Helper function to extract EntityID from incident analysis data
+function getEntityIdFromIncident(incident: Incident): string {
+  try {
+    // Try to extract EntityID from entity mapping analysis
+    if (incident.entityMapping) {
+      const entityData = typeof incident.entityMapping === 'string' 
+        ? JSON.parse(incident.entityMapping) 
+        : incident.entityMapping;
+      
+      if (entityData.entityId) return entityData.entityId;
+      
+      // Try to extract from analysis text
+      const analysisText = entityData.analysis || '';
+      const entityIdMatch = analysisText.match(/ENTITY ID:\s*(ENT-\d{4})/i);
+      if (entityIdMatch) return entityIdMatch[1];
+    }
+    
+    // Try to extract from any other analysis fields
+    const analysisFields = [
+      incident.aiAnalysis,
+      incident.patternAnalysis,
+      incident.purpleTeam,
+      incident.codeAnalysis
+    ];
+    
+    for (const field of analysisFields) {
+      if (field) {
+        const fieldData = typeof field === 'string' ? field : JSON.stringify(field);
+        const entityIdMatch = fieldData.match(/ENTITY ID:\s*(ENT-\d{4})/i);
+        if (entityIdMatch) return entityIdMatch[1];
+      }
+    }
+    
+    // Generate fallback EntityID based on incident ID
+    const shortId = incident.id.split('-')[0];
+    return `ENT-${shortId.substring(0, 4).toUpperCase()}`;
+  } catch (error) {
+    // Fallback EntityID generation
+    return `ENT-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
+  }
 }

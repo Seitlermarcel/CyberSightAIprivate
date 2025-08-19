@@ -157,7 +157,8 @@ CONTENT TO ANALYZE:
 ${content}
 
 FORMATTING REQUIREMENTS:
-- Keep all titles SHORT (max 6 words)
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
 - Generate executable code for analysis
 - Provide sandbox simulation scripts
 
@@ -215,7 +216,8 @@ CONTENT TO ANALYZE:
 ${content}
 
 FORMATTING REQUIREMENTS:
-- Keep all titles SHORT (max 6 words)
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
 - Provide concise, structured analysis
 
 Analyze for:
@@ -262,7 +264,8 @@ CONTENT TO ANALYZE:
 ${content}
 
 FORMATTING REQUIREMENTS:
-- Keep all titles SHORT (max 6 words)
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
 - Use concise technique descriptions
 
 Map to MITRE ATT&CK framework:
@@ -319,7 +322,8 @@ ${content}
 ${threatContext}
 
 FORMATTING REQUIREMENTS:
-- Keep all titles SHORT (max 6 words)
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
 - Provide concise IOC analysis
 
 Extract and analyze:
@@ -499,7 +503,8 @@ CONTENT:
 ${content}
 
 IMPORTANT FORMATTING REQUIREMENTS:
-- Keep all section titles SHORT (max 6 words)
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
 - Use concise, structured analysis
 - Include compliance impact assessment (GDPR, SOX, HIPAA, PCI-DSS)
 - Explain WHY this threat poses compliance risks
@@ -545,7 +550,8 @@ CONTENT TO ANALYZE:
 ${content}
 
 FORMATTING REQUIREMENTS:
-- Keep all titles SHORT (max 6 words)
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
 - Provide balanced red/blue team perspectives
 
 Provide purple team analysis covering:
@@ -579,14 +585,16 @@ RECOMMENDATIONS: [3-4 actionable items]`;
    * AI Agent 7: Entity Mapping - Maps relationships between entities
    */
   private static async runEntityMappingAgent(content: string): Promise<AIAgentResponse> {
+    const entityId = `ENT-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
     const prompt = `You are an entity relationship analyst. Map the relationships between different entities (users, processes, files, networks) in this incident.
 
 CONTENT TO ANALYZE:
 ${content}
 
 FORMATTING REQUIREMENTS:
-- Keep all titles SHORT (max 6 words)
-- Use concise relationship descriptions
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Generate Entity ID: ${entityId}
 
 Map entity relationships:
 - User accounts and their actions
@@ -597,6 +605,7 @@ Map entity relationships:
 - Data flow between entities
 
 Format your response as:
+ENTITY ID: ${entityId}
 ENTITY RELATIONSHIPS: [map connections between entities]
 CONFIDENCE: [1-100]
 KEY FINDINGS: [3-5 bullet points with short titles]
@@ -620,6 +629,10 @@ RECOMMENDATIONS: [3-4 actionable items]`;
    * Parse agent response into structured format
    */
   private static parseAgentResponse(agent: string, analysis: string): AIAgentResponse {
+    // Extract Entity ID for incident tracking
+    const entityIdMatch = analysis.match(/ENTITY ID:\s*(ENT-\d{4})/i);
+    const entityId = entityIdMatch ? entityIdMatch[1] : `ENT-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
+
     // Extract confidence score
     const confidenceMatch = analysis.match(/CONFIDENCE:\s*(\d+)/i);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
@@ -632,23 +645,27 @@ RECOMMENDATIONS: [3-4 actionable items]`;
     const codeMatch = analysis.match(/CODE GENERATION:([\s\S]*?)(?=SANDBOX OUTPUT:|CONFIDENCE:|KEY FINDINGS:|RECOMMENDATIONS:|$)/i);
     const codeGeneration = codeMatch ? codeMatch[1].trim() : '';
 
-    // Extract key findings
+    // Extract key findings and clean formatting
     const findingsMatch = analysis.match(/KEY FINDINGS:([\s\S]*?)(?=RECOMMENDATIONS:|$)/i);
     const findingsText = findingsMatch ? findingsMatch[1].trim() : '';
     const keyFindings = findingsText
       .split(/\n/)
       .filter(line => line.trim().length > 0)
-      .map(line => line.replace(/^[-•*]\s*/, '').trim())
+      .map(line => line.replace(/^[-•*#]\s*/, '').trim())
+      .map(line => line.replace(/\*\*(.*?)\*\*/g, '$1')) // Remove bold formatting
+      .map(line => line.replace(/\*(.*?)\*/g, '$1')) // Remove italic formatting
       .filter(line => line.length > 0)
       .slice(0, 5);
 
-    // Extract recommendations
+    // Extract recommendations and clean formatting
     const recommendationsMatch = analysis.match(/RECOMMENDATIONS:([\s\S]*)$/i);
     const recommendationsText = recommendationsMatch ? recommendationsMatch[1].trim() : '';
     const recommendations = recommendationsText
       .split(/\n/)
       .filter(line => line.trim().length > 0)
-      .map(line => line.replace(/^[-•*]\s*/, '').trim())
+      .map(line => line.replace(/^[-•*#]\s*/, '').trim())
+      .map(line => line.replace(/\*\*(.*?)\*\*/g, '$1')) // Remove bold formatting
+      .map(line => line.replace(/\*(.*?)\*/g, '$1')) // Remove italic formatting
       .filter(line => line.length > 0)
       .slice(0, 4);
 
@@ -656,6 +673,7 @@ RECOMMENDATIONS: [3-4 actionable items]`;
       agent,
       analysis,
       confidence,
+      entityId,
       keyFindings: keyFindings.length > 0 ? keyFindings : [`${agent} analysis completed`],
       recommendations: recommendations.length > 0 ? recommendations : [`Review ${agent.toLowerCase()} results manually`]
     };
