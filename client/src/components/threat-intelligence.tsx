@@ -1,4 +1,4 @@
-import { Shield, AlertTriangle, Info, Globe, Server, Hash, Bug } from "lucide-react";
+import { Shield, AlertTriangle, Info, Globe, Server, Hash, Bug, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,15 +114,31 @@ export default function ThreatIntelligence({ threatReport }: ThreatIntelligenceP
 
           <TabsContent value="iocs" className="mt-4">
             <div className="space-y-3">
+              {(!threatReport.iocs?.ips?.length && !threatReport.iocs?.domains?.length && 
+                !threatReport.iocs?.hashes?.length && !threatReport.iocs?.cves?.length && 
+                !threatReport.iocs?.urls?.length) && (
+                <div className="text-center py-8 text-gray-400">
+                  <Info className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No indicators of compromise detected in this incident</p>
+                  <p className="text-xs mt-1">IOCs include IP addresses, domains, file hashes, and CVEs</p>
+                </div>
+              )}
+
               {threatReport.iocs?.ips?.length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-gray-400">IP Addresses ({threatReport.iocs.ips.length})</h4>
                   <div className="flex flex-wrap gap-2">
-                    {threatReport.iocs.ips.slice(0, 5).map((ip: string, i: number) => (
+                    {threatReport.iocs.ips.slice(0, 8).map((ip: string, i: number) => (
                       <Badge key={i} variant="outline" className="font-mono text-xs">
+                        <Server className="w-3 h-3 mr-1" />
                         {ip}
                       </Badge>
                     ))}
+                    {threatReport.iocs.ips.length > 8 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{threatReport.iocs.ips.length - 8} more
+                      </Badge>
+                    )}
                   </div>
                 </div>
               )}
@@ -131,11 +147,17 @@ export default function ThreatIntelligence({ threatReport }: ThreatIntelligenceP
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-gray-400">Domains ({threatReport.iocs.domains.length})</h4>
                   <div className="flex flex-wrap gap-2">
-                    {threatReport.iocs.domains.slice(0, 5).map((domain: string, i: number) => (
+                    {threatReport.iocs.domains.slice(0, 8).map((domain: string, i: number) => (
                       <Badge key={i} variant="outline" className="font-mono text-xs">
+                        <Globe className="w-3 h-3 mr-1" />
                         {domain}
                       </Badge>
                     ))}
+                    {threatReport.iocs.domains.length > 8 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{threatReport.iocs.domains.length - 8} more
+                      </Badge>
+                    )}
                   </div>
                 </div>
               )}
@@ -144,11 +166,36 @@ export default function ThreatIntelligence({ threatReport }: ThreatIntelligenceP
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-gray-400">File Hashes ({threatReport.iocs.hashes.length})</h4>
                   <div className="space-y-1">
-                    {threatReport.iocs.hashes.slice(0, 3).map((hash: string, i: number) => (
-                      <div key={i} className="font-mono text-xs text-gray-500 truncate">
-                        {hash}
+                    {threatReport.iocs.hashes.slice(0, 5).map((hash: string, i: number) => (
+                      <div key={i} className="flex items-center space-x-2">
+                        <Hash className="w-3 h-3 text-gray-400" />
+                        <span className="font-mono text-xs text-gray-300 truncate max-w-xs">{hash}</span>
                       </div>
                     ))}
+                    {threatReport.iocs.hashes.length > 5 && (
+                      <div className="text-xs text-gray-400 ml-5">
+                        +{threatReport.iocs.hashes.length - 5} more hashes
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {threatReport.iocs?.urls?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold mb-2 text-gray-400">URLs ({threatReport.iocs.urls.length})</h4>
+                  <div className="space-y-1">
+                    {threatReport.iocs.urls.slice(0, 5).map((url: string, i: number) => (
+                      <div key={i} className="flex items-center space-x-2">
+                        <Link2 className="w-3 h-3 text-gray-400" />
+                        <span className="font-mono text-xs text-gray-300 truncate max-w-xs">{url}</span>
+                      </div>
+                    ))}
+                    {threatReport.iocs.urls.length > 5 && (
+                      <div className="text-xs text-gray-400 ml-5">
+                        +{threatReport.iocs.urls.length - 5} more URLs
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -159,6 +206,7 @@ export default function ThreatIntelligence({ threatReport }: ThreatIntelligenceP
                   <div className="flex flex-wrap gap-2">
                     {threatReport.iocs.cves.map((cve: string, i: number) => (
                       <Badge key={i} variant="outline" className="font-mono text-xs">
+                        <Bug className="w-3 h-3 mr-1" />
                         {cve}
                       </Badge>
                     ))}
