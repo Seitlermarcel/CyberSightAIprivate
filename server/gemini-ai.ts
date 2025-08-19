@@ -156,6 +156,11 @@ export class GeminiCyberAnalyst {
 CONTENT TO ANALYZE:
 ${content}
 
+FORMATTING REQUIREMENTS:
+- Keep all titles SHORT (max 6 words)
+- Generate executable code for analysis
+- Provide sandbox simulation scripts
+
 Identify and score these pattern categories:
 - Credential dumping patterns (lsass, mimikatz, secretsdump)
 - Obfuscated PowerShell execution (-enc, downloadstring, invoke-expression)
@@ -165,10 +170,18 @@ Identify and score these pattern categories:
 - Living off the land techniques
 - Suspicious process execution chains
 
+Generate executable code for:
+- PowerShell deobfuscation scripts
+- Registry analysis commands
+- Network traffic queries
+- File hash verification
+
 Provide your analysis in this format:
-PATTERNS DETECTED: [list key patterns with significance levels]
+PATTERNS DETECTED: [concise findings]
+CODE GENERATION: [executable scripts for investigation]
+SANDBOX OUTPUT: [simulated execution results showing script output]
 CONFIDENCE: [1-100]
-KEY FINDINGS: [3-5 bullet points]
+KEY FINDINGS: [3-5 bullet points with short titles]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
@@ -201,6 +214,10 @@ RECOMMENDATIONS: [3-4 actionable items]`;
 CONTENT TO ANALYZE:
 ${content}
 
+FORMATTING REQUIREMENTS:
+- Keep all titles SHORT (max 6 words)
+- Provide concise, structured analysis
+
 Analyze for:
 - Behavioral indicators (credential-focused activity, privilege escalation, lateral movement)
 - Network indicators (IP addresses, domains, suspicious connections)
@@ -209,9 +226,9 @@ Analyze for:
 - Attack techniques and TTPs (Tactics, Techniques, Procedures)
 
 Provide your analysis in this format:
-THREAT INDICATORS IDENTIFIED: [list behavioral, network, file, process indicators]
+THREAT INDICATORS: [concise behavioral, network, file, process indicators]
 CONFIDENCE: [1-100]
-KEY FINDINGS: [3-5 bullet points]
+KEY FINDINGS: [3-5 bullet points with short titles]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
@@ -244,6 +261,10 @@ RECOMMENDATIONS: [3-4 actionable items]`;
 CONTENT TO ANALYZE:
 ${content}
 
+FORMATTING REQUIREMENTS:
+- Keep all titles SHORT (max 6 words)
+- Use concise technique descriptions
+
 Map to MITRE ATT&CK framework:
 - Identify relevant tactics (TA####)
 - Map specific techniques (T####)
@@ -257,9 +278,9 @@ Provide mappings for these common patterns:
 - network discovery → T1018 (Remote System Discovery), T1016 (System Network Configuration Discovery)
 
 Format your response as:
-MITRE MAPPINGS: [list tactics and techniques with IDs]
+MITRE MAPPINGS: [tactics and techniques with IDs]
 CONFIDENCE: [1-100]
-KEY FINDINGS: [3-5 bullet points]
+KEY FINDINGS: [3-5 bullet points with short titles]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
@@ -296,6 +317,10 @@ ${JSON.stringify(threatReport, null, 2)}` : '';
 CONTENT TO ANALYZE:
 ${content}
 ${threatContext}
+
+FORMATTING REQUIREMENTS:
+- Keep all titles SHORT (max 6 words)
+- Provide concise IOC analysis
 
 Extract and analyze:
 - IP addresses (classify as internal/external, reputation assessment)
@@ -473,6 +498,22 @@ Provide strategic assessment with broader context.`;
 CONTENT:
 ${content}
 
+IMPORTANT FORMATTING REQUIREMENTS:
+- Keep all section titles SHORT (max 6 words)
+- Use concise, structured analysis
+- Include compliance impact assessment (GDPR, SOX, HIPAA, PCI-DSS)
+- Explain WHY this threat poses compliance risks
+- Provide executive summary suitable for C-level reporting
+
+Focus on:
+- Business impact analysis
+- Regulatory compliance implications  
+- Risk quantification
+- Executive recommendations
+- Incident classification rationale
+
+Structure your response with short, clear headings and concise bullet points.
+
 SETTINGS:
 - Confidence Threshold: ${settings.confidenceThreshold || 80}%
 - Custom Instructions: ${settings.customInstructions || 'None'}
@@ -503,6 +544,10 @@ Synthesize both technical evidence and strategic patterns for final verdict.`;
 CONTENT TO ANALYZE:
 ${content}
 
+FORMATTING REQUIREMENTS:
+- Keep all titles SHORT (max 6 words)
+- Provide balanced red/blue team perspectives
+
 Provide purple team analysis covering:
 - Attacker perspective: What techniques were used, what worked, what failed
 - Defender perspective: What was detected, what was missed, how to improve
@@ -513,7 +558,7 @@ Provide purple team analysis covering:
 Format your response as:
 PURPLE TEAM ANALYSIS: [combined offensive/defensive insights]
 CONFIDENCE: [1-100]
-KEY FINDINGS: [3-5 bullet points]
+KEY FINDINGS: [3-5 bullet points with short titles]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
@@ -539,6 +584,10 @@ RECOMMENDATIONS: [3-4 actionable items]`;
 CONTENT TO ANALYZE:
 ${content}
 
+FORMATTING REQUIREMENTS:
+- Keep all titles SHORT (max 6 words)
+- Use concise relationship descriptions
+
 Map entity relationships:
 - User accounts and their actions
 - Process parent-child relationships
@@ -548,9 +597,9 @@ Map entity relationships:
 - Data flow between entities
 
 Format your response as:
-ENTITY RELATIONSHIPS: [map connections between users, processes, files, networks]
+ENTITY RELATIONSHIPS: [map connections between entities]
 CONFIDENCE: [1-100]
-KEY FINDINGS: [3-5 bullet points]
+KEY FINDINGS: [3-5 bullet points with short titles]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
@@ -575,6 +624,14 @@ RECOMMENDATIONS: [3-4 actionable items]`;
     const confidenceMatch = analysis.match(/CONFIDENCE:\s*(\d+)/i);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
 
+    // Extract sandbox output for code analysis
+    const sandboxMatch = analysis.match(/SANDBOX OUTPUT:([\s\S]*?)(?=CONFIDENCE:|KEY FINDINGS:|RECOMMENDATIONS:|$)/i);
+    const sandboxOutput = sandboxMatch ? sandboxMatch[1].trim() : '';
+
+    // Extract code generation
+    const codeMatch = analysis.match(/CODE GENERATION:([\s\S]*?)(?=SANDBOX OUTPUT:|CONFIDENCE:|KEY FINDINGS:|RECOMMENDATIONS:|$)/i);
+    const codeGeneration = codeMatch ? codeMatch[1].trim() : '';
+
     // Extract key findings
     const findingsMatch = analysis.match(/KEY FINDINGS:([\s\S]*?)(?=RECOMMENDATIONS:|$)/i);
     const findingsText = findingsMatch ? findingsMatch[1].trim() : '';
@@ -595,13 +652,25 @@ RECOMMENDATIONS: [3-4 actionable items]`;
       .filter(line => line.length > 0)
       .slice(0, 4);
 
-    return {
+    const result: any = {
       agent,
       analysis,
       confidence,
       keyFindings: keyFindings.length > 0 ? keyFindings : [`${agent} analysis completed`],
       recommendations: recommendations.length > 0 ? recommendations : [`Review ${agent.toLowerCase()} results manually`]
     };
+
+    // Add sandbox output if present
+    if (sandboxOutput) {
+      result.sandboxOutput = sandboxOutput;
+    }
+
+    // Add code generation if present
+    if (codeGeneration) {
+      result.codeGeneration = codeGeneration;
+    }
+
+    return result;
   }
 
   /**
