@@ -73,16 +73,7 @@ export class GeminiCyberAnalyst {
         setTimeout(() => reject(new Error('Overall analysis timeout')), 120000)
       );
       
-      const [
-        patternRecognition,
-        threatIntelligence,
-        mitreMapping,
-        iocEnrichment,
-        classification,
-        dualAI,
-        purpleTeam,
-        entityMapping
-      ] = await Promise.race([
+      const results = await Promise.race([
         Promise.all(agentPromises),
         overallTimeout
       ]).catch((): any[] => {
@@ -98,6 +89,17 @@ export class GeminiCyberAnalyst {
           this.getFailsafeResponse("Entity Mapping", fullContent)
         ];
       });
+
+      const [
+        patternRecognition,
+        threatIntelligence,
+        mitreMapping,
+        iocEnrichment,
+        classification,
+        dualAI,
+        purpleTeam,
+        entityMapping
+      ] = results;
       
       console.log('✅ All AI agents completed successfully');
       console.log('📊 Agent results summary:', {
@@ -210,7 +212,7 @@ TimeCreated                     Id LevelDisplayName Message
         contents: prompt,
       });
 
-      const response = await Promise.race([analysisPromise, timeoutPromise]);
+      const response: any = await Promise.race([analysisPromise, timeoutPromise]);
       const analysis = response.text || "Analysis failed";
       console.log('✅ Pattern Recognition Agent completed');
       return this.parseAgentResponse("Pattern Recognition", analysis);
@@ -258,7 +260,7 @@ RECOMMENDATIONS: [3-4 actionable items]`;
         contents: prompt,
       });
 
-      const response = await Promise.race([analysisPromise, timeoutPromise]);
+      const response: any = await Promise.race([analysisPromise, timeoutPromise]);
       const analysis = response.text || "Analysis failed";
       console.log('✅ Threat Intelligence Agent completed');
       return this.parseAgentResponse("Threat Intelligence", analysis);
@@ -311,7 +313,7 @@ RECOMMENDATIONS: [3-4 actionable items]`;
         contents: prompt,
       });
 
-      const response = await Promise.race([analysisPromise, timeoutPromise]);
+      const response: any = await Promise.race([analysisPromise, timeoutPromise]);
       const analysis = response.text || "Analysis failed";
       console.log('✅ MITRE ATT&CK Agent completed');
       return this.parseAgentResponse("MITRE ATT&CK Mapping", analysis);

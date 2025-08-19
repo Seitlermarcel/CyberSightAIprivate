@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import type { Incident } from '../shared/schema';
-import { generateIncidentPDF } from '../client/src/utils/pdf-export.js';
+// Remove PDF import that causes server-side issues
+// import { generateIncidentPDF } from '../client/src/utils/pdf-export.js';
 
 // Create reusable transporter object using Gmail SMTP
 let transporter: nodemailer.Transporter | null = null;
@@ -257,26 +258,9 @@ View Details: ${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${i
 This is an automated alert from CyberSight AI
   `.trim();
   
-  // Generate PDF attachment
-  let pdfBuffer: Buffer | null = null;
-  try {
-    console.log('Generating PDF attachment for incident:', incident.id);
-    pdfBuffer = await generateIncidentPDF(incident);
-    console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes');
-  } catch (error) {
-    console.error('Failed to generate PDF attachment:', error);
-    // Continue without PDF attachment if generation fails
-  }
-
-  // Prepare email attachments
+  // TODO: Implement server-side PDF generation for email attachments
+  // Current client-side PDF generation uses window object which doesn't exist on server
   const attachments: any[] = [];
-  if (pdfBuffer) {
-    attachments.push({
-      filename: `CyberSight_Incident_${incident.id.substring(0, 8)}_Report.pdf`,
-      content: pdfBuffer,
-      contentType: 'application/pdf',
-    });
-  }
 
   try {
     const mailOptions = {
@@ -290,7 +274,7 @@ This is an automated alert from CyberSight AI
     };
     
     await transport.sendMail(mailOptions);
-    console.log(`Email notification sent to ${to} for incident ${incident.id}${pdfBuffer ? ' with PDF attachment' : ''}`);
+    console.log(`Email notification sent to ${to} for incident ${incident.id}`);
     return true;
   } catch (error) {
     console.error('Failed to send email notification:', error);

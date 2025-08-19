@@ -76,6 +76,18 @@ Preferred communication style: Simple, everyday language.
 
 ### Recent Changes
 
+#### Critical Bug Fixes and Enhanced IOC Classification (August 19, 2025)
+- **Fixed Core Display Issues**:
+  - Resolved ThreatPredictionMeter component null check errors preventing proper display
+  - Enhanced IOC classification to properly distinguish between External IP, Internal IP, Domain, MD5 Hash, SHA1 Hash, SHA256 Hash, CVE, and Process types
+  - Fixed entity relationships extraction to use real entity names from AI analysis instead of generic "Entity1 to Entity2" placeholders
+  - Removed problematic server-side PDF generation code causing TypeScript compilation errors
+  - Fixed multiple TypeScript array iteration errors and error handling type issues
+- **Improved Data Accuracy**:
+  - IOC indicators now display correct types and categories instead of showing everything as "domains"
+  - Entity relationship mapping now extracts real process, user, file, and network entity names using comprehensive regex patterns
+  - Enhanced threat intelligence display with proper classification and filtering of internal vs external indicators
+
 #### Enhanced AlienVault OTX Threat Intelligence Integration (August 19, 2025)
 - **Refined IOC Validation and Filtering**:
   - Added strict filtering to exclude user accounts from threat intelligence searches (user accounts remain in entity mapping only)

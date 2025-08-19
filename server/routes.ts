@@ -172,9 +172,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.status(201).json(incident);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Incident creation error:", error);
-      res.status(400).json({ error: "Invalid incident data", details: error.message });
+      res.status(400).json({ error: "Invalid incident data", details: error?.message || 'Unknown error' });
     }
   });
 
@@ -372,7 +372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Configuration not found" });
       }
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to delete API configuration" });
     }
   });
@@ -386,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       // Simulate test - in production, would actually test the endpoint
       res.json({ success: true, message: "Connection test successful" });
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to test API configuration" });
     }
   });
@@ -397,7 +397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const transactions = await storage.getUserTransactions(userId);
       res.json(transactions);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch transactions" });
     }
   });
@@ -414,7 +414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storageGB: storageGB,
         month: currentMonth
       });
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch usage statistics" });
     }
   });
@@ -499,8 +499,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Production mode: Create Stripe payment intent
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: "2023-10-16"
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: "2025-07-30.basil" as any
       });
       
       const user = await storage.getUser(userId);
@@ -539,8 +539,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: "2023-10-16"
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: "2025-07-30.basil" as any
       });
       
       const event = stripe.webhooks.constructEvent(
@@ -654,7 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hint: getQueryErrorHint(queryError.message)
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to execute query" });
     }
   });
@@ -674,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const queries = await storage.getUserQueries(userId);
       res.json(queries);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch query history" });
     }
   });
@@ -912,28 +912,99 @@ function extractMitreTechniques(mitreAnalysis: string): string[] {
   return Array.from(new Set(techniques)); // Remove duplicates
 }
 
-function extractIOCsFromAnalysis(iocAnalysis: string): string[] {
-  const iocs = [];
+function extractIOCsFromAnalysis(iocAnalysis: string): Array<{ value: string; type: string; category: string }> {
+  const iocs: Array<{ value: string; type: string; category: string }> = [];
   
   // Extract IP addresses
   const ipMatches = iocAnalysis.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g);
   if (ipMatches) {
-    iocs.push(...ipMatches.slice(0, 5));
+    Array.from(new Set(ipMatches)).slice(0, 5).forEach(ip => {
+      const parts = ip.split('.').map(Number);
+      const isPrivate = parts[0] === 10 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168);
+      iocs.push({
+        value: ip,
+        type: isPrivate ? 'Internal IP' : 'External IP',
+        category: 'network'
+      });
+    });
   }
   
-  // Extract domains
+  // Extract domains (filter out common/internal domains)
   const domainMatches = iocAnalysis.match(/\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z]{2,}\b/gi);
   if (domainMatches) {
-    iocs.push(...domainMatches.slice(0, 3));
+    Array.from(new Set(domainMatches)).slice(0, 3).forEach(domain => {
+      if (!domain.includes('microsoft.com') && !domain.includes('windows.com') && !domain.includes('google.com')) {
+        iocs.push({
+          value: domain,
+          type: 'Domain',
+          category: 'network'
+        });
+      }
+    });
   }
   
   // Extract file hashes
-  const hashMatches = iocAnalysis.match(/\b[a-f0-9]{32,64}\b/gi);
-  if (hashMatches) {
-    iocs.push(...hashMatches.slice(0, 3));
+  const md5Matches = iocAnalysis.match(/\b[a-f0-9]{32}\b/gi);
+  if (md5Matches) {
+    Array.from(new Set(md5Matches)).slice(0, 2).forEach(hash => {
+      iocs.push({
+        value: hash,
+        type: 'MD5 Hash',
+        category: 'file'
+      });
+    });
   }
   
-  return Array.from(new Set(iocs)).slice(0, 10); // Limit and remove duplicates
+  const sha1Matches = iocAnalysis.match(/\b[a-f0-9]{40}\b/gi);
+  if (sha1Matches) {
+    Array.from(new Set(sha1Matches)).slice(0, 2).forEach(hash => {
+      iocs.push({
+        value: hash,
+        type: 'SHA1 Hash',
+        category: 'file'
+      });
+    });
+  }
+  
+  const sha256Matches = iocAnalysis.match(/\b[a-f0-9]{64}\b/gi);
+  if (sha256Matches) {
+    Array.from(new Set(sha256Matches)).slice(0, 2).forEach(hash => {
+      iocs.push({
+        value: hash,
+        type: 'SHA256 Hash',
+        category: 'file'
+      });
+    });
+  }
+  
+  // Extract CVE identifiers
+  const cveMatches = iocAnalysis.match(/CVE-\d{4}-\d{4,}/gi);
+  if (cveMatches) {
+    Array.from(new Set(cveMatches)).slice(0, 3).forEach(cve => {
+      iocs.push({
+        value: cve,
+        type: 'CVE',
+        category: 'vulnerability'
+      });
+    });
+  }
+  
+  // Extract process names
+  const processMatches = iocAnalysis.match(/(?:process|executable)[:\s]+([A-Za-z0-9_\-\.]+\.exe)/gi);
+  if (processMatches) {
+    Array.from(new Set(processMatches)).slice(0, 3).forEach(match => {
+      const process = match.split(/[:\s]+/).pop();
+      if (process) {
+        iocs.push({
+          value: process,
+          type: 'Process',
+          category: 'process'
+        });
+      }
+    });
+  }
+  
+  return iocs.slice(0, 12); // Return structured IOCs with proper classification
 }
 
 function extractEntitiesFromAnalysis(entityAnalysis: string): any {
@@ -947,7 +1018,7 @@ function extractEntitiesFromAnalysis(entityAnalysis: string): any {
 }
 
 function extractEntitiesByType(text: string, keywords: string[]): any[] {
-  const entities = [];
+  const entities: any[] = [];
   const lines = text.split('\n');
   
   lines.forEach(line => {
@@ -1469,27 +1540,59 @@ function extractStructuredEntities(analysis: string): Array<any> {
 }
 
 function extractEntityRelationships(analysis: string): Array<any> {
-  const relationships = [];
+  const relationships: Array<any> = [];
+  const lines = analysis.split('\n').filter(line => line.trim().length > 0);
   
-  // Try to identify relationships in the text
-  const connectionWords = ['executed', 'accessed', 'modified', 'connected', 'created'];
-  const lines = analysis.split('\n');
-  
-  for (const line of lines) {
-    for (const word of connectionWords) {
-      if (line.toLowerCase().includes(word)) {
-        relationships.push({
-          source: "Entity1",
-          action: word,
-          target: "Entity2", 
-          description: line.trim().substring(0, 100)
-        });
-        break;
-      }
+  // Extract real entity relationships from AI analysis
+  lines.forEach(line => {
+    const cleanLine = line.trim();
+    
+    // Look for user -> process relationships
+    const userProcessMatch = cleanLine.match(/([A-Za-z0-9\\]+)\s+(?:executed|ran|spawned|launched)\s+([A-Za-z0-9\\.]+)/i);
+    if (userProcessMatch) {
+      relationships.push({
+        source: userProcessMatch[1],
+        action: "executed",
+        target: userProcessMatch[2],
+        description: cleanLine.substring(0, 100)
+      });
     }
-  }
+    
+    // Look for process -> file relationships
+    const processFileMatch = cleanLine.match(/([A-Za-z0-9\\.]+)\s+(?:accessed|created|modified)\s+([C-Z]:[\\A-Za-z0-9\\.\\/-]+)/i);
+    if (processFileMatch) {
+      relationships.push({
+        source: processFileMatch[1],
+        action: "accessed",
+        target: processFileMatch[2],
+        description: cleanLine.substring(0, 100)
+      });
+    }
+    
+    // Look for network connections
+    const networkMatch = cleanLine.match(/([\d\.]+)\s+(?:connected|communicated)\s+(?:to|with)\s+([\d\.]+|[A-Za-z0-9\\.]+)/i);
+    if (networkMatch) {
+      relationships.push({
+        source: networkMatch[1],
+        action: "connected",
+        target: networkMatch[2],
+        description: cleanLine.substring(0, 100)
+      });
+    }
+    
+    // Look for generic entity relationships with arrow symbols
+    const arrowMatch = cleanLine.match(/([A-Za-z0-9\\.\\/-]+)\s*(?:→|->|spawned|created)\s*([A-Za-z0-9\\.\\/-]+)/i);
+    if (arrowMatch) {
+      relationships.push({
+        source: arrowMatch[1].trim(),
+        action: "spawned",
+        target: arrowMatch[2].trim(),
+        description: cleanLine.substring(0, 100)
+      });
+    }
+  });
   
-  // Fallback relationship
+  // Fallback relationship if none found
   if (relationships.length === 0) {
     relationships.push({
       source: "System Process",
@@ -1499,7 +1602,7 @@ function extractEntityRelationships(analysis: string): Array<any> {
     });
   }
   
-  return relationships;
+  return relationships.slice(0, 5);
 }
 
 function transformIOCsToDetailedFormat(analysis: string): Array<any> {
