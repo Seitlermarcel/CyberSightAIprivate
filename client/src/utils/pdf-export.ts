@@ -203,12 +203,12 @@ export function generateIncidentPDF(incident: Incident, user: any) {
                     <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                         <div style="display: flex; align-items: center; margin-bottom: 10px;">
                             <span style="font-weight: bold; font-size: 18px;">${incident.confidence}%</span>
-                            <span style="margin-left: 10px; ${getConfidenceColor(incident.confidence)}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${getConfidenceLevel(incident.confidence)}</span>
+                            <span style="margin-left: 10px; ${getConfidenceColor(incident.confidence || 50)}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${getConfidenceLevel(incident.confidence || 50)}</span>
                         </div>
                         <div style="width: 100%; background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="width: ${incident.confidence}%; height: 100%; background: ${getConfidenceBarColor(incident.confidence)};"></div>
+                            <div style="width: ${incident.confidence || 50}%; height: 100%; background: ${getConfidenceBarColor(incident.confidence || 50)};"></div>
                         </div>
-                        <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">${getConfidenceDescription(incident.confidence)}</p>
+                        <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">${getConfidenceDescription(incident.confidence || 50)}</p>
                     </div>
                 </div>
                 <div>
@@ -242,6 +242,40 @@ export function generateIncidentPDF(incident: Incident, user: any) {
                     All 8 specialized AI agents contributed to this investigation, providing comprehensive analysis across multiple cybersecurity domains.
                 </p>
             </div>
+        </div>
+        
+        <!-- Threat Prediction Section -->
+        ${incident.threatPrediction ? `
+        <div class="section">
+            <div class="section-title">🎯 Threat Prediction Analysis</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 15px;">
+                    <h4 style="color: #92400e; margin-bottom: 8px;">Overall Threat Level</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: #92400e;">${incident.predictionConfidence || 75}%</div>
+                    <div style="width: 100%; background: #fed7aa; height: 6px; border-radius: 3px; margin-top: 8px;">
+                        <div style="width: ${incident.predictionConfidence || 75}%; height: 100%; background: linear-gradient(to right, #fbbf24, #dc2626); border-radius: 3px;"></div>
+                    </div>
+                </div>
+                <div style="background: #dbeafe; border: 1px solid #3b82f6; border-radius: 8px; padding: 15px;">
+                    <h4 style="color: #1e40af; margin-bottom: 8px;">Risk Trend</h4>
+                    <div style="font-size: 18px; font-weight: bold; color: #1e40af; text-transform: capitalize;">${incident.riskTrend || 'Stable'}</div>
+                    <div style="margin-top: 8px; font-size: 12px; color: #475569;">
+                        ${incident.riskTrend === 'increasing' ? '⚠️ Escalating' : 
+                          incident.riskTrend === 'decreasing' ? '✅ Improving' : '📊 Consistent'}
+                    </div>
+                </div>
+                <div style="background: #f3e8ff; border: 1px solid #8b5cf6; border-radius: 8px; padding: 15px;">
+                    <h4 style="color: #6b21a8; margin-bottom: 8px;">Confidence</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: #6b21a8;">${incident.confidence || 82}%</div>
+                    <div style="width: 100%; background: #c7d2fe; height: 6px; border-radius: 3px; margin-top: 8px;">
+                        <div style="width: ${incident.confidence || 82}%; height: 100%; background: linear-gradient(to right, #8b5cf6, #3b82f6); border-radius: 3px;"></div>
+                    </div>
+                </div>
+            </div>
+            ${renderThreatScenarios(JSON.parse(incident.threatPrediction))}
+            ${renderEnvironmentalImpact(JSON.parse(incident.threatPrediction))}
+        </div>
+        ` : ''}
         </div>
 
         <div class="metadata">
@@ -653,4 +687,83 @@ function getInvestigationDescription(investigation: number): string {
   if (investigation >= 70) return "Minor data gaps but good coverage. Most analysis vectors completed successfully.";
   if (investigation >= 50) return "Some unclear data with incomplete picture. Additional investigation may be beneficial.";
   return "Insufficient data clarity. Needs more comprehensive data collection and analysis.";
+}
+
+function renderThreatScenarios(threatPrediction: any): string {
+  if (!threatPrediction.threatScenarios || threatPrediction.threatScenarios.length === 0) {
+    return '';
+  }
+  
+  return `
+    <div style="margin-top: 20px;">
+      <h4 style="color: #1e40af; margin-bottom: 10px;">🚨 Threat Scenarios</h4>
+      ${threatPrediction.threatScenarios.map((scenario: any, index: number) => `
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <h5 style="color: #0ea5e9; margin: 0;">${scenario.timeframe}</h5>
+            <div>
+              <span style="background: ${scenario.likelihood === 'High' ? '#dc2626' : scenario.likelihood === 'Medium' ? '#d97706' : '#16a34a'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px;">${scenario.likelihood}</span>
+              <span style="background: ${scenario.impact === 'Critical' ? '#dc2626' : scenario.impact === 'High' ? '#ea580c' : scenario.impact === 'Medium' ? '#d97706' : '#0891b2'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${scenario.impact} Impact</span>
+            </div>
+          </div>
+          ${scenario.threats && scenario.threats.length > 0 ? `
+            <div style="margin-bottom: 10px;">
+              <strong style="color: #374151;">Potential Threats:</strong>
+              <ul style="margin: 5px 0; padding-left: 20px;">
+                ${scenario.threats.map((threat: string) => `<li style="color: #6b7280; margin-bottom: 3px;">${threat}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          ${scenario.recommendations && scenario.recommendations.length > 0 ? `
+            <div>
+              <strong style="color: #374151;">Recommendations:</strong>
+              <ul style="margin: 5px 0; padding-left: 20px;">
+                ${scenario.recommendations.map((rec: string) => `<li style="color: #6b7280; margin-bottom: 3px;">${rec}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderEnvironmentalImpact(threatPrediction: any): string {
+  if (!threatPrediction.environmentalImpact || Object.keys(threatPrediction.environmentalImpact).length === 0) {
+    return '';
+  }
+  
+  return `
+    <div style="margin-top: 20px;">
+      <h4 style="color: #16a34a; margin-bottom: 10px;">🛡️ Environmental Impact Assessment</h4>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+        ${Object.entries(threatPrediction.environmentalImpact).map(([key, impact]: [string, any]) => `
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
+            <h5 style="color: #166534; margin-bottom: 8px; text-transform: capitalize;">${key.replace(/([A-Z])/g, ' $1').trim()}</h5>
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: ${
+                impact.riskLevel === 'High' ? '#dc2626' :
+                impact.riskLevel === 'Medium' ? '#d97706' :
+                '#16a34a'
+              }; margin-right: 8px;"></div>
+              <span style="color: ${
+                impact.riskLevel === 'High' ? '#dc2626' :
+                impact.riskLevel === 'Medium' ? '#d97706' :
+                '#16a34a'
+              }; font-weight: bold; font-size: 14px;">${impact.riskLevel} Risk</span>
+            </div>
+            <p style="color: #6b7280; font-size: 13px; margin-bottom: 10px;">${impact.description}</p>
+            ${impact.mitigationPriority ? `
+              <span style="background: ${
+                impact.mitigationPriority === 'Critical' ? '#dc2626' :
+                impact.mitigationPriority === 'High' ? '#ea580c' :
+                impact.mitigationPriority === 'Medium' ? '#d97706' :
+                '#0891b2'
+              }; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${impact.mitigationPriority} Priority</span>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
