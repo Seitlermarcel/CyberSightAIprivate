@@ -75,6 +75,7 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
       setAnalysisResult(incident);
       queryClient.invalidateQueries({ queryKey: ["/api/incidents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "Analysis Complete",
         description: "Incident has been analyzed and saved.",
