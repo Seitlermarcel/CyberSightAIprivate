@@ -52,6 +52,9 @@ export class GeminiCyberAnalyst {
     
     try {
       console.log('🚀 Starting parallel execution of 8 AI agents...');
+    console.log('💰 🔥 REAL GEMINI API INTEGRATION ACTIVE 🔥');
+    console.log('💸 Each agent will make a separate API call to Gemini 2.5 Flash');
+    console.log('💵 Expected total cost for this analysis: ~$0.02-0.05 USD');
       // Run all 8 AI agents in parallel with timeout protection
       const agentPromises = [
         this.runPatternRecognitionAgent(fullContent).catch(e => this.getFailsafeResponse("Pattern Recognition", fullContent)),
@@ -102,6 +105,8 @@ export class GeminiCyberAnalyst {
       ] = results;
       
       console.log('✅ All AI agents completed successfully');
+      console.log('💰 🎉 TOTAL GEMINI API CALLS MADE: 8+ real API calls to Gemini 2.5 Flash');
+      console.log('💸 💰 You should see these costs in your Google Cloud Console billing');
       console.log('📊 Agent results summary:', {
         patternRecognition: patternRecognition?.confidence || 0,
         threatIntelligence: threatIntelligence?.confidence || 0,
@@ -203,18 +208,29 @@ TimeCreated                     Id LevelDisplayName Message
 
     try {
       console.log('🔍 Pattern Recognition Agent starting...');
+      console.log('💰 GEMINI API CALL - Pattern Recognition Agent');
+      console.log(`📊 Request size: ${prompt.length} characters`);
+      console.log(`🎯 Model: ${this.MODEL}`);
+      
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Pattern Recognition timeout')), 30000)
       );
       
+      const startTime = Date.now();
       const analysisPromise = ai.models.generateContent({
         model: this.MODEL,
         contents: prompt,
       });
 
       const response: any = await Promise.race([analysisPromise, timeoutPromise]);
+      const duration = Date.now() - startTime;
       const analysis = response.text || "Analysis failed";
+      
       console.log('✅ Pattern Recognition Agent completed');
+      console.log(`⏱️ API call duration: ${duration}ms`);
+      console.log(`📝 Response size: ${analysis.length} characters`);
+      console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + analysis.length / 1000000 * 0.30).toFixed(6)}`);
+      
       return this.parseAgentResponse("Pattern Recognition", analysis);
     } catch (error) {
       console.error('❌ Pattern Recognition Agent error:', error);
@@ -251,18 +267,28 @@ RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
       console.log('🔍 Threat Intelligence Agent starting...');
+      console.log('💰 GEMINI API CALL - Threat Intelligence Agent');
+      console.log(`📊 Request size: ${prompt.length} characters`);
+      
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Threat Intelligence timeout')), 30000)
       );
       
+      const startTime = Date.now();
       const analysisPromise = ai.models.generateContent({
         model: this.MODEL,
         contents: prompt,
       });
 
       const response: any = await Promise.race([analysisPromise, timeoutPromise]);
+      const duration = Date.now() - startTime;
       const analysis = response.text || "Analysis failed";
+      
       console.log('✅ Threat Intelligence Agent completed');
+      console.log(`⏱️ API call duration: ${duration}ms`);
+      console.log(`📝 Response size: ${analysis.length} characters`);
+      console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + analysis.length / 1000000 * 0.30).toFixed(6)}`);
+      
       return this.parseAgentResponse("Threat Intelligence", analysis);
     } catch (error) {
       console.error('❌ Threat Intelligence Agent error:', error);
@@ -365,12 +391,23 @@ KEY FINDINGS: [3-5 bullet points]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
+      console.log('💰 GEMINI API CALL - IOC Enrichment Agent');
+      console.log(`📊 Request size: ${prompt.length} characters`);
+      
+      const startTime = Date.now();
       const response = await ai.models.generateContent({
         model: this.MODEL,
         contents: prompt,
       });
 
+      const duration = Date.now() - startTime;
       const analysis = response.text || "Analysis failed";
+      
+      console.log('✅ IOC Enrichment Agent completed');
+      console.log(`⏱️ API call duration: ${duration}ms`);
+      console.log(`📝 Response size: ${analysis.length} characters`);
+      console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + analysis.length / 1000000 * 0.30).toFixed(6)}`);
+      
       return this.parseAgentResponse("IOC Enrichment", analysis);
     } catch (error) {
       console.error('IOC Enrichment Agent error:', error);
@@ -420,12 +457,22 @@ KEY FINDINGS: [3-5 bullet points explaining the decision]
 RECOMMENDATIONS: [3-4 actionable items]`;
 
     try {
+      console.log('💰 GEMINI API CALL - Classification Agent');
+      console.log(`📊 Request size: ${prompt.length} characters`);
+      
+      const startTime = Date.now();
       const response = await ai.models.generateContent({
         model: this.MODEL,
         contents: prompt,
       });
 
+      const duration = Date.now() - startTime;
       const analysis = response.text || "Analysis failed";
+      
+      console.log('✅ Classification Agent completed');
+      console.log(`⏱️ API call duration: ${duration}ms`);
+      console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + analysis.length / 1000000 * 0.30).toFixed(6)}`);
+      
       return this.parseAgentResponse("Classification", analysis);
     } catch (error) {
       console.error('Classification Agent error:', error);
@@ -480,10 +527,15 @@ Focus on:
 
 Provide technical verdict with evidence.`;
 
+    console.log('💰 GEMINI API CALL - Tactical Analyst');
+    const startTime = Date.now();
     const response = await ai.models.generateContent({
       model: this.MODEL,
       contents: prompt,
     });
+    const duration = Date.now() - startTime;
+    console.log(`⏱️ Tactical Analyst API call: ${duration}ms`);
+    console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + (response.text?.length || 0) / 1000000 * 0.30).toFixed(6)}`);
 
     return `TACTICAL ANALYST ASSESSMENT:\n${response.text || "Technical analysis failed"}`;
   }

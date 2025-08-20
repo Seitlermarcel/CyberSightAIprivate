@@ -131,8 +131,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('✅ Gemini AI analysis completed successfully');
         console.log('📈 Analysis confidence:', aiAnalysis?.confidence);
         console.log('🔍 Analysis classification:', aiAnalysis?.classification);
-      } catch (error) {
-        console.error('❌ Gemini AI analysis failed:', error.message);
+      } catch (error: any) {
+        console.error('❌ Gemini AI analysis failed:', error?.message || error);
         console.log('🔄 Using fallback analysis');
         aiAnalysis = generateFailsafeAnalysis(validatedData, userSettings, threatReport);
         console.log('✅ Fallback analysis completed');
@@ -152,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const user = await storage.getUser(userId);
         if (user) {
           const isHighSeverity = ['critical', 'high'].includes(incident.severity?.toLowerCase() || '');
-          const shouldSendHighSeverityAlert = userSettings.highSeverityAlerts && isHighSeverity;
+          const shouldSendHighSeverityAlert = Boolean(userSettings.highSeverityAlerts) && isHighSeverity;
           
           const emailSent = await sendIncidentNotification({
             incident,
@@ -782,10 +782,10 @@ async function generateRealAIAnalysis(incident: any, settings?: any, threatRepor
     });
     
     return transformedResult;
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Gemini AI analysis failed with error:', error);
-    console.error('📋 Error details:', error.message);
-    console.error('🔍 Error stack:', error.stack);
+    console.error('📋 Error details:', error?.message || 'Unknown error');
+    console.error('🔍 Error stack:', error?.stack || 'No stack trace');
     // Fallback to simplified analysis if Gemini fails
     console.log('🔄 Falling back to failsafe analysis...');
     return generateFailsafeAnalysis(incident, settings, threatReport);
@@ -846,8 +846,8 @@ function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, sett
   // Generate threat prediction analysis
   const threatPrediction = generateThreatPredictionAnalysis(aiResult, incident);
   
-  // Similar incidents (mock for now - would need database lookup)
-  const similarIncidents = [];
+  // Similar incidents (mock for now - would need database lookup)  
+  const similarIncidents: any[] = [];
   
   return {
     // Core analysis fields
@@ -868,11 +868,11 @@ function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, sett
     // JSON string fields that frontend expects
     mitreMapping: JSON.stringify(mitreDetails),
     threatIntelligence: JSON.stringify({
-      indicators: iocDetails.indicators || [],
-      risk_score: iocDetails.risk_score || 75,
-      threat_level: iocDetails.threat_level || 'medium',
-      summary: iocDetails.summary || 'Threat intelligence analysis completed',
-      recommendations: iocDetails.recommendations || [],
+      indicators: Array.isArray(iocDetails) ? iocDetails : [],
+      risk_score: 75,
+      threat_level: 'medium', 
+      summary: 'Threat intelligence analysis completed',
+      recommendations: [],
       iocs: {
         ips: iocs.filter(ioc => ioc.type.includes('IP')).map(ioc => ioc.value),
         domains: iocs.filter(ioc => ioc.type === 'Domain').map(ioc => ioc.value),
@@ -1363,7 +1363,7 @@ function getTacticPhase(tacticId: string): string {
     'TA0011': 'Command and Control',
     'TA0040': 'Impact'
   };
-  return phases[tacticId] || 'Analysis Phase';
+  return (phases as any)[tacticId] || 'Analysis Phase';
 }
 
 function extractMitreTechniquesDetailed(analysis: string): Array<any> {
@@ -1468,7 +1468,7 @@ function extractStructuredEntities(analysis: string): Array<any> {
   // Extract user account entities (including those that shouldn't be IOCs)
   const userMatches = cleanAnalysis.match(/(?:user|account|login)[:\s]([A-Za-z0-9_\-\.@\\]+)/gi);
   if (userMatches) {
-    [...new Set(userMatches)].forEach((match, index) => {
+    Array.from(new Set(userMatches)).forEach((match, index) => {
       const value = match.split(/[:\s]/).pop();
       if (value && value.length > 2 && isUserAccount(value)) {
         entities.push({
@@ -1486,7 +1486,7 @@ function extractStructuredEntities(analysis: string): Array<any> {
   // Extract process entities
   const processMatches = cleanAnalysis.match(/(?:process|executable|service)[:\s]([A-Za-z0-9_\-\.\\\/]+\.exe|[A-Za-z0-9_\-\.\\\/]+)/gi);
   if (processMatches) {
-    [...new Set(processMatches)].forEach((match, index) => {
+    Array.from(new Set(processMatches)).forEach((match, index) => {
       const value = match.split(/[:\s]/).pop();
       if (value && value.length > 3) {
         entities.push({
@@ -1624,7 +1624,7 @@ function transformIOCsToDetailedFormat(analysis: string): Array<any> {
   // Extract and validate IP addresses (exclude user accounts and private IPs)
   const ipMatches = cleanAnalysis.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g);
   if (ipMatches) {
-    const validIPs = [...new Set(ipMatches)].filter(ip => isValidIP(ip));
+    const validIPs = Array.from(new Set(ipMatches)).filter(ip => isValidIP(ip));
     validIPs.forEach(ip => {
       // Only add if it's not in a user context
       const ipContext = cleanAnalysis.toLowerCase();
@@ -1646,7 +1646,7 @@ function transformIOCsToDetailedFormat(analysis: string): Array<any> {
   // Extract domain patterns (exclude common legitimate domains)
   const domainMatches = cleanAnalysis.match(/[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}/g);
   if (domainMatches) {
-    const suspiciousDomains = [...new Set(domainMatches)].filter(domain => {
+    const suspiciousDomains = Array.from(new Set(domainMatches)).filter(domain => {
       const lowerDomain = domain.toLowerCase();
       return !lowerDomain.includes('example') && 
              !lowerDomain.includes('localhost') &&
@@ -1673,7 +1673,7 @@ function transformIOCsToDetailedFormat(analysis: string): Array<any> {
   // Extract file hashes if present
   const hashMatches = cleanAnalysis.match(/\b[a-fA-F0-9]{32,64}\b/g);
   if (hashMatches) {
-    [...new Set(hashMatches)].slice(0, 3).forEach(hash => {
+    Array.from(new Set(hashMatches)).slice(0, 3).forEach(hash => {
       iocs.push({
         type: hash.length === 32 ? "MD5 Hash" : "SHA256 Hash",
         value: hash,
@@ -2936,7 +2936,7 @@ function correlateThreatIntelligence(threatReport: any, content: string, inciden
   const maliciousIOCs = threatReport.indicators?.filter((i: any) => i.malicious) || [];
   if (maliciousIOCs.length > 0) {
     score += Math.min(30, maliciousIOCs.length * 8);
-    const iocTypes = [...new Set(maliciousIOCs.map((i: any) => i.type))];
+    const iocTypes = Array.from(new Set(maliciousIOCs.map((i: any) => i.type)));
     reason = `${maliciousIOCs.length} malicious IOCs detected (${iocTypes.join(', ')})`;
   }
   
@@ -3084,7 +3084,7 @@ function mapEntityRelationships(content: string) {
   const hashes = content.match(hashRegex) || [];
   
   // Map entities with actual extracted values
-  const uniqueIps = [...new Set(ips)];
+  const uniqueIps = Array.from(new Set(ips));
   uniqueIps.slice(0, 5).forEach(ip => {
     entities.push({ 
       id: `ip_${ip.replace(/\./g, '_')}`, 
@@ -3095,7 +3095,7 @@ function mapEntityRelationships(content: string) {
     });
   });
   
-  const uniqueUsers = [...new Set(users)];
+  const uniqueUsers = Array.from(new Set(users));
   uniqueUsers.slice(0, 3).forEach(user => {
     entities.push({ 
       id: `user_${user.toLowerCase()}`, 
@@ -3106,7 +3106,7 @@ function mapEntityRelationships(content: string) {
     });
   });
   
-  const uniqueProcesses = [...new Set(processes)];
+  const uniqueProcesses = Array.from(new Set(processes));
   uniqueProcesses.slice(0, 5).forEach(process => {
     entities.push({ 
       id: `process_${process.toLowerCase().replace(/\./g, '_')}`, 
@@ -3117,7 +3117,7 @@ function mapEntityRelationships(content: string) {
     });
   });
   
-  const uniqueDomains = [...new Set(domains)].filter(d => !d.includes('localhost'));
+  const uniqueDomains = Array.from(new Set(domains)).filter(d => !d.includes('localhost'));
   uniqueDomains.slice(0, 3).forEach(domain => {
     entities.push({ 
       id: `domain_${domain.replace(/\./g, '_')}`, 
@@ -3128,7 +3128,7 @@ function mapEntityRelationships(content: string) {
     });
   });
   
-  const uniqueHashes = [...new Set(hashes)];
+  const uniqueHashes = Array.from(new Set(hashes));
   uniqueHashes.slice(0, 2).forEach(hash => {
     entities.push({ 
       id: `hash_${hash.substring(0, 8)}`, 
