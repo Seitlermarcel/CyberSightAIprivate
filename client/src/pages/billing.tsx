@@ -164,6 +164,10 @@ export default function Billing() {
     queryKey: ["/api/billing/usage"],
   });
 
+  const { data: storageData = {} } = useQuery({
+    queryKey: ["/api/storage/usage"],
+  });
+
   const handlePurchaseSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     queryClient.invalidateQueries({ queryKey: ["/api/billing/transactions"] });
@@ -290,10 +294,21 @@ export default function Billing() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span>Storage Used</span>
-                  <span className="font-medium">{((usage as any)?.storageGB || 0).toFixed(2)} GB</span>
+                  <span className="font-medium">{((storageData as any)?.usage?.usageGB || 0).toFixed(3)} GB</span>
                 </div>
-                <div className="text-xs text-gray-400">
-                  {(usage as any)?.storageIncluded || 0} GB included • €{((usage as any)?.storageOverageCost || 0).toFixed(2)} overage
+                <div className="text-xs text-gray-400 mb-2">
+                  {((storageData as any)?.limit || 0)} GB limit • {((storageData as any)?.usage?.incidentCount || 0)} incidents
+                </div>
+                <Progress 
+                  value={((storageData as any)?.quota?.percentage || 0)} 
+                  className={`h-2 ${
+                    ((storageData as any)?.quota?.percentage || 0) > 90 ? 'bg-red-100' : 
+                    ((storageData as any)?.quota?.percentage || 0) > 75 ? 'bg-yellow-100' : 'bg-green-100'
+                  }`}
+                />
+                <div className="text-xs text-gray-400 mt-1">
+                  {((storageData as any)?.quota?.percentage || 0)}% used • 
+                  {((storageData as any)?.quota?.canCreateNew ? ' Space available' : ' Near limit')}
                 </div>
               </div>
               <div>
@@ -335,6 +350,66 @@ export default function Billing() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Storage Usage Details */}
+      <Card className="cyber-slate border-cyber-slate-light">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="w-5 h-5 text-cyber-blue" />
+            Storage Usage Details
+          </CardTitle>
+          <CardDescription>
+            Detailed breakdown of your database storage usage
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-300">Storage Overview</h4>
+              <div className="space-y-3">
+                <div className="flex justify-between p-3 cyber-dark rounded-lg">
+                  <span className="text-sm text-gray-400">Total Storage Used:</span>
+                  <span className="font-medium text-cyber-blue">{((storageData as any)?.usage?.usageGB || 0).toFixed(3)} GB</span>
+                </div>
+                <div className="flex justify-between p-3 cyber-dark rounded-lg">
+                  <span className="text-sm text-gray-400">Storage Limit:</span>
+                  <span className="font-medium text-green-400">{((storageData as any)?.limit || 0)} GB</span>
+                </div>
+                <div className="flex justify-between p-3 cyber-dark rounded-lg">
+                  <span className="text-sm text-gray-400">Incidents Stored:</span>
+                  <span className="font-medium">{((storageData as any)?.usage?.incidentCount || 0)}</span>
+                </div>
+                <div className="flex justify-between p-3 cyber-dark rounded-lg">
+                  <span className="text-sm text-gray-400">Average per Incident:</span>
+                  <span className="font-medium">{((storageData as any)?.usage?.details?.averageIncidentSizeMB || 0).toFixed(2)} MB</span>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-300">Storage Breakdown</h4>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {(storageData as any)?.usage?.details?.breakdownMB && Object.entries((storageData as any).usage.details.breakdownMB).map(([key, value]: [string, any]) => (
+                  <div key={key} className="flex justify-between p-2 cyber-dark rounded text-xs">
+                    <span className="text-gray-400 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                    <span className="text-cyber-blue">{(value || 0).toFixed(2)} MB</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 p-4 bg-gradient-to-r from-cyber-dark to-cyber-slate-dark rounded-lg border border-cyber-slate-light">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-cyber-blue flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-cyber-blue">Auto-Cleanup Policy</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  All incidents are automatically deleted after 30 days across all plans to optimize storage usage and ensure data freshness.
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Pricing Information */}
       <Card className="cyber-slate border-cyber-slate-light">
