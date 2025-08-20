@@ -150,9 +150,19 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
         {/* Input Form Section */}
         <div className="w-1/2 p-6 border-r border-cyber-slate-light">
           <div className="cyber-slate rounded-xl p-6">
-            <div className="flex items-center space-x-2 mb-6">
-              <FileText className="text-cyber-blue" />
-              <h3 className="text-lg font-semibold">Incident Input</h3>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-2">
+                <FileText className="text-cyber-blue" />
+                <h3 className="text-lg font-semibold">Incident Input</h3>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium text-cyan-400">
+                  {(user as any)?.remainingIncidents || 0} analyses left
+                </div>
+                <div className="text-xs text-gray-400 capitalize">
+                  {(user as any)?.currentPackage || 'starter'} plan
+                </div>
+              </div>
             </div>
 
             <Form {...form}>
