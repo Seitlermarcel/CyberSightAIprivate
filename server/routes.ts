@@ -1010,7 +1010,7 @@ async function generateRealAIAnalysis(incident: any, settings?: any, threatRepor
     });
 
     // Transform Gemini results to match expected format
-    const transformedResult = await transformGeminiResultsToLegacyFormat(aiResult, incident, settings, userId);
+    const transformedResult = await transformGeminiResultsToLegacyFormat(aiResult, incident, settings, userId, threatReport);
     console.log('🔄 Transformation completed:', {
       hasAnalysis: !!transformedResult?.analysis,
       confidence: transformedResult?.confidence,
@@ -1031,7 +1031,7 @@ async function generateRealAIAnalysis(incident: any, settings?: any, threatRepor
 }
 
 // Transform Gemini AI results to match the expected legacy format
-async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, settings: any, userId?: string) {
+async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, settings: any, userId?: string, threatReport?: any) {
   console.log('🔄 Transforming Gemini AI results to legacy format...');
   
   // Safely extract data with fallbacks
@@ -3566,7 +3566,7 @@ function calculateBusinessImpactCosts(incident: any, aiResult: any, confidence: 
     'informational': 0.5
   };
   
-  const multiplier = severityMultipliers[severity] || 1.5;
+  const multiplier = severityMultipliers[severity as keyof typeof severityMultipliers] || 1.5;
   const confidenceBoost = confidence > 80 ? 1.2 : confidence > 60 ? 1.1 : 1.0;
   
   const baseCosts = {

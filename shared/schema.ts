@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, index, decimal, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, index, decimal, real, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -131,7 +131,9 @@ export const usageTracking = pgTable("usage_tracking", {
   totalCost: decimal("total_cost", { precision: 10, scale: 2 }).default("0.00"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  userIdMonthUnique: unique().on(table.userId, table.month),
+}));
 
 // Advanced query history (like Microsoft Advanced Hunting)
 export const queryHistory = pgTable("query_history", {
