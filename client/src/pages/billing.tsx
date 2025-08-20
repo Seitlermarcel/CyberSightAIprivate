@@ -213,7 +213,7 @@ export default function Billing() {
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case "package-purchase": return <CreditCard className="text-green-500" />;
+      case "credit-purchase": return <CreditCard className="text-green-500" />;
       case "incident-analysis": return <Activity className="text-blue-500" />;
       case "storage-fee": return <Database className="text-orange-500" />;
       case "refund": return <DollarSign className="text-purple-500" />;
@@ -223,7 +223,7 @@ export default function Billing() {
 
   const getTransactionColor = (type: string) => {
     switch (type) {
-      case "package-purchase": return "text-green-500";
+      case "credit-purchase": return "text-green-500";
       case "incident-analysis": return "text-blue-500";
       case "storage-fee": return "text-orange-500";
       case "refund": return "text-purple-500";
@@ -253,7 +253,7 @@ export default function Billing() {
                 {(user as any)?.remainingIncidents || 0}
               </div>
               <p className="text-sm text-gray-400">
-                Remaining incident analyses • {(user as any)?.currentPackage || 'free'} package
+                Remaining incident analyses • {(user as any)?.currentPackage || 'starter'} package
               </p>
               <div className="text-xs text-gray-500 mt-1">
                 {(usage as any)?.incidentsAnalyzed || 0} incidents analyzed this month
@@ -284,7 +284,7 @@ export default function Billing() {
                   <span className="font-medium">{(usage as any)?.incidentsAnalyzed || 0}</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  From {(user as any)?.currentPackage || 'free'} package
+                  From {(user as any)?.currentPackage || 'starter'} package
                 </div>
               </div>
               <div>
@@ -333,11 +333,11 @@ export default function Billing() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Badge className="capitalize text-sm px-3 py-1">
-                  {(user as any)?.currentPackage || "free"}
+                  {(user as any)?.currentPackage || "starter"}
                 </Badge>
                 <div className="text-right">
                   <div className="text-lg font-bold text-cyber-blue">
-                    {(user as any)?.currentPackage || 'free'}
+                    {(user as any)?.currentPackage || 'starter'}
                   </div>
                   <div className="text-xs text-gray-400">Current Package</div>
                 </div>
@@ -359,16 +359,8 @@ export default function Billing() {
               </div>
               
               <p className="text-xs text-gray-400">
-                {(user as any)?.currentPackage === "free" 
-                  ? "Limited features • Upgrade for full access" 
-                  : "Full access to all features"}
+                Full access to all features
               </p>
-              
-              {(user as any)?.currentPackage === "free" && (
-                <Button variant="outline" className="w-full text-xs">
-                  Upgrade Plan
-                </Button>
-              )}
             </div>
           </CardContent>
         </Card>
