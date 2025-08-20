@@ -874,27 +874,520 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Webhook ingestion endpoint (public for external systems)
+  // Enhanced webhook ingestion endpoints for SIEM integration
+  
+  // Generic webhook endpoint - accepts logs from any SIEM
   app.post("/api/webhook/ingest", async (req, res) => {
     try {
-      const { apiKey, logs, metadata } = req.body;
+      const { apiKey, logs, metadata, callbackUrl, source } = req.body;
       
       if (!apiKey) {
-        return res.status(401).json({ error: "API key required" });
+        return res.status(401).json({ 
+          error: "API key required",
+          hint: "Include 'apiKey' in request body with value 'cybersight_USER_ID_TOKEN'"
+        });
       }
       
-      // In production, validate API key and get user
-      // For now, simulate processing
-      res.json({ 
-        success: true, 
-        message: "Logs received for processing",
-        logsReceived: Array.isArray(logs) ? logs.length : 1
+      // Validate API key format and extract user ID
+      const apiKeyMatch = apiKey.match(/^cybersight_([^_]+)_TOKEN$/);
+      if (!apiKeyMatch) {
+        return res.status(401).json({ 
+          error: "Invalid API key format",
+          hint: "API key should be in format: cybersight_USER_ID_TOKEN"
+        });
+      }
+      
+      const userId = apiKeyMatch[1];
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(401).json({ error: "Invalid user" });
+      }
+      
+      // Process logs immediately with AI analysis
+      const results = await processIncomingLogs({
+        logs,
+        metadata,
+        userId,
+        source: source || 'webhook',
+        callbackUrl
       });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to process webhook" });
+      
+      res.json({ 
+        success: true,
+        message: "Logs processed successfully",
+        processed: results.processed,
+        incidents: results.incidents,
+        analysisTime: results.analysisTime
+      });
+    } catch (error: any) {
+      console.error('Webhook processing error:', error);
+      res.status(500).json({ 
+        error: "Failed to process webhook",
+        details: error?.message || 'Unknown error'
+      });
     }
   });
+  
+  // User-specific webhook endpoint (no API key needed in body)
+  app.post("/api/webhook/ingest/:userId/:token", async (req, res) => {
+    try {
+      const { userId, token } = req.params;
+      const { logs, metadata, callbackUrl, source } = req.body;
+      
+      // Validate user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Simple token validation (in production, use proper JWT or similar)
+      if (token !== 'TOKEN') {
+        return res.status(401).json({ 
+          error: "Invalid token",
+          hint: "Replace TOKEN with your actual token in the URL"
+        });
+      }
+      
+      // Process logs with AI analysis
+      const results = await processIncomingLogs({
+        logs,
+        metadata,
+        userId,
+        source: source || 'personal-webhook',
+        callbackUrl
+      });
+      
+      res.json({ 
+        success: true,
+        message: "Logs processed successfully",
+        processed: results.processed,
+        incidents: results.incidents,
+        analysisTime: results.analysisTime
+      });
+    } catch (error: any) {
+      console.error('User webhook processing error:', error);
+      res.status(500).json({ 
+        error: "Failed to process webhook",
+        details: error?.message || 'Unknown error'
+      });
+    }
+  });
+  
+  // SIEM-specific optimized endpoints
+  
+  // Microsoft Sentinel webhook
+  app.post("/api/webhook/sentinel", async (req, res) => {
+    try {
+      const results = await processSentinelWebhook(req.body);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to process Sentinel webhook", details: error?.message });
+    }
+  });
+  
+  // Splunk webhook
+  app.post("/api/webhook/splunk", async (req, res) => {
+    try {
+      const results = await processSplunkWebhook(req.body);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to process Splunk webhook", details: error?.message });
+    }
+  });
+  
+  // Elasticsearch/Elastic Security webhook
+  app.post("/api/webhook/elastic", async (req, res) => {
+    try {
+      const results = await processElasticWebhook(req.body);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to process Elastic webhook", details: error?.message });
+    }
+  });
+  
+  // CrowdStrike Falcon webhook
+  app.post("/api/webhook/crowdstrike", async (req, res) => {
+    try {
+      const results = await processCrowdStrikeWebhook(req.body);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to process CrowdStrike webhook", details: error?.message });
+    }
+  });
+  
+  // Generic syslog endpoint
+  app.post("/api/syslog/ingest", async (req, res) => {
+    try {
+      const results = await processSyslogData(req.body);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to process syslog data", details: error?.message });
+    }
+  });
+  
+  // Test webhook endpoint for SIEM integration testing
+  app.post("/api/webhook/test", async (req, res) => {
+    try {
+      const { apiKey, testData } = req.body;
+      
+      if (!apiKey) {
+        return res.status(401).json({ error: "API key required for testing" });
+      }
+      
+      // Quick test without full processing
+      res.json({ 
+        success: true,
+        message: "Webhook endpoint is working correctly",
+        timestamp: new Date().toISOString(),
+        receivedData: !!testData,
+        endpointUrl: `${req.protocol}://${req.get('host')}${req.originalUrl}`
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: "Webhook test failed", details: error?.message });
+    }
+  });
+  
+  // Helper functions for webhook processing
+  
+  async function processIncomingLogs({ logs, metadata, userId, source, callbackUrl }: {
+    logs: any;
+    metadata?: any;
+    userId: string;
+    source: string;
+    callbackUrl?: string;
+  }) {
+    const startTime = Date.now();
+    const processed = [];
+    const incidents = [];
+    
+    try {
+      // Convert logs to standardized format
+      const logEntries = Array.isArray(logs) ? logs : [logs];
+      
+      for (const logEntry of logEntries) {
+        // Create incident from log data
+        const incidentData = {
+          title: `Security Alert from ${source}`,
+          severity: detectSeverity(logEntry),
+          status: 'open',
+          logData: typeof logEntry === 'string' ? logEntry : JSON.stringify(logEntry, null, 2),
+          additionalLogs: metadata ? JSON.stringify(metadata, null, 2) : undefined,
+          systemContext: `Ingested via ${source} webhook`
+        };
+        
+        // Get user settings
+        const userSettings = await storage.getUserSettings(userId);
+        
+        // Analyze with threat intelligence
+        const threatReport = await threatIntelligence.analyzeThreatIntelligence(
+          incidentData.logData,
+          incidentData.additionalLogs || ''
+        );
+        
+        // Real AI analysis
+        let aiAnalysis;
+        try {
+          aiAnalysis = await generateRealAIAnalysis(incidentData, userSettings, threatReport, userId);
+        } catch (error) {
+          console.error('AI analysis failed for webhook log:', error);
+          aiAnalysis = generateFailsafeAnalysis(incidentData, userSettings, threatReport);
+        }
+        
+        // Create incident with AI analysis
+        const fullIncidentData = {
+          ...incidentData,
+          userId,
+          ...aiAnalysis,
+          threatIntelligence: JSON.stringify(threatReport)
+        };
+        
+        const incident = await storage.createIncident(fullIncidentData, userId);
+        incidents.push(incident);
+        processed.push({ logEntry, incidentId: incident.id, analysis: aiAnalysis });
+        
+        // Send callback if URL provided
+        if (callbackUrl) {
+          await sendAnalysisCallback(callbackUrl, incident, aiAnalysis);
+        }
+      }
+      
+      const analysisTime = Date.now() - startTime;
+      console.log(`Processed ${logEntries.length} logs from ${source} in ${analysisTime}ms`);
+      
+      return { processed: processed.length, incidents, analysisTime };
+    } catch (error) {
+      console.error('Error processing incoming logs:', error);
+      throw error;
+    }
+  }
+  
+  function detectSeverity(logData: any): string {
+    const logStr = typeof logData === 'string' ? logData.toLowerCase() : JSON.stringify(logData).toLowerCase();
+    
+    if (logStr.includes('critical') || logStr.includes('emergency')) return 'critical';
+    if (logStr.includes('high') || logStr.includes('alert')) return 'high';
+    if (logStr.includes('medium') || logStr.includes('warning')) return 'medium';
+    if (logStr.includes('low') || logStr.includes('notice')) return 'low';
+    return 'informational';
+  }
+  
+  async function sendAnalysisCallback(callbackUrl: string, incident: any, analysis: any) {
+    try {
+      const callbackData = {
+        incidentId: incident.id,
+        title: incident.title,
+        severity: incident.severity,
+        classification: analysis.classification,
+        confidence: analysis.confidence,
+        mitreAttack: analysis.mitreAttack || [],
+        iocs: analysis.iocs || [],
+        summary: analysis.aiAnalysis || 'Analysis completed',
+        timestamp: incident.createdAt,
+        source: 'CyberSight AI Analysis'
+      };
+      
+      // Send HTTP POST to callback URL
+      const response = await fetch(callbackUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'CyberSight-AI/1.0'
+        },
+        body: JSON.stringify(callbackData)
+      });
+      
+      if (!response.ok) {
+        console.error(`Callback failed: ${response.status} ${response.statusText}`);
+      } else {
+        console.log(`Analysis callback sent successfully to ${callbackUrl}`);
+      }
+    } catch (error) {
+      console.error('Error sending callback:', error);
+    }
+  }
+  
+  // SIEM-specific processing functions
+  
+  async function processSentinelWebhook(body: any) {
+    const { WorkspaceId, AlertType, alertContext, entities, apiKey } = body;
+    
+    if (!apiKey) {
+      throw new Error('API key required for Sentinel integration');
+    }
+    
+    // Extract user from API key
+    const apiKeyMatch = apiKey.match(/^cybersight_([^_]+)_TOKEN$/);
+    if (!apiKeyMatch) {
+      throw new Error('Invalid API key format');
+    }
+    
+    const userId = apiKeyMatch[1];
+    
+    return await processIncomingLogs({
+      logs: {
+        workspaceId: WorkspaceId,
+        alertType: AlertType,
+        context: alertContext,
+        entities: entities
+      },
+      metadata: { source: 'Microsoft Sentinel', workspaceId: WorkspaceId },
+      userId,
+      source: 'Microsoft Sentinel'
+    });
+  }
+  
+  async function processSplunkWebhook(body: any) {
+    const { search_name, result, apiKey } = body;
+    
+    if (!apiKey) {
+      throw new Error('API key required for Splunk integration');
+    }
+    
+    const apiKeyMatch = apiKey.match(/^cybersight_([^_]+)_TOKEN$/);
+    if (!apiKeyMatch) {
+      throw new Error('Invalid API key format');
+    }
+    
+    const userId = apiKeyMatch[1];
+    
+    return await processIncomingLogs({
+      logs: {
+        searchName: search_name,
+        result: result
+      },
+      metadata: { source: 'Splunk', searchName: search_name },
+      userId,
+      source: 'Splunk'
+    });
+  }
+  
+  async function processElasticWebhook(body: any) {
+    const { alert, rule, apiKey } = body;
+    
+    if (!apiKey) {
+      throw new Error('API key required for Elastic integration');
+    }
+    
+    const apiKeyMatch = apiKey.match(/^cybersight_([^_]+)_TOKEN$/);
+    if (!apiKeyMatch) {
+      throw new Error('Invalid API key format');
+    }
+    
+    const userId = apiKeyMatch[1];
+    
+    return await processIncomingLogs({
+      logs: {
+        alert: alert,
+        rule: rule
+      },
+      metadata: { source: 'Elasticsearch', ruleName: rule?.name },
+      userId,
+      source: 'Elasticsearch'
+    });
+  }
+  
+  async function processCrowdStrikeWebhook(body: any) {
+    const { event, metadata, apiKey } = body;
+    
+    if (!apiKey) {
+      throw new Error('API key required for CrowdStrike integration');
+    }
+    
+    const apiKeyMatch = apiKey.match(/^cybersight_([^_]+)_TOKEN$/);
+    if (!apiKeyMatch) {
+      throw new Error('Invalid API key format');
+    }
+    
+    const userId = apiKeyMatch[1];
+    
+    return await processIncomingLogs({
+      logs: event,
+      metadata: { source: 'CrowdStrike Falcon', ...metadata },
+      userId,
+      source: 'CrowdStrike Falcon'
+    });
+  }
+  
+  async function processSyslogData(body: any) {
+    const { messages, facility, severity, apiKey } = body;
+    
+    if (!apiKey) {
+      throw new Error('API key required for Syslog integration');
+    }
+    
+    const apiKeyMatch = apiKey.match(/^cybersight_([^_]+)_TOKEN$/);
+    if (!apiKeyMatch) {
+      throw new Error('Invalid API key format');
+    }
+    
+    const userId = apiKeyMatch[1];
+    
+    return await processIncomingLogs({
+      logs: messages,
+      metadata: { source: 'Syslog', facility, severity },
+      userId,
+      source: 'Syslog'
+    });
+  }
 
+  // API Configuration management endpoints
+  
+  app.get("/api/api-configurations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const configurations = await storage.getUserApiConfigs(userId);
+      res.json(configurations);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch API configurations" });
+    }
+  });
+  
+  app.post("/api/api-configurations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const configuration = await storage.createApiConfig(req.body, userId);
+      res.json(configuration);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create API configuration" });
+    }
+  });
+  
+  app.patch("/api/api-configurations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const configuration = await storage.updateApiConfig(req.params.id, userId, req.body);
+      if (!configuration) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      res.json(configuration);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update API configuration" });
+    }
+  });
+  
+  app.delete("/api/api-configurations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const success = await storage.deleteApiConfig(req.params.id, userId);
+      if (!success) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete API configuration" });
+    }
+  });
+  
+  app.post("/api/api-configurations/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const configuration = await storage.getApiConfig(req.params.id, userId);
+      
+      if (!configuration) {
+        return res.status(404).json({ error: "Configuration not found" });
+      }
+      
+      // Test the configuration by sending a test request
+      const testResult = await testApiConfiguration(configuration);
+      res.json(testResult);
+    } catch (error: any) {
+      res.status(500).json({ error: "Test failed", details: error?.message });
+    }
+  });
+  
+  async function testApiConfiguration(config: any) {
+    try {
+      // Send test request to the configured endpoint
+      const response = await fetch(config.endpointUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.apiKey && { 'Authorization': `Bearer ${config.apiKey}` }),
+          ...config.headers
+        },
+        body: JSON.stringify({
+          test: true,
+          message: 'CyberSight AI configuration test',
+          timestamp: new Date().toISOString()
+        })
+      });
+      
+      return {
+        success: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        message: response.ok ? 'Configuration test successful' : 'Configuration test failed'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to connect to endpoint'
+      };
+    }
+  }
+  
   // Test incident creation endpoint (for development)
   app.post("/api/create-test-incident", isAuthenticated, async (req: any, res) => {
     try {

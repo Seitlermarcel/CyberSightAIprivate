@@ -32,325 +32,375 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
-  Edit,
-  Trash2,
-  Settings,
-  Shield,
-  Activity,
-  AlertCircle,
-  CheckCircle,
   Copy,
-  Eye,
-  EyeOff,
-  TestTube,
+  CheckCircle,
+  AlertCircle,
   Webhook,
   Server,
   Database,
   Cloud,
   Key,
+  Zap,
+  Shield,
+  Settings,
+  ArrowRight,
+  ExternalLink,
+  TestTube,
+  PlayCircle,
+  Info
 } from "lucide-react";
+
+const SIEM_TEMPLATES = [
+  {
+    id: "microsoft-sentinel",
+    name: "Microsoft Sentinel",
+    icon: Cloud,
+    color: "text-blue-500",
+    description: "Azure cloud-native SIEM and SOAR platform",
+    webhook: "/api/webhook/sentinel",
+    steps: [
+      "1. Go to your Sentinel workspace",
+      "2. Navigate to Automation > Automation rules",
+      "3. Create a new rule with HTTP webhook action",
+      "4. Use the webhook URL provided below",
+      "5. Include your API key in the request body"
+    ],
+    samplePayload: {
+      "WorkspaceId": "your-workspace-id",
+      "AlertType": "SecurityAlert",
+      "alertContext": "Suspicious activity detected",
+      "entities": ["entity1", "entity2"],
+      "apiKey": "cybersight_USER_ID_TOKEN"
+    }
+  },
+  {
+    id: "splunk",
+    name: "Splunk",
+    icon: Database,
+    color: "text-green-500",
+    description: "Enterprise security information and event management",
+    webhook: "/api/webhook/splunk",
+    steps: [
+      "1. In Splunk Web, go to Settings > Alert actions",
+      "2. Create a new webhook alert action",
+      "3. Set the URL to the webhook endpoint below",
+      "4. Configure the payload to include your API key",
+      "5. Save and test the alert action"
+    ],
+    samplePayload: {
+      "search_name": "Security Alert",
+      "result": { "field1": "value1", "field2": "value2" },
+      "apiKey": "cybersight_USER_ID_TOKEN"
+    }
+  },
+  {
+    id: "elastic",
+    name: "Elasticsearch/Elastic Security",
+    icon: Database,
+    color: "text-yellow-500",
+    description: "Open source search and analytics engine",
+    webhook: "/api/webhook/elastic",
+    steps: [
+      "1. Open Kibana and go to Stack Management",
+      "2. Navigate to Rules and Connectors > Connectors",
+      "3. Create a new Webhook connector",
+      "4. Set the URL to the webhook endpoint below",
+      "5. Configure headers to include your API key"
+    ],
+    samplePayload: {
+      "alert": { "id": "alert-id", "name": "Security Alert" },
+      "rule": { "name": "Detection Rule", "id": "rule-id" },
+      "apiKey": "cybersight_USER_ID_TOKEN"
+    }
+  },
+  {
+    id: "crowdstrike",
+    name: "CrowdStrike Falcon",
+    icon: Shield,
+    color: "text-red-500",
+    description: "Endpoint protection and threat intelligence platform",
+    webhook: "/api/webhook/crowdstrike",
+    steps: [
+      "1. Log into CrowdStrike Falcon console",
+      "2. Go to Configuration > API Clients & Keys",
+      "3. Create a new API client with appropriate scopes",
+      "4. Configure a webhook URL in Event streams",
+      "5. Use the webhook endpoint provided below"
+    ],
+    samplePayload: {
+      "event": { "type": "SecurityEvent", "data": "event-data" },
+      "metadata": { "customer": "customer-id", "timestamp": "2025-01-20T10:00:00Z" },
+      "apiKey": "cybersight_USER_ID_TOKEN"
+    }
+  },
+  {
+    id: "generic",
+    name: "Generic SIEM/SOC Tool",
+    icon: Server,
+    color: "text-purple-500",
+    description: "Works with any SIEM tool that supports HTTP webhooks",
+    webhook: "/api/webhook/ingest",
+    steps: [
+      "1. Find the webhook/HTTP notification settings in your SIEM",
+      "2. Add a new webhook endpoint",
+      "3. Use the generic webhook URL below",
+      "4. Include your API key in the request body",
+      "5. Test the connection to verify it's working"
+    ],
+    samplePayload: {
+      "logs": ["security log 1", "security log 2"],
+      "metadata": { "source": "SIEM-Tool", "severity": "high" },
+      "callbackUrl": "https://your-siem.com/api/callback",
+      "apiKey": "cybersight_USER_ID_TOKEN"
+    }
+  }
+];
 
 export default function ApiSettings() {
   const { toast } = useToast();
-  const [selectedConfig, setSelectedConfig] = useState<any>(null);
-  const [showApiKey, setShowApiKey] = useState<{ [key: string]: boolean }>({});
-  const [isTestingConfig, setIsTestingConfig] = useState<string | null>(null);
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [selectedSiem, setSelectedSiem] = useState<any>(null);
+  const [showIntegrationGuide, setShowIntegrationGuide] = useState(false);
+  const [isTestingWebhook, setIsTestingWebhook] = useState<string | null>(null);
 
-  // Fetch API configurations
-  const { data: apiConfigs, isLoading } = useQuery({
-    queryKey: ["/api/api-configurations"],
-  });
-
-  // Fetch user data for webhook endpoints
+  // Fetch user data for API keys
   const { data: user } = useQuery({
     queryKey: ["/api/auth/user"],
   });
 
-  // Create API configuration
-  const createConfigMutation = useMutation({
-    mutationFn: async (config: any) => {
-      return await apiRequest("POST", "/api/api-configurations", config);
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: "The text has been copied successfully.",
+    });
+  };
+
+  const testWebhookMutation = useMutation({
+    mutationFn: async (webhook: string) => {
+      return await apiRequest("POST", webhook.replace("/api", "") + "/test", {
+        apiKey: `cybersight_${user?.id}_TOKEN`,
+        testData: { message: "CyberSight AI integration test" }
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/api-configurations"] });
-      toast({
-        title: "Configuration Created",
-        description: "API configuration has been successfully created.",
-      });
-      setShowAddDialog(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to create API configuration.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Update API configuration
-  const updateConfigMutation = useMutation({
-    mutationFn: async ({ id, ...config }: any) => {
-      return await apiRequest("PATCH", `/api/api-configurations/${id}`, config);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/api-configurations"] });
-      toast({
-        title: "Configuration Updated",
-        description: "API configuration has been successfully updated.",
-      });
-      setSelectedConfig(null);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update API configuration.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete API configuration
-  const deleteConfigMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest("DELETE", `/api/api-configurations/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/api-configurations"] });
-      toast({
-        title: "Configuration Deleted",
-        description: "API configuration has been successfully deleted.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to delete API configuration.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Test API configuration
-  const testConfigMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest("POST", `/api/api-configurations/${id}/test`);
-    },
-    onSuccess: (data) => {
       toast({
         title: "Test Successful",
-        description: "API configuration is working correctly.",
+        description: "Webhook endpoint is working correctly.",
       });
     },
     onError: (error) => {
       toast({
         title: "Test Failed",
-        description: "Unable to connect to the API endpoint.",
+        description: "Unable to reach the webhook endpoint.",
         variant: "destructive",
       });
     },
     onSettled: () => {
-      setIsTestingConfig(null);
+      setIsTestingWebhook(null);
     },
   });
 
-  const handleTest = (id: string) => {
-    setIsTestingConfig(id);
-    testConfigMutation.mutate(id);
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied",
-      description: "API key copied to clipboard.",
-    });
-  };
-
-  const getEndpointIcon = (type: string) => {
-    switch (type) {
-      case "webhook": return <Webhook className="w-4 h-4" />;
-      case "syslog": return <Server className="w-4 h-4" />;
-      case "splunk": return <Database className="w-4 h-4" />;
-      case "elastic": return <Database className="w-4 h-4" />;
-      case "azure-sentinel": return <Cloud className="w-4 h-4" />;
-      default: return <Settings className="w-4 h-4" />;
-    }
-  };
-
-  const ConfigForm = ({ config, onSubmit, onCancel }: any) => {
-    const [formData, setFormData] = useState(config || {
-      name: "",
-      endpointType: "webhook",
-      endpointUrl: "",
-      apiKey: "",
-      apiSecret: "",
-      authType: "api-key",
-      queryInterval: 60,
-      isActive: true,
-      headers: {},
-    });
-
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      onSubmit(formData);
-    };
-
-    return (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <Label>Configuration Name</Label>
-          <Input
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="e.g., Production SIEM"
-            required
-          />
-        </div>
-
-        <div>
-          <Label>Endpoint Type</Label>
-          <Select
-            value={formData.endpointType}
-            onValueChange={(value) => setFormData({ ...formData, endpointType: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="webhook">Webhook</SelectItem>
-              <SelectItem value="syslog">Syslog</SelectItem>
-              <SelectItem value="splunk">Splunk</SelectItem>
-              <SelectItem value="elastic">Elasticsearch</SelectItem>
-              <SelectItem value="azure-sentinel">Azure Sentinel</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label>Endpoint URL</Label>
-          <Input
-            value={formData.endpointUrl}
-            onChange={(e) => setFormData({ ...formData, endpointUrl: e.target.value })}
-            placeholder="https://api.example.com/logs"
-            required
-          />
-        </div>
-
-        <div>
-          <Label>Authentication Type</Label>
-          <Select
-            value={formData.authType}
-            onValueChange={(value) => setFormData({ ...formData, authType: value })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="api-key">API Key</SelectItem>
-              <SelectItem value="oauth">OAuth 2.0</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {formData.authType !== "none" && (
-          <>
-            <div>
-              <Label>API Key / Username</Label>
-              <Input
-                value={formData.apiKey}
-                onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                placeholder="Enter API key or username"
-              />
-            </div>
-
-            {formData.authType === "oauth" && (
-              <div>
-                <Label>OAuth Client Secret</Label>
-                <Input
-                  type="password"
-                  value={formData.apiSecret}
-                  onChange={(e) => setFormData({ ...formData, apiSecret: e.target.value })}
-                  placeholder="Enter OAuth client secret"
-                />
-              </div>
-            )}
-          </>
-        )}
-
-        <div>
-          <Label>Query Interval (seconds)</Label>
-          <Input
-            type="number"
-            value={formData.queryInterval}
-            onChange={(e) => setFormData({ ...formData, queryInterval: parseInt(e.target.value) })}
-            min="10"
-            max="3600"
-          />
-          <p className="text-xs text-gray-500 mt-1">How often to check for new logs (10-3600 seconds)</p>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Switch
-            checked={formData.isActive}
-            onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-          />
-          <Label>Active</Label>
-        </div>
-
-        <div className="flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit">
-            {config?.id ? "Update" : "Create"} Configuration
-          </Button>
-        </div>
-      </form>
-    );
+  const handleTestWebhook = (webhook: string) => {
+    setIsTestingWebhook(webhook);
+    testWebhookMutation.mutate(webhook);
   };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">API Configurations</h1>
-          <p className="text-gray-500">Configure log streaming endpoints and integrations</p>
+          <h1 className="text-3xl font-bold cyber-gradient">SIEM Integration Hub</h1>
+          <p className="text-gray-400 mt-2">
+            Connect your security tools to CyberSight AI for automated incident analysis
+          </p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <Dialog open={showIntegrationGuide} onOpenChange={setShowIntegrationGuide}>
           <DialogTrigger asChild>
             <Button className="cyber-blue hover:bg-blue-600">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Configuration
+              <Zap className="w-4 h-4 mr-2" />
+              Quick Setup Guide
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add API Configuration</DialogTitle>
+              <DialogTitle className="text-2xl cyber-gradient">SIEM Integration Guide</DialogTitle>
               <DialogDescription>
-                Configure a new log streaming endpoint
+                Choose your SIEM platform and follow the step-by-step integration guide
               </DialogDescription>
             </DialogHeader>
-            <ConfigForm
-              onSubmit={(data: any) => createConfigMutation.mutate(data)}
-              onCancel={() => setShowAddDialog(false)}
-            />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              {SIEM_TEMPLATES.map((siem) => {
+                const Icon = siem.icon;
+                return (
+                  <Card 
+                    key={siem.id}
+                    className={`cursor-pointer transition-all hover:border-cyber-blue ${
+                      selectedSiem?.id === siem.id ? 'border-cyber-blue bg-cyber-blue/10' : 'cyber-slate border-cyber-slate-light'
+                    }`}
+                    onClick={() => setSelectedSiem(siem)}
+                  >
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center space-x-3">
+                        <Icon className={`w-5 h-5 ${siem.color}`} />
+                        <span className="text-lg">{siem.name}</span>
+                      </CardTitle>
+                      <CardDescription>{siem.description}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {selectedSiem && (
+              <Card className="mt-6 cyber-slate border-cyber-blue">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-3 text-cyber-blue">
+                    <selectedSiem.icon className="w-5 h-5" />
+                    <span>{selectedSiem.name} Integration</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Integration Steps */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center">
+                      <Settings className="w-5 h-5 mr-2 text-cyber-blue" />
+                      Setup Instructions
+                    </h3>
+                    <div className="space-y-2">
+                      {selectedSiem.steps.map((step: string, index: number) => (
+                        <div key={index} className="flex items-start space-x-3">
+                          <div className="w-6 h-6 rounded-full bg-cyber-blue text-xs flex items-center justify-center text-white font-medium">
+                            {index + 1}
+                          </div>
+                          <p className="text-gray-300 flex-1">{step}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Webhook URL */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center">
+                      <Webhook className="w-5 h-5 mr-2 text-cyber-blue" />
+                      Webhook Endpoint
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        value={`${window.location.origin}${selectedSiem.webhook}`}
+                        readOnly
+                        className="font-mono text-sm cyber-slate"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(`${window.location.origin}${selectedSiem.webhook}`)}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleTestWebhook(selectedSiem.webhook)}
+                        disabled={isTestingWebhook === selectedSiem.webhook}
+                      >
+                        <TestTube className="w-4 h-4 mr-1" />
+                        {isTestingWebhook === selectedSiem.webhook ? "Testing..." : "Test"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* API Key */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center">
+                      <Key className="w-5 h-5 mr-2 text-cyber-blue" />
+                      API Key (Include in Request Body)
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        value={`cybersight_${user?.id || 'USER_ID'}_TOKEN`}
+                        readOnly
+                        className="font-mono text-sm cyber-slate"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(`cybersight_${user?.id || 'USER_ID'}_TOKEN`)}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Replace USER_ID with your actual user ID: {user?.id}
+                    </p>
+                  </div>
+
+                  {/* Sample Payload */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center">
+                      <Database className="w-5 h-5 mr-2 text-cyber-blue" />
+                      Sample Request Payload
+                    </h3>
+                    <div className="relative">
+                      <pre className="cyber-dark p-4 rounded-lg text-sm overflow-x-auto">
+                        <code className="text-green-400">
+                          {JSON.stringify(selectedSiem.samplePayload, null, 2)}
+                        </code>
+                      </pre>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="absolute top-2 right-2"
+                        onClick={() => copyToClipboard(JSON.stringify(selectedSiem.samplePayload, null, 2))}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="bg-cyber-blue/10 p-4 rounded-lg">
+                    <h4 className="font-semibold text-cyber-blue mb-2 flex items-center">
+                      <Zap className="w-4 h-4 mr-2" />
+                      What Happens Next?
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-300">
+                      <li className="flex items-center space-x-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Logs automatically analyzed by 12 AI agents</span>
+                      </li>
+                      <li className="flex items-center space-x-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Incidents classified and confidence scored</span>
+                      </li>
+                      <li className="flex items-center space-x-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>MITRE ATT&CK mapping and IOC enrichment</span>
+                      </li>
+                      <li className="flex items-center space-x-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span>Results sent back to your SIEM (if callback URL provided)</span>
+                      </li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Your Webhook Endpoints */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Quick Access Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Generic Webhook */}
         <Card className="cyber-slate border-cyber-slate-light">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Webhook className="text-cyber-blue" />
-              <span>Generic Webhook</span>
+              <span>Universal Webhook</span>
             </CardTitle>
             <CardDescription>
-              Send logs with API key authentication
+              Works with any SIEM that supports HTTP webhooks
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -369,14 +419,15 @@ export default function ApiSettings() {
                   <Copy className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="p-2 cyber-dark rounded text-xs">
-                <p className="text-gray-400 mb-1">Required headers:</p>
-                <code className="text-cyber-blue">apiKey: cybersight_{user?.id || 'USER_ID'}_TOKEN</code>
+              <div className="p-3 cyber-dark rounded-lg text-xs">
+                <p className="text-gray-400 mb-1">Include in request body:</p>
+                <code className="text-cyber-blue">{"{ \"apiKey\": \"cybersight_" + (user?.id || 'USER_ID') + "_TOKEN\" }"}</code>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Personal Endpoint */}
         <Card className="cyber-slate border-cyber-slate-light">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -384,7 +435,7 @@ export default function ApiSettings() {
               <span>Personal Endpoint</span>
             </CardTitle>
             <CardDescription>
-              Your unique user-specific webhook URL
+              Your unique webhook URL (no API key required)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -403,133 +454,108 @@ export default function ApiSettings() {
                   <Copy className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="p-2 cyber-dark rounded text-xs">
-                <p className="text-gray-400 mb-1">Replace TOKEN with your unique token</p>
-                <p className="text-green-400">No API key required in headers</p>
+              <div className="p-3 cyber-dark rounded-lg text-xs">
+                <p className="text-gray-400 mb-1">Replace TOKEN with your secure token</p>
+                <p className="text-green-400">✓ No API key needed in request body</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bidirectional Flow */}
+        <Card className="cyber-slate border-cyber-slate-light">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <ArrowRight className="text-purple-500" />
+              <span>Bidirectional Flow</span>
+            </CardTitle>
+            <CardDescription>
+              Get AI analysis results back in your SIEM
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Your SIEM</span>
+                <ArrowRight className="w-4 h-4 text-cyber-blue" />
+                <span className="text-sm text-cyber-blue">CyberSight AI</span>
+                <ArrowRight className="w-4 h-4 text-green-500" />
+                <span className="text-sm text-green-400">Results Back</span>
+              </div>
+              <div className="p-3 cyber-dark rounded-lg text-xs">
+                <p className="text-gray-400 mb-1">Include in request:</p>
+                <code className="text-purple-400">{"\"callbackUrl\": \"https://your-siem.com/api/callback\""}</code>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* API Configurations List */}
-      <div className="grid gap-4">
-        {isLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin w-8 h-8 border-4 border-cyber-blue border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-gray-400">Loading configurations...</p>
+      {/* Popular SIEM Integrations */}
+      <Card className="cyber-slate border-cyber-slate-light">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2 text-xl">
+            <Shield className="text-cyber-blue" />
+            <span>Popular SIEM Integrations</span>
+          </CardTitle>
+          <CardDescription>
+            Quick setup guides for the most popular security platforms
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {SIEM_TEMPLATES.slice(0, -1).map((siem) => {
+              const Icon = siem.icon;
+              return (
+                <div
+                  key={siem.id}
+                  className="p-4 rounded-lg cyber-dark border border-cyber-slate-light hover:border-cyber-blue transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedSiem(siem);
+                    setShowIntegrationGuide(true);
+                  }}
+                >
+                  <div className="flex items-center space-x-3 mb-2">
+                    <Icon className={`w-6 h-6 ${siem.color}`} />
+                    <h3 className="font-semibold">{siem.name}</h3>
+                  </div>
+                  <p className="text-sm text-gray-400 mb-3">{siem.description}</p>
+                  <Button size="sm" variant="outline" className="w-full">
+                    <PlayCircle className="w-4 h-4 mr-2" />
+                    Setup Guide
+                  </Button>
+                </div>
+              );
+            })}
           </div>
-        ) : apiConfigs && apiConfigs.length > 0 ? (
-          apiConfigs.map((config: any) => (
-            <Card key={config.id} className="cyber-slate border-cyber-slate-light">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    {getEndpointIcon(config.endpointType)}
-                    <div>
-                      <CardTitle className="text-lg">{config.name}</CardTitle>
-                      <CardDescription className="flex items-center space-x-2">
-                        <span className="capitalize">{config.endpointType}</span>
-                        <span>•</span>
-                        <span>{config.endpointUrl}</span>
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={config.isActive ? "default" : "secondary"}>
-                      {config.isActive ? (
-                        <><CheckCircle className="w-3 h-3 mr-1" /> Active</>
-                      ) : (
-                        <><AlertCircle className="w-3 h-3 mr-1" /> Inactive</>
-                      )}
-                    </Badge>
-                    {config.lastSync && (
-                      <Badge variant="outline" className="text-xs">
-                        Last sync: {new Date(config.lastSync).toLocaleString()}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-sm text-gray-400">
-                    <Activity className="w-4 h-4" />
-                    <span>Query every {config.queryInterval}s</span>
-                    {config.authType !== "none" && (
-                      <>
-                        <span>•</span>
-                        <Key className="w-4 h-4" />
-                        <span className="capitalize">{config.authType} Auth</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleTest(config.id)}
-                      disabled={isTestingConfig === config.id}
-                    >
-                      <TestTube className="w-4 h-4 mr-1" />
-                      {isTestingConfig === config.id ? "Testing..." : "Test"}
-                    </Button>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedConfig(config)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Edit API Configuration</DialogTitle>
-                          <DialogDescription>
-                            Update the configuration settings
-                          </DialogDescription>
-                        </DialogHeader>
-                        <ConfigForm
-                          config={selectedConfig}
-                          onSubmit={(data: any) => updateConfigMutation.mutate({ ...data, id: config.id })}
-                          onCancel={() => setSelectedConfig(null)}
-                        />
-                      </DialogContent>
-                    </Dialog>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this configuration?")) {
-                          deleteConfigMutation.mutate(config.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <Card className="cyber-slate border-cyber-slate-light">
-            <CardContent className="text-center py-12">
-              <Shield className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No API Configurations</h3>
-              <p className="text-gray-400 mb-4">
-                Configure log streaming endpoints to automatically analyze security events
-              </p>
-              <Button onClick={() => setShowAddDialog(true)} className="cyber-blue hover:bg-blue-600">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Configuration
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+        </CardContent>
+      </Card>
+
+      {/* Integration Status */}
+      <Card className="cyber-slate border-cyber-slate-light">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Info className="text-yellow-500" />
+            <span>Integration Status</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm">Webhooks Ready</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm">AI Analysis Active</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <span className="text-sm">Callbacks Enabled</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
