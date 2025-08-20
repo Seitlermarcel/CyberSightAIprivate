@@ -65,10 +65,12 @@ function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
       const response = await apiRequest("POST", "/api/billing/create-payment-intent", {
         packageId: selectedPackage.id
       });
+      
+      const data = await response.json();
 
-      if (response.clientSecret) {
+      if (data.clientSecret) {
         // Confirm payment with Stripe
-        const { error } = await stripe.confirmCardPayment(response.clientSecret, {
+        const { error } = await stripe.confirmCardPayment(data.clientSecret, {
           payment_method: {
             card: elements.getElement(CardElement)!,
           }
@@ -148,17 +150,17 @@ export default function Billing() {
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
 
   // Fetch user data with credits
-  const { data: user } = useQuery({
+  const { data: user = {} } = useQuery({
     queryKey: ["/api/user"],
   });
 
   // Fetch billing transactions
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ["/api/billing/transactions"],
   });
 
   // Fetch usage statistics
-  const { data: usage } = useQuery({
+  const { data: usage = {} } = useQuery({
     queryKey: ["/api/billing/usage"],
   });
 
@@ -251,10 +253,10 @@ export default function Billing() {
           <CardContent>
             <div className="space-y-2">
               <div className="text-3xl font-bold">
-                {Math.floor(parseFloat(user?.credits || "0"))}
+                {Math.floor(parseFloat((user as any)?.credits || "0"))}
               </div>
               <p className="text-sm text-gray-400">
-                Remaining analyses in your {user?.subscriptionPlan || 'current'} plan
+                Remaining analyses in your {(user as any)?.subscriptionPlan || 'current'} plan
               </p>
               <Button 
                 className="w-full cyber-blue hover:bg-blue-600"
@@ -279,25 +281,25 @@ export default function Billing() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span>Incidents Analyzed</span>
-                  <span className="font-medium">{usage?.incidentsAnalyzed || 0}</span>
+                  <span className="font-medium">{(usage as any)?.incidentsAnalyzed || 0}</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  €{(usage?.incidentsCost || 0).toFixed(2)} spent
+                  €{((usage as any)?.incidentsCost || 0).toFixed(2)} spent
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span>Storage Used</span>
-                  <span className="font-medium">{(usage?.storageGB || 0).toFixed(2)} GB</span>
+                  <span className="font-medium">{((usage as any)?.storageGB || 0).toFixed(2)} GB</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  {(usage?.storageIncluded || 0)} GB included • €{(usage?.storageOverageCost || 0).toFixed(2)} overage
+                  {(usage as any)?.storageIncluded || 0} GB included • €{((usage as any)?.storageOverageCost || 0).toFixed(2)} overage
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="font-semibold">Total Cost</span>
-                  <span className="font-bold">€{(usage?.totalCost || 0).toFixed(2)}</span>
+                  <span className="font-bold">€{((usage as any)?.totalCost || 0).toFixed(2)}</span>
                 </div>
                 <div className="text-xs text-gray-400">
                   This month's charges
@@ -317,14 +319,14 @@ export default function Billing() {
           <CardContent>
             <div className="space-y-2">
               <Badge className="capitalize">
-                {user?.subscriptionPlan || "Free"}
+                {(user as any)?.subscriptionPlan || "Free"}
               </Badge>
               <p className="text-sm text-gray-400">
-                {user?.subscriptionPlan === "free" 
+                {(user as any)?.subscriptionPlan === "free" 
                   ? "Limited features" 
                   : "Full access to all features"}
               </p>
-              {user?.subscriptionPlan === "free" && (
+              {(user as any)?.subscriptionPlan === "free" && (
                 <Button variant="outline" className="w-full">
                   Upgrade Plan
                 </Button>
@@ -382,9 +384,9 @@ export default function Billing() {
               <div className="animate-spin w-8 h-8 border-4 border-cyber-blue border-t-transparent rounded-full mx-auto mb-4"></div>
               <p className="text-gray-400">Loading transactions...</p>
             </div>
-          ) : transactions && transactions.length > 0 ? (
+          ) : transactions && (transactions as any[]).length > 0 ? (
             <div className="space-y-2">
-              {transactions.map((transaction: any) => (
+              {(transactions as any[]).map((transaction: any) => (
                 <div key={transaction.id} className="flex items-center justify-between p-3 cyber-dark rounded-lg">
                   <div className="flex items-center space-x-3">
                     {getTransactionIcon(transaction.type)}
