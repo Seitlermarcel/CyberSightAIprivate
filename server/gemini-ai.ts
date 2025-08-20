@@ -332,21 +332,23 @@ FORMATTING REQUIREMENTS:
 - Keep ALL titles to maximum 4 words
 - Avoid formatting symbols like *, -, •
 - Use concise technique descriptions
+- CRITICAL: Format tactics as "TA####: Tactic Name" for proper parsing
 
 Map to MITRE ATT&CK framework:
-- Identify relevant tactics (TA####)
-- Map specific techniques (T####)
+- Identify relevant tactics (TA####) - these represent the "why" of an attack
+- Map specific techniques (T####) - these represent the "how" 
 - Include sub-techniques where applicable (T####.###)
 - Focus on: Credential Access (TA0006), Defense Evasion (TA0005), Persistence (TA0003), Discovery (TA0007), Execution (TA0002)
 
 Provide mappings for these common patterns:
-- lsass/mimikatz → T1003 (OS Credential Dumping), T1003.001 (LSASS Memory)
-- powershell -enc → T1027 (Obfuscated Files), T1140 (Deobfuscate/Decode)
-- schtasks/registry → T1053 (Scheduled Task), T1547.001 (Registry Run Keys)
-- network discovery → T1018 (Remote System Discovery), T1016 (System Network Configuration Discovery)
+- lsass/mimikatz → TA0006: Credential Access, T1003: OS Credential Dumping
+- powershell -enc → TA0005: Defense Evasion, T1027: Obfuscated Files
+- schtasks/registry → TA0003: Persistence, T1053: Scheduled Task
+- network discovery → TA0007: Discovery, T1018: Remote System Discovery
 
 Format your response as:
-MITRE MAPPINGS: [tactics and techniques with IDs]
+PRIMARY TACTICS: TA0002: Execution, TA0005: Defense Evasion, TA0006: Credential Access
+MITRE TECHNIQUES: T1059: Command and Scripting Interpreter, T1027: Obfuscated Files
 CONFIDENCE: [1-100]
 KEY FINDINGS: [3-5 bullet points with short titles]
 RECOMMENDATIONS: [3-4 actionable items]`;
