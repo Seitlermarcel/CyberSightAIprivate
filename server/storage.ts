@@ -126,11 +126,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserPackage(userId: string, packageType: string, incidents: number, expiry?: Date): Promise<User | undefined> {
+    // Get current user to add incidents to existing balance
+    const currentUser = await this.getUser(userId);
+    const currentIncidents = (currentUser as any)?.remainingIncidents || 0;
+    
     const [user] = await db
       .update(users)
       .set({ 
         currentPackage: packageType, 
-        remainingIncidents: incidents,
+        remainingIncidents: currentIncidents + incidents, // Add to existing balance
         packageExpiry: expiry || null,
         updatedAt: new Date() 
       })
