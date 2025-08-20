@@ -313,7 +313,20 @@ export default function Billing() {
                   }`}
                 />
                 <div className="text-xs text-gray-400 mt-1">
-                  {(((storageData as any)?.quota?.percentage || 0)).toFixed(4)}% used • 
+                  {(() => {
+                    const percentage = ((storageData as any)?.quota?.percentage || 0);
+                    const currentPackage = (user as any)?.currentPackage || 'starter';
+                    
+                    // Dynamic precision based on plan storage size
+                    const decimalPlaces = {
+                      'starter': 2,      // 1GB - show 0.01%
+                      'professional': 3, // 2.5GB - show 0.001%
+                      'business': 3,     // 10GB - show 0.001%
+                      'enterprise': 4    // 50GB - show 0.0001%
+                    };
+                    
+                    return percentage.toFixed(decimalPlaces[currentPackage as keyof typeof decimalPlaces] || 2);
+                  })()}% used • 
                   {((storageData as any)?.quota?.canCreateNew ? ' Space available' : ' Near limit')}
                 </div>
               </div>
