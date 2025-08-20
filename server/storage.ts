@@ -508,7 +508,14 @@ export class DatabaseStorage implements IStorage {
     
     const usedGB = storageUsage.usageGB;
     const limitGB = storageLimit;
-    const percentage = limitGB > 0 ? Math.round((usedGB / limitGB) * 1000000) / 10000 : 0; // Show up to 0.0001% precision
+    
+    // Dynamic precision based on storage limit size
+    let multiplier = 10000; // Default for 0.01% precision
+    if (limitGB >= 50) multiplier = 1000000;      // 0.0001% for enterprise (50GB+)
+    else if (limitGB >= 10) multiplier = 100000;  // 0.001% for business (10GB+)
+    else if (limitGB >= 2) multiplier = 100000;   // 0.001% for professional (2.5GB+)
+    
+    const percentage = limitGB > 0 ? Math.round((usedGB / limitGB) * multiplier) / (multiplier / 100) : 0;
     const canCreateNew = percentage < 95; // Allow up to 95% usage
     
     return {
