@@ -15,8 +15,8 @@ export default function Dashboard() {
   const [currentView, setCurrentView] = useState<View>("incident-analysis");
 
   // Get user settings for auto-refresh and other features
-  const { data: user } = useQuery({ queryKey: ["/api/user"] });
-  const { data: settings } = useQuery({
+  const { data: user } = useQuery<any>({ queryKey: ["/api/user"] });
+  const { data: settings } = useQuery<any>({
     queryKey: ["/api/settings", user?.id || "default-user"],
     enabled: !!user,
   });
@@ -65,7 +65,7 @@ export default function Dashboard() {
 }
 
 function ThreatPredictionView() {
-  const { data: threatPrediction, isLoading, refetch } = useQuery({
+  const { data: threatPrediction, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/threat-prediction"],
     refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
   });

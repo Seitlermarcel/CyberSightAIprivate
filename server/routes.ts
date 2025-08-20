@@ -223,7 +223,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateUsageTracking(userId, currentMonth, {
         incidentsAnalyzed: (currentUsage?.incidentsAnalyzed || 0) + 1,
         storageGB: await storage.calculateStorageUsage(userId),
-        totalCost: (((currentUsage?.incidentsAnalyzed || 0) + 1) * getIncidentCost((user as any)?.currentPackage || 'starter')).toString()
+        totalCost: (((currentUsage?.incidentsAnalyzed || 0) + 1) * (() => {
+          const plan = (user as any)?.currentPackage || 'starter';
+          switch (plan) {
+            case 'starter': return 25;
+            case 'professional': return 23.75;
+            case 'business': return 22.50;
+            case 'enterprise': return 20;
+            default: return 25;
+          }
+        })()).toString()
       });
       
       // Send email notification if enabled
@@ -715,14 +724,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const packageDetails = packages[packageId];
           if (packageDetails) {
-            await storage.updateUserCredits(userId, packageDetails.incidentsIncluded);
+            // Add incidents to user's remaining balance
+            const currentUser = await storage.getUser(userId);
+            const currentIncidents = (currentUser as any)?.remainingIncidents || 0;
+            await storage.updateUser(userId, { remainingIncidents: currentIncidents + packageDetails.incidentsIncluded });
             await storage.updateUser(userId, { currentPackage: packageId });
             
             // Create billing transaction
             await storage.createBillingTransaction({
               type: 'subscription-purchase',
               amount: (paymentIntent.amount / 100).toString(),
-              credits: packageDetails.incidentsIncluded.toString(),
+              incidentsIncluded: packageDetails.incidentsIncluded,
               description: `${packageId} subscription plan via Stripe`,
               status: 'completed'
             }, userId);
@@ -757,26 +769,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "User not found" });
         }
         
-        const userCredits = parseFloat(user.credits || '0');
-        if (userCredits < QUERY_COST) {
+        const userCredits = (user as any).remainingIncidents || 0;
+        if (userCredits < 1) {
           return res.status(402).json({ 
             error: "Insufficient credits",
-            message: "You need 0.05 credits to run a query.",
+            message: "You need at least 1 remaining incident analysis to run a query.",
             requiredCredits: QUERY_COST,
             currentCredits: userCredits
           });
         }
         
-        const hasCredits = await storage.deductCredits(userId, QUERY_COST);
+        // Deduct query cost from user's remaining balance
+        const currentUser = await storage.getUser(userId);
+        const currentIncidents = (currentUser as any)?.remainingIncidents || 0;
+        const hasCredits = currentIncidents > 0;
+        if (hasCredits) {
+          await storage.updateUser(userId, { remainingIncidents: Math.max(0, currentIncidents - 1) });
+        }
         if (!hasCredits) {
-          return res.status(402).json({ error: "Failed to deduct credits" });
+          return res.status(402).json({ error: "Insufficient remaining incidents" });
         }
         
         // Log the transaction
         await storage.createBillingTransaction({
           type: 'usage',
           amount: (QUERY_COST * 2.50).toString(),
-          credits: QUERY_COST.toString(),
+          incidentsIncluded: 1,
           description: `Advanced query: ${queryType}`,
           status: 'completed'
         }, userId);
