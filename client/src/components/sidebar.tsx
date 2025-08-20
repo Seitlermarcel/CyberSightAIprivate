@@ -15,7 +15,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
   });
 
   const { data: user } = useQuery<any>({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/user"],
   });
 
   const menuItems = [
@@ -63,7 +63,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
     {
       id: "billing",
       icon: CreditCard,
-      label: "Billing & Credits",
+      label: "Billing & Usage",
       path: "/billing",
       color: "text-yellow-400",
     },
