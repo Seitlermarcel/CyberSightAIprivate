@@ -16,6 +16,15 @@ interface ThreatIndicator {
   organization?: string;
   asn?: string;
   threat_score?: number;
+  // Enhanced fields for detailed analysis
+  hash_type?: string;
+  file_name?: string;
+  file_size?: number;
+  file_type?: string;
+  url_status?: string;
+  domain_registrar?: string;
+  creation_date?: string;
+  whois_data?: any;
 }
 
 interface ThreatIntelligenceReport {
@@ -321,7 +330,13 @@ export class ThreatIntelligenceService {
         malicious: data.pulse_info?.count > 0,
         pulse_count: data.pulse_info?.count || 0,
         threat_score: this.calculateThreatScore(data),
-        tags: data.pulse_info?.pulses?.[0]?.tags || []
+        tags: data.pulse_info?.pulses?.[0]?.tags || [],
+        hash_type: hashType,
+        file_name: data.file_name || data.filename,
+        file_size: data.file_size || data.size,
+        file_type: data.file_type || data.type,
+        first_seen: data.first_seen,
+        last_seen: data.last_seen
       };
     } catch (error) {
       console.error(`Error checking hash ${hash}:`, error);
@@ -331,6 +346,7 @@ export class ThreatIntelligenceService {
 
   private getMockHashReputation(hash: string): ThreatIndicator {
     const isMalicious = hash.startsWith('bad') || Math.random() > 0.7;
+    const hashType = hash.length === 32 ? 'MD5' : hash.length === 40 ? 'SHA1' : 'SHA256';
     
     return {
       type: 'hash',
@@ -338,7 +354,78 @@ export class ThreatIntelligenceService {
       malicious: isMalicious,
       pulse_count: isMalicious ? Math.floor(Math.random() * 100) + 20 : 0,
       threat_score: isMalicious ? 90 : 0,
-      tags: isMalicious ? ['trojan', 'ransomware', 'backdoor'] : []
+      tags: isMalicious ? ['trojan', 'ransomware', 'backdoor'] : [],
+      hash_type: hashType,
+      file_name: isMalicious ? 'malware.exe' : 'document.pdf',
+      file_size: Math.floor(Math.random() * 10000000) + 1000,
+      file_type: isMalicious ? 'PE32 executable' : 'PDF document'
+    };
+  }
+
+  // Check URL reputation with enhanced details
+  private async checkURLReputation(url: string): Promise<ThreatIndicator> {
+    if (!this.apiKey) {
+      return this.getMockURLReputation(url);
+    }
+
+    try {
+      const response = await fetch(`${OTX_API_BASE}/indicators/url/${encodeURIComponent(url)}/general`, {
+        headers: {
+          'X-OTX-API-KEY': this.apiKey
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`OTX API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Extract domain from URL for geo-location
+      let country = data.country || data.country_name;
+      let organization = data.org || data.organization;
+      
+      try {
+        const urlObj = new URL(url);
+        if (!country || !organization) {
+          // Could potentially do domain lookup here if needed
+        }
+      } catch (e) {
+        // Invalid URL format
+      }
+      
+      return {
+        type: 'url',
+        value: url,
+        malicious: data.pulse_info?.count > 0,
+        pulse_count: data.pulse_info?.count || 0,
+        threat_score: this.calculateThreatScore(data),
+        tags: data.pulse_info?.pulses?.[0]?.tags || [],
+        url_status: data.status || 'Unknown',
+        country: country,
+        organization: organization,
+        first_seen: data.first_seen,
+        last_seen: data.last_seen
+      };
+    } catch (error) {
+      console.error(`Error checking URL ${url}:`, error);
+      return this.getMockURLReputation(url);
+    }
+  }
+
+  private getMockURLReputation(url: string): ThreatIndicator {
+    const isMalicious = url.includes('malware') || url.includes('phish') || url.includes('hack') || Math.random() > 0.8;
+    
+    return {
+      type: 'url',
+      value: url,
+      malicious: isMalicious,
+      pulse_count: isMalicious ? Math.floor(Math.random() * 50) + 10 : 0,
+      threat_score: isMalicious ? 85 : 10,
+      tags: isMalicious ? ['malicious-url', 'phishing', 'malware-download'] : [],
+      url_status: isMalicious ? 'Malicious' : 'Clean',
+      country: isMalicious ? 'Russia' : 'United States',
+      organization: isMalicious ? 'Unknown Hosting' : 'Cloudflare'
     };
   }
 
@@ -408,6 +495,13 @@ export class ThreatIntelligenceService {
       const indicator = await this.checkHashReputation(hash);
       indicators.push(indicator);
       console.log(`✅ Hash ${hash}: threat_score=${indicator.threat_score}, malicious=${indicator.malicious}`);
+    }
+    
+    // Check URL reputations
+    for (const url of iocs.urls.slice(0, 5)) { // Limit to 5 URLs
+      const indicator = await this.checkURLReputation(url);
+      indicators.push(indicator);
+      console.log(`✅ URL ${url}: threat_score=${indicator.threat_score}, malicious=${indicator.malicious}`);
     }
     
     // Calculate overall risk score
