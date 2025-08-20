@@ -87,18 +87,23 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     enabled: !!currentIncidentId,
   });
 
-  // Calculate dynamic analysis cost based on subscription plan
+  // Calculate dynamic analysis cost based on current package
   const getAnalysisCost = () => {
-    const plan = (userData as any)?.subscriptionPlan || 'free';
-    const baseCost = 25.00;
+    const plan = (userData as any)?.currentPackage || 'starter';
     
     switch (plan) {
-      case 'starter': return (baseCost * 1.0).toFixed(2); // €25.00
-      case 'professional': return (baseCost * 0.95).toFixed(2); // €23.75
-      case 'business': return (baseCost * 0.90).toFixed(2); // €22.50  
-      case 'enterprise': return (baseCost * 0.80).toFixed(2); // €20.00
-      default: return baseCost.toFixed(2);
+      case 'starter': return '25.00'; // €25.00
+      case 'professional': return '23.75'; // €23.75
+      case 'business': return '22.50'; // €22.50  
+      case 'enterprise': return '20.00'; // €20.00
+      default: return '25.00';
     }
+  };
+
+  // Get plan display name
+  const getPlanDisplayName = () => {
+    const plan = (userData as any)?.currentPackage || 'starter';
+    return plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
   };
 
   // Function to navigate to similar incident with enhanced tracking
@@ -2115,7 +2120,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                         <Zap className="h-4 w-4 text-yellow-400" />
                       </div>
                       <div className="text-2xl font-bold text-green-400 mb-2">€{getAnalysisCost()}</div>
-                      <p className="text-xs text-gray-500">Per incident analysis • {(userData as any)?.subscriptionPlan || 'Starter'} plan</p>
+                      <p className="text-xs text-gray-500">Per incident analysis • {getPlanDisplayName()}</p>
                     </div>
                     
                     <div className="cyber-dark rounded-lg p-4">
@@ -2142,7 +2147,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                       <h5 className="font-semibold text-gray-200">Dynamic Analysis Pricing</h5>
                       <div className="flex items-center space-x-1">
                         <Badge className="bg-green-600 text-white text-xs">
-                          {(userData as any)?.subscriptionPlan?.toUpperCase() || 'FREE'}
+                          {((userData as any)?.currentPackage || 'starter').toUpperCase()}
                         </Badge>
                         <button className="text-gray-400 hover:text-white p-1">
                           <HelpCircle className="w-3 h-3" />

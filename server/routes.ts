@@ -493,11 +493,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get plan storage limits
       const getStorageIncluded = (plan: string) => {
         switch (plan) {
-          case 'starter': return 2;
-          case 'professional': return 10;
-          case 'business': return 25;
-          case 'enterprise': return 100;
-          default: return 0;
+          case 'starter': return 1;
+          case 'professional': return 2.5;
+          case 'business': return 10;
+          case 'enterprise': return 50;
+          default: return 1;
         }
       };
       
@@ -528,7 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const actualIncidentsCount = actualIncidentsThisMonth[0]?.count || 0;
       
       // Calculate total cost this month based on actual incidents
-      const incidentsCost = actualIncidentsCount * getIncidentCost(user?.subscriptionPlan || 'starter');
+      const incidentsCost = actualIncidentsCount * getIncidentCost(user?.currentPackage || 'starter');
       const totalCost = incidentsCost + storageOverageCost;
       
       // Update usage tracking with actual data
@@ -549,7 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         incidentsCost: incidentsCost,
         totalCost: totalCost,
         month: currentMonth,
-        subscriptionPlan: user?.subscriptionPlan || 'starter'
+        currentPackage: user?.currentPackage || 'starter'
       });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch usage statistics" });
@@ -716,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const packageDetails = packages[packageId];
           if (packageDetails) {
             await storage.updateUserCredits(userId, packageDetails.incidentsIncluded);
-            await storage.updateUser(userId, { subscriptionPlan: packageId });
+            await storage.updateUser(userId, { currentPackage: packageId });
             
             // Create billing transaction
             await storage.createBillingTransaction({
