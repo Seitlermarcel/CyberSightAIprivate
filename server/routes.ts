@@ -1860,12 +1860,7 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   const attackVectors = generateDetailedAttackVectors(aiResult, incident, enhancedConfidence);
   
   // Enhanced compliance impact analysis with actual framework assessment
-  const complianceImpact = {
-    summary: "Compliance assessment completed based on incident analysis",
-    frameworks: ["GDPR", "SOX", "HIPAA", "PCI-DSS"],
-    violations: [],
-    recommendations: ["Implement additional monitoring", "Review access controls"]
-  };
+  const complianceImpact = generateDetailedComplianceImpact(aiResult, incident);
   
   console.log('🔍 Threat Intelligence Impact:', {
     originalConfidence: aiResult?.overallConfidence || 50,
