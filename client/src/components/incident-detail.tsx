@@ -21,7 +21,11 @@ import {
   Target,
   AlertTriangle,
   Activity,
-  Terminal
+  Terminal,
+  DollarSign,
+  Clock,
+  Users,
+  Network
 } from "lucide-react";
 import { generateIncidentPDF } from "@/utils/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -72,6 +76,8 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   const { data: user } = useQuery<{ id: string; username: string; password?: string }>({
     queryKey: ["/api/user"],
   });
+
+
 
   const updateIncidentMutation = useMutation({
     mutationFn: async (updates: Partial<Incident>) => {
@@ -217,17 +223,117 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     );
   }
 
-  // Parse JSON fields
-  const mitreDetails = incident.mitreDetails ? JSON.parse(incident.mitreDetails) : { tactics: [], techniques: [] };
-  const iocDetails = incident.iocDetails ? JSON.parse(incident.iocDetails) : [];
-  const patternAnalysis = incident.patternAnalysis ? JSON.parse(incident.patternAnalysis) : [];
-  const purpleTeam = incident.purpleTeam ? JSON.parse(incident.purpleTeam) : { redTeam: [], blueTeam: [] };
-  const entityMapping = incident.entityMapping ? JSON.parse(incident.entityMapping) : { entities: [], relationships: [], networkTopology: [] };
-  const codeAnalysis = incident.codeAnalysis ? JSON.parse(incident.codeAnalysis) : { summary: "", language: "", findings: [], sandboxOutput: "" };
-  const attackVectors = incident.attackVectors ? JSON.parse(incident.attackVectors) : [];
-  const complianceImpact = incident.complianceImpact ? JSON.parse(incident.complianceImpact) : [];
-  const similarIncidents = incident.similarIncidents ? JSON.parse(incident.similarIncidents) : [];
-  const threatPrediction = incident.threatPrediction ? JSON.parse(incident.threatPrediction) : { threatScenarios: [], environmentalImpact: {} };
+  // Parse JSON fields safely
+  const mitreDetails = (() => {
+    try {
+      if (incident?.mitreDetails) return JSON.parse(incident.mitreDetails);
+      if (incident?.mitreTactics) return { tactics: JSON.parse(incident.mitreTactics), techniques: [] };
+      if (incident?.mitreAttack && Array.isArray(incident.mitreAttack)) {
+        return { 
+          tactics: [], 
+          techniques: incident.mitreAttack.map((id: string) => ({ 
+            id, 
+            name: `MITRE Technique ${id}`, 
+            description: `Security technique identified: ${id}` 
+          }))
+        };
+      }
+      return { tactics: [], techniques: [] };
+    } catch (e) {
+      return { tactics: [], techniques: [] };
+    }
+  })();
+  
+  const iocDetails = (() => {
+    try {
+      return incident?.iocDetails ? JSON.parse(incident.iocDetails) : 
+             incident?.iocs ? JSON.parse(incident.iocs) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const patternAnalysis = (() => {
+    try {
+      return incident?.patternAnalysis ? JSON.parse(incident.patternAnalysis) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const purpleTeam = (() => {
+    try {
+      return incident?.purpleTeam ? JSON.parse(incident.purpleTeam) : { redTeam: [], blueTeam: [] };
+    } catch (e) {
+      return { redTeam: [], blueTeam: [] };
+    }
+  })();
+  
+  const entityMapping = (() => {
+    try {
+      if (incident?.entityMapping) {
+        const parsed = JSON.parse(incident.entityMapping);
+        return {
+          entities: parsed.entities || parsed || [],
+          relationships: incident?.entityRelationships ? JSON.parse(incident.entityRelationships) : (parsed.relationships || []),
+          networkTopology: incident?.networkTopology ? JSON.parse(incident.networkTopology) : (parsed.networkTopology || [])
+        };
+      }
+      return {
+        entities: [],
+        relationships: incident?.entityRelationships ? JSON.parse(incident.entityRelationships) : [],
+        networkTopology: incident?.networkTopology ? JSON.parse(incident.networkTopology) : []
+      };
+    } catch (e) {
+      return { entities: [], relationships: [], networkTopology: [] };
+    }
+  })();
+  
+  const codeAnalysis = (() => {
+    try {
+      return {
+        summary: incident?.codeAnalysis || '',
+        language: incident?.programmingLanguage || '',
+        findings: incident?.codeFindings ? JSON.parse(incident.codeFindings) : [],
+        sandboxOutput: incident?.sandboxOutput || '',
+        executionOutput: incident?.executionOutput || ''
+      };
+    } catch (e) {
+      return { summary: '', language: '', findings: [], sandboxOutput: '', executionOutput: '' };
+    }
+  })();
+  
+  const similarIncidents = (() => {
+    try {
+      return incident?.similarIncidents ? JSON.parse(incident.similarIncidents) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const attackVectors = (() => {
+    try {
+      return incident?.attackVectors ? JSON.parse(incident.attackVectors) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const complianceImpact = (() => {
+    try {
+      return incident?.complianceImpact ? JSON.parse(incident.complianceImpact) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const threatPrediction = (() => {
+    try {
+      return incident?.threatPrediction ? JSON.parse(incident.threatPrediction) : { threatScenarios: [], environmentalImpact: {} };
+    } catch (e) {
+      return { threatScenarios: [], environmentalImpact: {} };
+    }
+  })();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1464,6 +1570,86 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   </div>
                 )}
                 
+                {/* Cost Analysis */}
+                <div className="mb-6">
+                  <h4 className="text-md font-semibold mb-4 flex items-center space-x-2">
+                    <DollarSign className="h-4 w-4 text-green-400" />
+                    <span>Incident Analysis Cost Breakdown</span>
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="cyber-dark rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-400">Analysis Cost</span>
+                        <Zap className="h-4 w-4 text-yellow-400" />
+                      </div>
+                      <div className="text-2xl font-bold text-green-400 mb-2">€2.50</div>
+                      <p className="text-xs text-gray-500">Per incident analysis</p>
+                    </div>
+                    
+                    <div className="cyber-dark rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-400">AI Agents Used</span>
+                        <Brain className="h-4 w-4 text-purple-400" />
+                      </div>
+                      <div className="text-2xl font-bold text-cyan-400 mb-2">8</div>
+                      <p className="text-xs text-gray-500">Specialized AI agents</p>
+                    </div>
+                    
+                    <div className="cyber-dark rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-400">Processing Time</span>
+                        <Clock className="h-4 w-4 text-blue-400" />
+                      </div>
+                      <div className="text-2xl font-bold text-orange-400 mb-2">~45s</div>
+                      <p className="text-xs text-gray-500">Multi-agent analysis</p>
+                    </div>
+                  </div>
+                  
+                  <div className="cyber-dark rounded-lg p-4 mt-4">
+                    <h5 className="font-semibold text-gray-200 mb-3">Analysis Value Breakdown</h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">MITRE ATT&CK Mapping</span>
+                        <span className="text-green-400">€0.35</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Threat Intelligence Enrichment</span>
+                        <span className="text-green-400">€0.30</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">IOC Pattern Analysis</span>
+                        <span className="text-green-400">€0.25</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Entity Relationship Mapping</span>
+                        <span className="text-green-400">€0.25</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Purple Team Analysis</span>
+                        <span className="text-green-400">€0.30</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Compliance Impact Assessment</span>
+                        <span className="text-green-400">€0.20</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Threat Prediction Modeling</span>
+                        <span className="text-green-400">€0.35</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Business Impact Analysis</span>
+                        <span className="text-green-400">€0.20</span>
+                      </div>
+                      <div className="border-t border-gray-600 pt-2 mt-2">
+                        <div className="flex justify-between text-sm font-semibold">
+                          <span className="text-gray-300">Total Analysis Cost</span>
+                          <span className="text-green-400">€2.50</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Prediction Summary */}
                 {threatPrediction.predictionSummary && (
                   <div className="cyber-dark rounded-lg p-4 mt-6">
