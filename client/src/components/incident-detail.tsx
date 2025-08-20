@@ -62,6 +62,13 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
   const [isLoadingThreatIntel, setIsLoadingThreatIntel] = useState(false);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
+
+  // Reset threat intel loading state when incident data is loaded
+  useEffect(() => {
+    if (incident) {
+      setIsLoadingThreatIntel(false);
+    }
+  }, [incident]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1355,23 +1362,40 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                               node.risk === 'medium' ? 'bg-orange-500' : 'bg-green-500'
                             }`} />
                             
-                            {/* Node type icon */}
-                            <div className={`w-10 h-10 rounded-lg mx-auto mb-3 flex items-center justify-center text-white text-sm font-bold border-2 ${
-                              node.type === 'external' ? 'bg-red-800 border-red-600' : 'bg-blue-800 border-blue-600'
-                            }`}>
-                              {node.category === 'process' ? '⚙️' :
-                               node.category === 'user' ? '👤' :
-                               node.category === 'network' ? '🌐' :
-                               node.category === 'file' ? '📁' : '💻'}
+                            {/* Modern cybersecurity node icon */}
+                            <div className={`w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center relative border-2 transition-all hover:scale-105 ${
+                              node.type === 'external' ? 'bg-gradient-to-br from-red-800 to-red-900 border-red-500 shadow-red-900/30' : 
+                              'bg-gradient-to-br from-blue-800 to-blue-900 border-blue-500 shadow-blue-900/30'
+                            } shadow-lg`}>
+                              {node.category === 'process' ? <Database className="w-5 h-5 text-white" /> :
+                               node.category === 'user' ? <Users className="w-5 h-5 text-white" /> :
+                               node.category === 'network' ? <Network className="w-5 h-5 text-white" /> :
+                               node.category === 'file' ? <FileShield className="w-5 h-5 text-white" /> : 
+                               <Shield className="w-5 h-5 text-white" />}
+                              {/* Animated pulse for high risk nodes */}
+                              {node.risk === 'high' && (
+                                <div className="absolute inset-0 rounded-xl bg-red-500 opacity-20 animate-pulse"></div>
+                              )}
                             </div>
                             
                             {/* Node information */}
                             <div className="text-center">
-                              <p className="text-xs font-bold text-white mb-1 truncate" title={node.node || node.entity}>
-                                {(node.node || node.entity || '').length > 12 ? 
-                                  (node.node || node.entity || '').substring(0, 12) + '...' : 
+                              <p className="text-xs font-bold text-white mb-1 truncate hover:text-cyan-400 transition-colors" title={node.node || node.entity}>
+                                {(node.node || node.entity || '').length > 10 ? 
+                                  (node.node || node.entity || '').substring(0, 10) + '...' : 
                                   (node.node || node.entity)}
                               </p>
+                              <div className="flex items-center justify-center space-x-1 mb-1">
+                                <Badge className={`text-xs px-1 py-0 ${
+                                  node.category === 'process' ? 'bg-purple-700 text-white' :
+                                  node.category === 'user' ? 'bg-green-700 text-white' :
+                                  node.category === 'network' ? 'bg-cyan-700 text-white' :
+                                  node.category === 'file' ? 'bg-orange-700 text-white' : 
+                                  'bg-gray-700 text-white'
+                                }`}>
+                                  {node.category}
+                                </Badge>
+                              </div>
                               <Badge className={`text-xs mb-2 ${
                                 node.type === 'external' ? 'bg-red-700 text-white' : 'bg-blue-700 text-white'
                               }`}>
@@ -1635,9 +1659,10 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                           </div>
                           <div className="flex items-center space-x-2">
                             <Badge className="bg-green-600 text-white group-hover:bg-cyan-600 transition-colors">
-                              {typeof similar.match === 'string' && similar.match.includes('%') 
+                              {similar.matchPercentage ? `${similar.matchPercentage}% Match` : 
+                               typeof similar.match === 'string' && similar.match.includes('%') 
                                 ? similar.match 
-                                : `${similar.match}% Match`}
+                                : `${similar.match || 0}% Match`}
                             </Badge>
                             <Button
                               variant="ghost"
@@ -1655,19 +1680,29 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                         </div>
                         
                         <div className="mb-3">
-                          <span className="text-sm text-gray-400">Common Patterns:</span>
+                          <span className="text-sm text-gray-400">Match Reasons:</span>
                           <div className="flex flex-wrap gap-2 mt-1">
-                            {similar.patterns.map((pattern: string, patternIndex: number) => (
-                              <Badge key={patternIndex} variant="outline" className="text-xs text-gray-400 border-gray-600">
-                                {pattern}
+                            {(similar.reasons || similar.patterns || []).map((reason: string, reasonIndex: number) => (
+                              <Badge key={reasonIndex} variant="outline" className="text-xs text-gray-400 border-gray-600">
+                                {reason}
                               </Badge>
                             ))}
                           </div>
                         </div>
                         
-                        <div>
-                          <span className="text-sm text-gray-400">AI Analysis:</span>
-                          <p className="text-sm text-gray-300 mt-1">{similar.analysis}</p>
+                        <div className="grid grid-cols-3 gap-4 text-xs">
+                          <div>
+                            <span className="text-gray-400">Severity:</span>
+                            <p className="text-gray-300">{similar.severity}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Classification:</span>
+                            <p className="text-gray-300">{similar.classification}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Date:</span>
+                            <p className="text-gray-300">{similar.createdAt ? format(new Date(similar.createdAt), 'MMM dd') : 'N/A'}</p>
+                          </div>
                         </div>
                       </div>
                     ))}

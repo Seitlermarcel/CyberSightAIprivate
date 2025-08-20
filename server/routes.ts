@@ -139,8 +139,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Check if in development mode (bypass credit check)
-      const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
+      // Always deduct credits regardless of environment to ensure proper billing tracking
+      const isDevelopment = false; // Force credit deduction for proper billing
       
       // Get plan-based pricing
       const getIncidentCost = (plan: string) => {
@@ -4441,62 +4441,68 @@ async function findRealSimilarIncidents(content: string, incident: any, userId: 
     
     // Analyze similarity based on multiple factors
     for (const otherIncident of otherIncidents.slice(0, 10)) { // Limit to 10 for performance
-      let matchScore = 0;
-      const matchFactors: string[] = [];
+      let matchPercentage = 0;
+      let matchReasons: string[] = [];
       
-      // Factor 1: Similar MITRE techniques (40% weight)
-      const currentMitre = incident.mitreAttack || [];
-      const otherMitre = otherIncident.mitreAttack || [];
-      if (currentMitre.length > 0 && otherMitre.length > 0) {
-        const commonMitre = currentMitre.filter((tech: string) => otherMitre.includes(tech));
-        if (commonMitre.length > 0) {
-          matchScore += (commonMitre.length / Math.max(currentMitre.length, otherMitre.length)) * 40;
-          matchFactors.push(`${commonMitre.length} common MITRE techniques`);
+      // 1. Severity match (20% weight)
+      if (otherIncident.severity === incident.severity) {
+        matchPercentage += 20;
+        matchReasons.push(`Same severity level (${incident.severity})`);
+      }
+      
+      // 2. Classification match (25% weight)  
+      if (otherIncident.classification === incident.classification) {
+        matchPercentage += 25;
+        matchReasons.push(`Same classification (${incident.classification})`);
+      }
+      
+      // 3. MITRE technique overlap (30% weight)
+      try {
+        const currentMitre = JSON.parse(incident.mitreDetails || '{}');
+        const otherMitre = JSON.parse(otherIncident.mitreDetails || '{}');
+        
+        if (currentMitre.techniques && otherMitre.techniques) {
+          const currentTechniques = currentMitre.techniques.map((t: any) => t.id);
+          const otherTechniques = otherMitre.techniques.map((t: any) => t.id);
+          const overlap = currentTechniques.filter((t: string) => otherTechniques.includes(t));
+          
+          if (overlap.length > 0) {
+            const overlapPercent = (overlap.length / Math.max(currentTechniques.length, otherTechniques.length)) * 30;
+            matchPercentage += overlapPercent;
+            matchReasons.push(`${overlap.length} shared MITRE techniques (${overlap.join(', ')})`);
+          }
         }
+      } catch (e) {
+        // Skip MITRE comparison if parsing fails
       }
       
-      // Factor 2: Similar classification (20% weight)
-      if (incident.classification && otherIncident.classification && 
-          incident.classification === otherIncident.classification) {
-        matchScore += 20;
-        matchFactors.push('Same classification');
+      // 4. Keywords/content similarity (25% weight)
+      const currentKeywords = extractKeywords(incident.logData + ' ' + incident.title);
+      const otherKeywords = extractKeywords(otherIncident.logData + ' ' + otherIncident.title);
+      const sharedKeywords = currentKeywords.filter(k => otherKeywords.includes(k));
+      
+      if (sharedKeywords.length > 0) {
+        const keywordMatch = (sharedKeywords.length / Math.max(currentKeywords.length, otherKeywords.length)) * 25;
+        matchPercentage += keywordMatch;
+        matchReasons.push(`${sharedKeywords.length} shared keywords (${sharedKeywords.slice(0, 3).join(', ')})`);
       }
       
-      // Factor 3: Similar severity (15% weight)
-      if (incident.severity && otherIncident.severity && 
-          incident.severity === otherIncident.severity) {
-        matchScore += 15;
-        matchFactors.push('Same severity level');
-      }
-      
-      // Factor 4: Similar content patterns (25% weight)
-      const contentScore = calculateContentSimilarity(content, otherIncident.logData || '');
-      matchScore += contentScore * 25;
-      if (contentScore > 0.3) {
-        matchFactors.push('Similar log patterns');
-      }
-      
-      // Only include incidents with meaningful similarity (>= 30% match)
-      if (matchScore >= 30) {
+      // Only include incidents with > 30% similarity
+      if (matchPercentage > 30) {
         similarities.push({
           id: otherIncident.id,
           title: otherIncident.title,
-          match: `${Math.round(matchScore)}%`,
-          patterns: matchFactors,
-          analysis: `${matchFactors.join(', ')} suggest similar attack patterns`,
-          date: otherIncident.createdAt,
           severity: otherIncident.severity,
-          classification: otherIncident.classification
+          classification: otherIncident.classification,
+          createdAt: otherIncident.createdAt,
+          matchPercentage: Math.round(matchPercentage),
+          reasons: matchReasons
         });
       }
     }
     
     // Sort by match percentage (highest first)
-    return similarities.sort((a, b) => {
-      const scoreA = parseInt(a.match.replace('%', ''));
-      const scoreB = parseInt(b.match.replace('%', ''));
-      return scoreB - scoreA;
-    }).slice(0, 5); // Return top 5 matches
+    return similarities.sort((a, b) => b.matchPercentage - a.matchPercentage).slice(0, 5); // Return top 5 matches
     
   } catch (error) {
     console.error('Error finding similar incidents:', error);
@@ -4668,4 +4674,35 @@ function generateChiefAnalystVerdict(content: string, incident: any, threatAnaly
   verdict += `this incident is classified with ${config.confidenceThreshold}% threshold consideration.`;
   
   return verdict;
+}
+
+// Helper function to extract keywords from text
+function extractKeywords(text: string): string[] {
+  if (!text) return [];
+  return text.toLowerCase()
+    .split(/\W+/)
+    .filter(word => word.length > 3)
+    .filter(word => !['this', 'that', 'with', 'from', 'they', 'been', 'have', 'were', 'said', 'each', 'which', 'their', 'time', 'will', 'about', 'would', 'there', 'could', 'other'].includes(word))
+    .slice(0, 20); // Top 20 keywords
+}
+
+// Helper function to extract primary tactics from MITRE techniques
+function extractPrimaryTactics(techniques: any[]): any[] {
+  const tacticMap: { [key: string]: any } = {};
+  
+  for (const technique of techniques) {
+    if (technique.tactics && Array.isArray(technique.tactics)) {
+      for (const tactic of technique.tactics) {
+        if (!tacticMap[tactic.id]) {
+          tacticMap[tactic.id] = {
+            id: tactic.id,
+            name: tactic.name,
+            description: tactic.description
+          };
+        }
+      }
+    }
+  }
+  
+  return Object.values(tacticMap);
 }
