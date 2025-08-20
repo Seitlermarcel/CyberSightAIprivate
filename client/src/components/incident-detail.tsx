@@ -1685,11 +1685,55 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   <div className="flex items-center space-x-2">
                     <Target className="text-severity-high" />
                     <h3 className="text-lg font-semibold">Threat Prediction Analysis</h3>
-                    <div className="flex items-center space-x-1">
-                      <button className="text-gray-400 hover:text-white p-1">
-                        <HelpCircle className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                          <Info className="h-3 w-3" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="cyber-slate border-cyber-slate-light max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center space-x-2">
+                            <Target className="h-5 w-5 text-severity-high" />
+                            <span>Threat Prediction Analysis</span>
+                          </DialogTitle>
+                          <DialogDescription className="text-gray-300">
+                            Advanced AI-powered threat forecasting and risk assessment
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <p className="text-gray-300 text-sm">
+                            This comprehensive analysis uses multiple AI agents to predict future threat behavior, assess risk escalation patterns, and provide confidence metrics for security decision-making.
+                          </p>
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-medium text-gray-200">Key Components:</h4>
+                            <div className="space-y-2">
+                              <div className="flex items-start space-x-3 p-2 rounded cyber-dark">
+                                <AlertTriangle className="h-4 w-4 text-yellow-400 mt-0.5" />
+                                <div>
+                                  <span className="text-yellow-400 font-medium">Overall Threat Level</span>
+                                  <p className="text-gray-300 text-xs">Combined risk assessment based on MITRE techniques and IOC severity</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start space-x-3 p-2 rounded cyber-dark">
+                                <Activity className="h-4 w-4 text-blue-400 mt-0.5" />
+                                <div>
+                                  <span className="text-blue-400 font-medium">Risk Trend Analysis</span>
+                                  <p className="text-gray-300 text-xs">Historical pattern analysis to predict threat escalation</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start space-x-3 p-2 rounded cyber-dark">
+                                <Brain className="h-4 w-4 text-purple-400 mt-0.5" />
+                                <div>
+                                  <span className="text-purple-400 font-medium">AI Confidence</span>
+                                  <p className="text-gray-300 text-xs">Certainty level in predictions based on data quality and pattern clarity</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="text-right">
@@ -1721,15 +1765,51 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                       <span className="text-sm text-gray-400">Overall Threat Level</span>
                       <div className="flex items-center space-x-1">
                         <AlertTriangle className="h-4 w-4 text-yellow-400" />
-                        <button
-                          className="text-gray-400 hover:text-white p-1"
-                          onClick={() => {
-                            const message = "Overall Threat Level: This metric represents the combined security risk assessment based on AI analysis of the incident. It considers MITRE ATT&CK techniques, IOC severity, and behavioral patterns to provide an overall percentage indicating how dangerous this threat is to your organization.";
-                            window.alert(message);
-                          }}
-                        >
-                          <HelpCircle className="w-3 h-3" />
-                        </button>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                              <Info className="h-3 w-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="cyber-slate border-cyber-slate-light max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center space-x-2">
+                                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                                <span>Overall Threat Level</span>
+                              </DialogTitle>
+                              <DialogDescription className="text-gray-300">
+                                Combined security risk assessment based on AI analysis
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <p className="text-gray-300 text-sm">
+                                This metric represents the combined security risk assessment based on AI analysis of the incident. It considers MITRE ATT&CK techniques, IOC severity, and behavioral patterns to provide an overall percentage indicating how dangerous this threat is to your organization.
+                              </p>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                  <span className="text-red-400 font-medium">90–100%</span>
+                                  <span className="text-gray-300 ml-2">Critical – Immediate action required</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                                  <span className="text-orange-400 font-medium">70–89%</span>
+                                  <span className="text-gray-300 ml-2">High – Priority investigation</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                  <span className="text-yellow-400 font-medium">50–69%</span>
+                                  <span className="text-gray-300 ml-2">Medium – Monitor closely</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                  <span className="text-green-400 font-medium">0–49%</span>
+                                  <span className="text-gray-300 ml-2">Low – Routine monitoring</span>
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </div>
                     <div className="text-2xl font-bold mb-2">{incident.predictionConfidence || 75}%</div>
@@ -1746,15 +1826,46 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                       <span className="text-sm text-gray-400">Risk Trend</span>
                       <div className="flex items-center space-x-1">
                         <Activity className="h-4 w-4 text-blue-400" />
-                        <button
-                          className="text-gray-400 hover:text-white p-1"
-                          onClick={() => {
-                            const message = "Risk Trend: This shows whether the threat is escalating, stable, or decreasing over time. Our AI analyzes historical patterns, attack progression, and threat intelligence to predict if this incident represents an increasing, stable, or decreasing security risk to your environment.";
-                            window.alert(message);
-                          }}
-                        >
-                          <HelpCircle className="w-3 h-3" />
-                        </button>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                              <Info className="h-3 w-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="cyber-slate border-cyber-slate-light max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center space-x-2">
+                                <Activity className="h-5 w-5 text-blue-400" />
+                                <span>Risk Trend</span>
+                              </DialogTitle>
+                              <DialogDescription className="text-gray-300">
+                                Threat escalation analysis over time
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <p className="text-gray-300 text-sm">
+                                This shows whether the threat is escalating, stable, or decreasing over time. Our AI analyzes historical patterns, attack progression, and threat intelligence to predict if this incident represents an increasing, stable, or decreasing security risk to your environment.
+                              </p>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                                  <span className="text-red-400 font-medium">Increasing</span>
+                                  <span className="text-gray-300 ml-2">Threat is escalating</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                  <span className="text-blue-400 font-medium">Stable</span>
+                                  <span className="text-gray-300 ml-2">Consistent risk level</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                  <span className="text-green-400 font-medium">Decreasing</span>
+                                  <span className="text-gray-300 ml-2">Risk is diminishing</span>
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </div>
                     <div className={`text-lg font-semibold capitalize mb-2 ${
@@ -1791,15 +1902,51 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                       <span className="text-sm text-gray-400">Confidence</span>
                       <div className="flex items-center space-x-1">
                         <Brain className="h-4 w-4 text-purple-400" />
-                        <button
-                          className="text-gray-400 hover:text-white p-1"
-                          onClick={() => {
-                            const message = "Confidence: This represents how certain our AI is about its analysis of this incident. Higher confidence indicates more reliable threat assessment based on clear patterns, strong indicators, and comprehensive data analysis. Lower confidence suggests ambiguous or incomplete information requiring manual review.";
-                            window.alert(message);
-                          }}
-                        >
-                          <HelpCircle className="w-3 h-3" />
-                        </button>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                              <Info className="h-3 w-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="cyber-slate border-cyber-slate-light max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center space-x-2">
+                                <Brain className="h-5 w-5 text-purple-400" />
+                                <span>Analysis Confidence</span>
+                              </DialogTitle>
+                              <DialogDescription className="text-gray-300">
+                                AI certainty in threat assessment accuracy
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <p className="text-gray-300 text-sm">
+                                This represents how certain our AI is about its analysis of this incident. Higher confidence indicates more reliable threat assessment based on clear patterns, strong indicators, and comprehensive data analysis. Lower confidence suggests ambiguous or incomplete information requiring manual review.
+                              </p>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                  <span className="text-green-400 font-medium">90–100%</span>
+                                  <span className="text-gray-300 ml-2">Very High – Strong evidence</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                  <span className="text-blue-400 font-medium">70–89%</span>
+                                  <span className="text-gray-300 ml-2">High – Minor uncertainties</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                  <span className="text-yellow-400 font-medium">50–69%</span>
+                                  <span className="text-gray-300 ml-2">Medium – Needs human review</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                  <span className="text-red-400 font-medium">0–49%</span>
+                                  <span className="text-gray-300 ml-2">Low – Manual validation required</span>
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </div>
                     <div className="text-2xl font-bold mb-2">{incident.confidence || 82}%</div>
