@@ -246,8 +246,31 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   
   const iocDetails = (() => {
     try {
-      return incident?.iocDetails ? JSON.parse(incident.iocDetails) : 
-             incident?.iocs ? JSON.parse(incident.iocs) : [];
+      if (incident?.iocDetails) {
+        return JSON.parse(incident.iocDetails);
+      }
+      // Fallback for basic IOCs array with enhanced data
+      if (incident?.iocs && Array.isArray(incident.iocs)) {
+        return incident.iocs.map((ioc: string) => {
+          // Determine IOC type based on content
+          let type = 'unknown';
+          if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ioc)) type = 'ip';
+          else if (/^[a-f0-9]{32}$/.test(ioc)) type = 'md5';
+          else if (/^[a-f0-9]{40}$/.test(ioc)) type = 'sha1';
+          else if (/^[a-f0-9]{64}$/.test(ioc)) type = 'sha256';
+          else if (/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(ioc)) type = 'domain';
+          
+          return {
+            value: ioc,
+            type,
+            confidence: 'medium',
+            reputation: 'Analyzing...',
+            geoLocation: type === 'ip' ? 'Location lookup pending' : 'N/A',
+            threatIntelligence: 'AlienVault OTX data pending'
+          };
+        });
+      }
+      return [];
     } catch (e) {
       return [];
     }
@@ -274,16 +297,12 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
       if (incident?.entityMapping) {
         const parsed = JSON.parse(incident.entityMapping);
         return {
-          entities: parsed.entities || parsed || [],
-          relationships: incident?.entityRelationships ? JSON.parse(incident.entityRelationships) : (parsed.relationships || []),
-          networkTopology: incident?.networkTopology ? JSON.parse(incident.networkTopology) : (parsed.networkTopology || [])
+          entities: parsed.entities || [],
+          relationships: parsed.relationships || [],
+          networkTopology: parsed.networkTopology || []
         };
       }
-      return {
-        entities: [],
-        relationships: incident?.entityRelationships ? JSON.parse(incident.entityRelationships) : [],
-        networkTopology: incident?.networkTopology ? JSON.parse(incident.networkTopology) : []
-      };
+      return { entities: [], relationships: [], networkTopology: [] };
     } catch (e) {
       return { entities: [], relationships: [], networkTopology: [] };
     }
@@ -291,13 +310,17 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   
   const codeAnalysis = (() => {
     try {
-      return {
-        summary: incident?.codeAnalysis || '',
-        language: incident?.programmingLanguage || '',
-        findings: incident?.codeFindings ? JSON.parse(incident.codeFindings) : [],
-        sandboxOutput: incident?.sandboxOutput || '',
-        executionOutput: incident?.executionOutput || ''
-      };
+      if (incident?.codeAnalysis) {
+        const parsed = JSON.parse(incident.codeAnalysis);
+        return {
+          summary: parsed.summary || parsed.analysis || '',
+          language: parsed.language || 'Unknown',
+          findings: parsed.findings || [],
+          sandboxOutput: parsed.sandboxOutput || 'No sandbox execution performed',
+          executionOutput: parsed.executionOutput || 'No execution output available'
+        };
+      }
+      return { summary: '', language: '', findings: [], sandboxOutput: '', executionOutput: '' };
     } catch (e) {
       return { summary: '', language: '', findings: [], sandboxOutput: '', executionOutput: '' };
     }
@@ -841,50 +864,112 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
 
             {/* MITRE ATT&CK Tab */}
             <TabsContent value="mitre" className="p-6 space-y-6">
+              {/* Main Tactics Overview */}
               <div className="cyber-slate rounded-xl p-6">
                 <div className="flex items-center space-x-2 mb-6">
                   <Shield className="text-cyber-purple" />
-                  <h3 className="text-lg font-semibold">MITRE ATT&CK Tactics</h3>
+                  <h3 className="text-lg font-semibold">MITRE ATT&CK Framework Analysis</h3>
                 </div>
 
+                {/* Tactics Summary Bar */}
                 {mitreDetails.tactics && mitreDetails.tactics.length > 0 ? (
-                  <div className="space-y-4">
-                    {mitreDetails.tactics.map((tactic: any, index: number) => (
-                      <div key={index} className="cyber-dark rounded-lg p-4">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <Badge className="cyber-purple text-white">{tactic.id}</Badge>
-                          <h4 className="font-semibold">{tactic.name}</h4>
+                  <div className="mb-6">
+                    <h4 className="text-md font-semibold mb-4 text-cyber-purple">Primary Tactics Identified</h4>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                      {mitreDetails.tactics.map((tactic: any, index: number) => (
+                        <div key={index} className="cyber-dark rounded-lg p-4 border-l-4 border-purple-500">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Badge className="bg-purple-700 text-white text-xs">{tactic.id}</Badge>
+                            <span className="text-xs text-purple-400 uppercase">TACTIC</span>
+                          </div>
+                          <h5 className="font-semibold text-white mb-1">{tactic.name}</h5>
+                          <p className="text-xs text-gray-400">{tactic.description?.substring(0, 80) + '...'}</p>
                         </div>
-                        <p className="text-sm text-gray-300">{tactic.description}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-gray-400 text-center py-8">No MITRE ATT&CK tactics identified for this incident</p>
+                  <div className="text-center py-4 mb-6">
+                    <Shield className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-400">No primary tactics identified</p>
+                    <p className="text-gray-500 text-sm">MITRE tactics represent the 'why' behind an attack</p>
+                  </div>
                 )}
-              </div>
 
-              <div className="cyber-slate rounded-xl p-6">
-                <div className="flex items-center space-x-2 mb-6">
-                  <TrendingUp className="text-cyber-cyan" />
-                  <h3 className="text-lg font-semibold">MITRE ATT&CK Techniques (TTPs)</h3>
+                {/* Enhanced Techniques Table */}
+                <div>
+                  <h4 className="text-md font-semibold mb-4 flex items-center space-x-2">
+                    <TrendingUp className="text-cyber-cyan w-4 h-4" />
+                    <span>Techniques, Tactics & Procedures (TTPs)</span>
+                  </h4>
+                  
+                  {mitreDetails.techniques && mitreDetails.techniques.length > 0 ? (
+                    <div className="cyber-dark rounded-lg overflow-hidden">
+                      {/* Table Header */}
+                      <div className="cyber-slate-light border-b border-gray-600 p-4">
+                        <div className="grid grid-cols-5 gap-4 text-sm font-semibold text-gray-300">
+                          <div>Technique ID</div>
+                          <div className="col-span-2">Technique Name</div>
+                          <div>Category</div>
+                          <div>Risk Level</div>
+                        </div>
+                      </div>
+                      
+                      {/* Table Body */}
+                      <div className="divide-y divide-gray-700">
+                        {mitreDetails.techniques.map((technique: any, index: number) => (
+                          <div key={index} className="p-4 hover:bg-gray-800 transition-colors">
+                            <div className="grid grid-cols-5 gap-4 items-start">
+                              {/* Technique ID */}
+                              <div className="flex items-center space-x-2">
+                                <Badge className="bg-cyan-700 text-white text-xs">{technique.id}</Badge>
+                              </div>
+                              
+                              {/* Technique Name & Description */}
+                              <div className="col-span-2">
+                                <h5 className="font-semibold text-white mb-1">{technique.name}</h5>
+                                <p className="text-xs text-gray-400 line-clamp-2">{technique.description}</p>
+                              </div>
+                              
+                              {/* Category */}
+                              <div>
+                                <Badge variant="outline" className="text-xs text-gray-400 border-gray-600">
+                                  {technique.category || 'Attack'}
+                                </Badge>
+                              </div>
+                              
+                              {/* Risk Level */}
+                              <div>
+                                <Badge className={`text-xs ${
+                                  technique.risk === 'high' || technique.severity === 'high' ? 'bg-red-700 text-white' :
+                                  technique.risk === 'medium' || technique.severity === 'medium' ? 'bg-orange-700 text-white' :
+                                  'bg-yellow-700 text-white'
+                                }`}>
+                                  {technique.risk || technique.severity || 'Medium'}
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            {/* Expanded Info */}
+                            {technique.mitigations && (
+                              <div className="mt-3 pt-3 border-t border-gray-700">
+                                <p className="text-xs text-gray-500">
+                                  <span className="font-semibold">Mitigations:</span> {technique.mitigations}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <TrendingUp className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-400">No specific techniques identified</p>
+                      <p className="text-gray-500 text-sm">TTPs represent the 'how' behind an attack implementation</p>
+                    </div>
+                  )}
                 </div>
-
-                {mitreDetails.techniques && mitreDetails.techniques.length > 0 ? (
-                  <div className="space-y-4">
-                    {mitreDetails.techniques.map((technique: any, index: number) => (
-                      <div key={index} className="cyber-dark rounded-lg p-4">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <Badge className="cyber-cyan text-white">{technique.id}</Badge>
-                          <h4 className="font-semibold">{technique.name}</h4>
-                        </div>
-                        <p className="text-sm text-gray-300">{technique.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-400 text-center py-8">No MITRE ATT&CK techniques identified for this incident</p>
-                )}
               </div>
             </TabsContent>
 
@@ -1124,24 +1209,96 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-3">Network Topology</h4>
+                  <h4 className="font-medium mb-3 flex items-center space-x-2">
+                    <Network className="text-cyber-cyan w-4 h-4" />
+                    <span>Network Topology & Communication Paths</span>
+                  </h4>
                   {entityMapping.networkTopology && entityMapping.networkTopology.length > 0 ? (
-                    <div className="grid grid-cols-6 gap-3">
-                      {entityMapping.networkTopology.map((node: any, index: number) => (
-                        <div key={index} className="cyber-dark rounded-lg p-3 text-center relative">
-                          <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-xs font-bold ${
-                            node.risk === 'high' ? 'bg-red-600' :
-                            node.risk === 'medium' ? 'bg-orange-600' : 'bg-green-600'
-                          }`}>
-                            {node.type === 'external' ? 'EXT' : 'INT'}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-4 gap-4">
+                        {entityMapping.networkTopology.map((node: any, index: number) => (
+                          <div key={index} className="cyber-dark rounded-lg p-4 relative border-l-4 border-gray-600 hover:border-cyan-500 transition-colors">
+                            {/* Risk indicator */}
+                            <div className={`absolute top-2 right-2 w-3 h-3 rounded-full ${
+                              node.risk === 'high' ? 'bg-red-500' :
+                              node.risk === 'medium' ? 'bg-orange-500' : 'bg-green-500'
+                            }`} />
+                            
+                            {/* Node type icon */}
+                            <div className={`w-10 h-10 rounded-lg mx-auto mb-3 flex items-center justify-center text-white text-sm font-bold border-2 ${
+                              node.type === 'external' ? 'bg-red-800 border-red-600' : 'bg-blue-800 border-blue-600'
+                            }`}>
+                              {node.category === 'process' ? '⚙️' :
+                               node.category === 'user' ? '👤' :
+                               node.category === 'network' ? '🌐' :
+                               node.category === 'file' ? '📁' : '💻'}
+                            </div>
+                            
+                            {/* Node information */}
+                            <div className="text-center">
+                              <p className="text-xs font-bold text-white mb-1 truncate" title={node.node || node.entity}>
+                                {(node.node || node.entity || '').length > 12 ? 
+                                  (node.node || node.entity || '').substring(0, 12) + '...' : 
+                                  (node.node || node.entity)}
+                              </p>
+                              <Badge className={`text-xs mb-2 ${
+                                node.type === 'external' ? 'bg-red-700 text-white' : 'bg-blue-700 text-white'
+                              }`}>
+                                {node.type.toUpperCase()}
+                              </Badge>
+                              <p className="text-xs text-gray-400 capitalize">{node.category}</p>
+                              {node.description && (
+                                <p className="text-xs text-gray-500 mt-1 line-clamp-2" title={node.description}>
+                                  {node.description.length > 30 ? node.description.substring(0, 30) + '...' : node.description}
+                                </p>
+                              )}
+                            </div>
+                            
+                            {/* Risk level indicator */}
+                            <div className="mt-2 flex items-center justify-center space-x-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                node.risk === 'high' ? 'bg-red-500' :
+                                node.risk === 'medium' ? 'bg-orange-500' : 'bg-green-500'
+                              }`} />
+                              <span className={`text-xs capitalize ${
+                                node.risk === 'high' ? 'text-red-400' :
+                                node.risk === 'medium' ? 'text-orange-400' : 'text-green-400'
+                              }`}>
+                                {node.risk} Risk
+                              </span>
+                            </div>
                           </div>
-                          <p className="text-xs font-mono text-gray-300">{node.node || node.entity}</p>
-                          <p className="text-xs text-gray-500 mt-1">{node.type}</p>
+                        ))}
+                      </div>
+                      
+                      {/* Network topology summary */}
+                      <div className="cyber-slate rounded-lg p-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center space-x-4">
+                            <span className="text-gray-400">Total Nodes:</span>
+                            <span className="text-white font-semibold">{entityMapping.networkTopology.length}</span>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-gray-400">External:</span>
+                            <span className="text-red-400 font-semibold">
+                              {entityMapping.networkTopology.filter((n: any) => n.type === 'external').length}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-gray-400">Internal:</span>
+                            <span className="text-blue-400 font-semibold">
+                              {entityMapping.networkTopology.filter((n: any) => n.type === 'internal').length}
+                            </span>
+                          </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
                   ) : (
-                    <p className="text-gray-400">No network topology data</p>
+                    <div className="text-center py-8">
+                      <Network className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-400">No network topology data available</p>
+                      <p className="text-gray-500 text-sm mt-1">Network communication patterns will appear here when detected</p>
+                    </div>
                   )}
                 </div>
               </div>

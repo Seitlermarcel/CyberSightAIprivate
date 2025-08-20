@@ -79,7 +79,7 @@ export class GeminiCyberAnalyst {
       const results = await Promise.race([
         Promise.all(agentPromises),
         overallTimeout
-      ]).catch((): any[] => {
+      ]).catch((error): any[] => {
         console.error('⚠️ Analysis timeout - using fallback responses');
         return [
           this.getFailsafeResponse("Pattern Recognition", fullContent),
