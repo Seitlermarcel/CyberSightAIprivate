@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 export function useTheme() {
-  const { data: user } = useQuery({ queryKey: ["/api/user"] });
-  const { data: settings } = useQuery({
+  const { data: user } = useQuery<{ id: string }>({ queryKey: ["/api/user"] });
+  const { data: settings } = useQuery<{ theme?: string }>({
     queryKey: ["/api/settings", user?.id || "default-user"],
     enabled: !!user?.id,
   });

@@ -589,7 +589,7 @@ export default function Billing() {
               Cancel
             </Button>
             {stripePromise && isValidPublishableKey ? (
-              <Elements stripe={stripePromise}>
+              <Elements stripe={stripePromise} key="stripe-elements">
                 <CheckoutForm 
                   selectedPackage={selectedPackage}
                   onSuccess={handlePurchaseSuccess}

@@ -18,11 +18,11 @@ export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<{ id: string }>({
     queryKey: ["/api/user"],
   });
 
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ["/api/settings", user?.id],
     enabled: !!user?.id,
   });
