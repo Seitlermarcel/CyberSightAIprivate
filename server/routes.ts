@@ -39,16 +39,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.checkStorageQuota(userId)
       ]);
       
+      console.log("Storage debug - UsageGB:", detailedUsage.usageGB, "LimitGB:", storageLimit, "Percentage:", quota.percentage);
+      
       res.json({
         usage: detailedUsage,
         limit: storageLimit,
         quota: quota,
         planLimits: {
-          starter: 2,
-          professional: 10,
-          business: 25,
-          enterprise: 100,
-          free: 0.1
+          starter: 1,
+          professional: 2.5,
+          business: 10,
+          enterprise: 50
         }
       });
     } catch (error) {
