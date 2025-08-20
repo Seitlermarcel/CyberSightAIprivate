@@ -1780,19 +1780,15 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   const extractedTactics = extractMitreTactics(mitreAnalysis);
   const extractedTechniques = extractMitreTechniquesDetailed(mitreAnalysis);
   
-  // Ensure we always have valid MITRE tactics for display
-  const realTactics = extractedTactics.length > 0 ? extractedTactics : [
-    { id: "TA0002", name: "Execution", description: "Command and scripting interpreter execution detected" },
-    { id: "TA0005", name: "Defense Evasion", description: "Obfuscated files or information identified" }
-  ];
+  // Use ONLY real AI-detected tactics and techniques - NO fallbacks
+  const realTactics = extractedTactics; // Only real AI analysis
+  const realTechniques = extractedTechniques; // Only real AI analysis
   
   const mitreDetails = {
     tactics: realTactics,
-    techniques: extractedTechniques.length > 0 ? extractedTechniques : [
-      { id: "T1059", name: "Command and Scripting Interpreter", description: "PowerShell execution detected", category: "Execution", risk: "high" }
-    ],
+    techniques: realTechniques,
     primaryTactics: realTactics, // Real tactics go in primary section
-    secondaryTechniques: extractedTechniques.slice(3) // Extra techniques in TTPs section
+    secondaryTechniques: realTechniques.slice(3) // Extra techniques in TTPs section
   };
   
   // Transform Purple Team analysis into red/blue team format
@@ -2357,7 +2353,7 @@ function isUserAccount(text: string): boolean {
 }
 
 function extractMitreTactics(analysis: string): Array<any> {
-  const tactics = [];
+  const tactics: any[] = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
   console.log('🔍 Extracting MITRE tactics from analysis...');
@@ -2406,18 +2402,11 @@ function extractMitreTactics(analysis: string): Array<any> {
     }
   }
   
-  // Final fallback tactics if none found - use more relevant defaults
-  if (tactics.length === 0) {
-    console.log('⚠️ No tactics found in AI analysis, using intelligent fallbacks');
-    tactics.push({
-      id: "TA0002",
-      name: "Execution",
-      description: "Command and script execution detected in security logs",
-      phase: "Execution"
-    });
-  }
-  
+  // Return ONLY real AI-detected tactics - NO fallbacks
   console.log('📊 Final tactics count:', tactics.length);
+  if (tactics.length === 0) {
+    console.log('✨ No tactics found in AI analysis - showing empty (no fallbacks)');
+  }
   return tactics;
 }
 
@@ -2440,7 +2429,7 @@ function getTacticPhase(tacticId: string): string {
 }
 
 function extractMitreTechniquesDetailed(analysis: string): Array<any> {
-  const techniques = [];
+  const techniques: any[] = [];
   // Look for MITRE technique patterns like T1055
   const techniqueMatches = analysis.match(/T\d{4}(?:\.\d{3})?[:\-\s]([^\n\r.]+)/gi);
   if (techniqueMatches) {
@@ -2456,15 +2445,7 @@ function extractMitreTechniquesDetailed(analysis: string): Array<any> {
     });
   }
   
-  // Fallback techniques if none found
-  if (techniques.length === 0) {
-    techniques.push({
-      id: "T1055",
-      name: "Process Injection",
-      description: "Potential process manipulation detected in analysis"
-    });
-  }
-  
+  // Return ONLY real AI-detected techniques - NO fallbacks
   return techniques;
 }
 
