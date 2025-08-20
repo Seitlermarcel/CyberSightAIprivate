@@ -100,7 +100,7 @@ export class DatabaseStorage implements IStorage {
         .insert(users)
         .values({
           ...userData,
-          credits: 10, // Give new users 10 credits to start (4 incident analyses)
+          credits: "10", // Give new users 10 credits to start (4 incident analyses)
           subscriptionPlan: 'free',
         })
         .returning();
@@ -206,7 +206,7 @@ export class DatabaseStorage implements IStorage {
       .delete(incidents)
       .where(and(
         eq(incidents.userId, userId),
-        gte(cutoffDate, incidents.createdAt!)
+        sql`${incidents.createdAt} < ${cutoffDate.toISOString()}`
       ));
     return result.rowCount || 0;
   }
@@ -455,30 +455,36 @@ export class DatabaseStorage implements IStorage {
       
       let dbQuery = db.select().from(incidents).where(eq(incidents.userId, userId));
       
-      // Apply filters
+      // Apply filters using and() to combine conditions
+      const conditions = [eq(incidents.userId, userId)];
+      
       if (queryObj.severity) {
-        dbQuery = dbQuery.where(eq(incidents.severity, queryObj.severity));
+        conditions.push(eq(incidents.severity, queryObj.severity));
       }
       if (queryObj.status) {
-        dbQuery = dbQuery.where(eq(incidents.status, queryObj.status));
+        conditions.push(eq(incidents.status, queryObj.status));
       }
       if (queryObj.classification) {
-        dbQuery = dbQuery.where(eq(incidents.classification, queryObj.classification));
+        conditions.push(eq(incidents.classification, queryObj.classification));
       }
       
+      let query = db.select().from(incidents).where(and(...conditions));
+      
       // Apply ordering
-      if (queryObj.orderBy) {
+      if (queryObj.orderBy && incidents[queryObj.orderBy as keyof typeof incidents]) {
         const field = incidents[queryObj.orderBy as keyof typeof incidents];
-        dbQuery = queryObj.order === 'asc' ? dbQuery.orderBy(asc(field)) : dbQuery.orderBy(desc(field));
+        query = queryObj.order === 'asc' ? query.orderBy(asc(field)) : query.orderBy(desc(field));
       } else {
-        dbQuery = dbQuery.orderBy(desc(incidents.createdAt));
+        query = query.orderBy(desc(incidents.createdAt));
       }
       
       // Apply limit
       const limit = queryObj.limit || 100;
-      dbQuery = dbQuery.limit(limit);
+      query = query.limit(limit);
       
-      return await dbQuery;
+      return await query;
+      
+
     } catch (error: any) {
       throw new Error(`Structured query failed: ${error.message}`);
     }

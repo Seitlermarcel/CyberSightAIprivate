@@ -124,7 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         
         aiAnalysis = await Promise.race([
-          generateRealAIAnalysis(validatedData, userSettings, threatReport),
+          generateRealAIAnalysis(validatedData, userSettings, threatReport, userId),
           analysisTimeout
         ]);
         
@@ -881,7 +881,7 @@ Event ID: 4624 - Account Logon
 }
 
 // Real Gemini AI analysis that replaces the mock system with 8 specialized AI agents
-async function generateRealAIAnalysis(incident: any, settings?: any, threatReport?: any) {
+async function generateRealAIAnalysis(incident: any, settings?: any, threatReport?: any, userId?: string) {
   const logData = incident.logData || '';
   const title = incident.title || '';
   const systemContext = incident.systemContext || '';
@@ -917,7 +917,7 @@ async function generateRealAIAnalysis(incident: any, settings?: any, threatRepor
     });
 
     // Transform Gemini results to match expected format
-    const transformedResult = transformGeminiResultsToLegacyFormat(aiResult, incident, settings);
+    const transformedResult = await transformGeminiResultsToLegacyFormat(aiResult, incident, settings, userId);
     console.log('🔄 Transformation completed:', {
       hasAnalysis: !!transformedResult?.analysis,
       confidence: transformedResult?.confidence,
@@ -938,7 +938,7 @@ async function generateRealAIAnalysis(incident: any, settings?: any, threatRepor
 }
 
 // Transform Gemini AI results to match the expected legacy format
-function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, settings: any) {
+async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, settings: any, userId?: string) {
   console.log('🔄 Transforming Gemini AI results to legacy format...');
   
   // Safely extract data with fallbacks
@@ -991,8 +991,12 @@ function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any, sett
   // Generate threat prediction analysis
   const threatPrediction = generateThreatPredictionAnalysis(aiResult, incident);
   
-  // Similar incidents (mock for now - would need database lookup)  
-  const similarIncidents: any[] = [];
+  // Similar incidents - use real database query
+  const similarIncidents = userId ? await findRealSimilarIncidents(
+    aiResult?.patternRecognition?.analysis || incident.logData || '', 
+    incident, 
+    userId
+  ) : [];
   
   return {
     // Core analysis fields
@@ -1226,7 +1230,7 @@ function determineRiskLevel(line: string): string {
 }
 
 function extractRelationships(entityAnalysis: string): any[] {
-  const relationships = [];
+  const relationships: any[] = [];
   const lines = entityAnalysis.split('\n').filter(line => line.trim().length > 0);
   
   // Look for relationship patterns
@@ -1318,28 +1322,27 @@ function generateCombinedAnalysisText(aiResult: any): string {
   return sections.join('\n') || 'Cybersecurity analysis completed';
 }
 
-// Generate attack vector analysis from Gemini AI results
-function generateAttackVectorAnalysis(aiResult: any): any {
+// Generate attack vector analysis from content
+function generateAttackVectorAnalysis(content: string): any {
   return {
-    initialAccess: aiResult?.patternRecognition?.keyFindings?.[0] || 'PowerShell execution detected',
-    execution: aiResult?.mitreMapping?.keyFindings?.[0] || 'Command execution via PowerShell',
-    persistence: aiResult?.purpleTeam?.keyFindings?.[0] || 'Potential persistence mechanism',
-    privilegeEscalation: 'Analysis based on system context',
-    defenseEvasion: aiResult?.classification?.keyFindings?.[0] || 'Obfuscated command execution',
-    credentialAccess: 'Credential access patterns detected',
-    discovery: 'System reconnaissance activities',
-    lateralMovement: 'Network movement analysis',
-    collection: 'Data collection activities',
-    commandControl: 'Command and control channels',
-    exfiltration: 'Data exfiltration patterns',
-    impact: aiResult?.threatIntelligence?.keyFindings?.[0] || 'Security impact assessment'
+    initialAccess: content.includes('PowerShell') ? 'PowerShell execution detected' : 'Potential initial access detected',
+    execution: content.includes('cmd') || content.includes('powershell') ? 'Command execution via PowerShell' : 'Process execution detected',
+    persistence: content.includes('registry') || content.includes('startup') ? 'Potential persistence mechanism' : 'System modification detected',
+    privilegeEscalation: content.includes('admin') || content.includes('privilege') ? 'Privilege escalation detected' : 'Analysis based on system context',
+    defenseEvasion: content.includes('obfusc') || content.includes('encode') ? 'Obfuscated command execution' : 'Potential evasion technique',
+    credentialAccess: content.includes('credential') || content.includes('password') ? 'Credential access patterns detected' : 'No credential access detected',
+    discovery: content.includes('whoami') || content.includes('ipconfig') ? 'System reconnaissance activities' : 'Basic system activity',
+    lateralMovement: content.includes('psexec') || content.includes('remote') ? 'Network movement analysis' : 'Local activity detected',
+    collection: content.includes('copy') || content.includes('download') ? 'Data collection activities' : 'Standard file operations',
+    commandControl: content.includes('http') || content.includes('tcp') ? 'Command and control channels' : 'Local communications',
+    exfiltration: content.includes('upload') || content.includes('ftp') ? 'Data exfiltration patterns' : 'Security impact assessment'
   };
 }
 
 // Generate network topology from entities
 function generateNetworkTopology(entities: any): any {
-  const nodes = [];
-  const connections = [];
+  const nodes: any[] = [];
+  const connections: any[] = [];
   
   // Add process nodes
   if (entities.processes?.length > 0) {
@@ -1607,7 +1610,7 @@ function extractBlueTeamDefenses(analysis: string): Array<any> {
 }
 
 function extractStructuredEntities(analysis: string): Array<any> {
-  const entities = [];
+  const entities: any[] = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
   // Extract user account entities (including those that shouldn't be IOCs)
@@ -1649,7 +1652,7 @@ function extractStructuredEntities(analysis: string): Array<any> {
   // Extract file entities
   const fileMatches = cleanAnalysis.match(/(?:file|path)[:\s]([A-Za-z]:[A-Za-z0-9_\-\.\\\/\:]+|\/[A-Za-z0-9_\-\.\/]+)/gi);
   if (fileMatches) {
-    [...new Set(fileMatches)].slice(0, 10).forEach((match, index) => {
+    Array.from(new Set(fileMatches)).slice(0, 10).forEach((match, index) => {
       const value = match.split(/[:\s]/).pop();
       if (value && value.length > 5) {
         entities.push({
@@ -1667,7 +1670,7 @@ function extractStructuredEntities(analysis: string): Array<any> {
   // Extract network entities (all IPs, including internal ones for entity mapping)
   const ipMatches = cleanAnalysis.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g);
   if (ipMatches) {
-    [...new Set(ipMatches)].forEach((ip, index) => {
+    Array.from(new Set(ipMatches)).forEach((ip, index) => {
       const parts = ip.split('.').map(Number);
       const [a, b] = parts;
       let networkType = "External";
@@ -1763,7 +1766,7 @@ function extractEntityRelationships(analysis: string): Array<any> {
 }
 
 function transformIOCsToDetailedFormat(analysis: string): Array<any> {
-  const iocs = [];
+  const iocs: any[] = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
   // Extract and validate IP addresses (exclude user accounts and private IPs)
@@ -2199,7 +2202,7 @@ function generateFailsafeAnalysis(incident: any, settings: any, threatReport: an
     networkTopology: []
   };
   
-  const iocDetails = [];
+  const iocDetails: any[] = [];
   const patternAnalysis = [{ pattern: "Failsafe Mode", significance: "High", description: "AI analysis unavailable - manual review required" }];
   const attackVectors = [{ vector: "Unknown", likelihood: "Unknown", impact: "Unknown", description: "Manual analysis required", mitigations: ["Manual investigation"] }];
   
@@ -2212,7 +2215,7 @@ function generateFailsafeAnalysis(incident: any, settings: any, threatReport: an
   };
   
   const complianceImpact = [{ framework: "Manual Review", impact: "Unknown", description: "Requires manual compliance assessment" }];
-  const similarIncidents = [];
+  const similarIncidents: any[] = [];
   
   return {
     analysis: "🚨 FAILSAFE ANALYSIS MODE\n\nGemini AI analysis temporarily unavailable. Manual security review required.\n\nBasic pattern detection indicates potential security event requiring investigation.",
@@ -2253,7 +2256,7 @@ function generateFailsafeAnalysis(incident: any, settings: any, threatReport: an
 }
 
 // Multi-AI Agent Analysis System with Threat Intelligence
-function analyzeWithMultipleAIAgents(content: string, incident: any, config: any = {}, threatReport: any = null) {
+async function analyzeWithMultipleAIAgents(content: string, incident: any, config: any = {}, threatReport: any = null, userId: string) {
   // Pattern Recognition AI Agent
   const patterns = detectLogPatterns(content);
   
@@ -2284,13 +2287,13 @@ function analyzeWithMultipleAIAgents(content: string, incident: any, config: any
   const codeAnalysis = analyzeCodeElements(content, threatReport);
   
   // Attack Vector AI Agent
-  const attackVectors = generateAttackVectorAnalysis(content, threatAnalysis);
+  const attackVectors = generateAttackVectorAnalysis(content);
   
   // Compliance AI Agent
   const complianceImpact = analyzeComplianceImpact(content, incident);
   
-  // Similarity AI Agent
-  const similarIncidents = findSimilarIncidents(content, incident);
+  // Similarity AI Agent - Create actual database query for similar incidents
+  const similarIncidents = await findRealSimilarIncidents(content, incident, userId);
 
   // Apply settings-based adjustments
   let finalConfidence = classification.confidence;
@@ -2444,11 +2447,11 @@ function detectLogPatterns(content: string) {
 // Threat Intelligence AI Agent
 function analyzeThreatIndicators(content: string) {
   const indicators = {
-    behavioralIndicators: [],
-    networkIndicators: [],
-    fileIndicators: [],
-    registryIndicators: [],
-    processIndicators: []
+    behavioralIndicators: [] as string[],
+    networkIndicators: [] as string[],
+    fileIndicators: [] as string[],
+    registryIndicators: [] as string[],
+    processIndicators: [] as string[]
   };
   
   // Behavioral analysis
@@ -3644,6 +3647,111 @@ function findSimilarIncidents(content: string, incident: any) {
   }
   
   return similarIncidents;
+}
+
+// Find real similar incidents in the database
+async function findRealSimilarIncidents(content: string, incident: any, userId: string): Promise<any[]> {
+  try {
+    // Get all incidents for the user
+    const allIncidents = await storage.getIncidentsByUserId(userId);
+    
+    if (!allIncidents || allIncidents.length <= 1) {
+      return []; // No other incidents to compare
+    }
+    
+    const currentIncidentId = incident.id;
+    const otherIncidents = allIncidents.filter(inc => inc.id !== currentIncidentId);
+    
+    const similarities: any[] = [];
+    
+    // Analyze similarity based on multiple factors
+    for (const otherIncident of otherIncidents.slice(0, 10)) { // Limit to 10 for performance
+      let matchScore = 0;
+      const matchFactors: string[] = [];
+      
+      // Factor 1: Similar MITRE techniques (40% weight)
+      const currentMitre = incident.mitreAttack || [];
+      const otherMitre = otherIncident.mitreAttack || [];
+      if (currentMitre.length > 0 && otherMitre.length > 0) {
+        const commonMitre = currentMitre.filter((tech: string) => otherMitre.includes(tech));
+        if (commonMitre.length > 0) {
+          matchScore += (commonMitre.length / Math.max(currentMitre.length, otherMitre.length)) * 40;
+          matchFactors.push(`${commonMitre.length} common MITRE techniques`);
+        }
+      }
+      
+      // Factor 2: Similar classification (20% weight)
+      if (incident.classification && otherIncident.classification && 
+          incident.classification === otherIncident.classification) {
+        matchScore += 20;
+        matchFactors.push('Same classification');
+      }
+      
+      // Factor 3: Similar severity (15% weight)
+      if (incident.severity && otherIncident.severity && 
+          incident.severity === otherIncident.severity) {
+        matchScore += 15;
+        matchFactors.push('Same severity level');
+      }
+      
+      // Factor 4: Similar content patterns (25% weight)
+      const contentScore = calculateContentSimilarity(content, otherIncident.logData || '');
+      matchScore += contentScore * 25;
+      if (contentScore > 0.3) {
+        matchFactors.push('Similar log patterns');
+      }
+      
+      // Only include incidents with meaningful similarity (>= 30% match)
+      if (matchScore >= 30) {
+        similarities.push({
+          id: otherIncident.id,
+          title: otherIncident.title,
+          match: `${Math.round(matchScore)}%`,
+          patterns: matchFactors,
+          analysis: `${matchFactors.join(', ')} suggest similar attack patterns`,
+          date: otherIncident.createdAt,
+          severity: otherIncident.severity,
+          classification: otherIncident.classification
+        });
+      }
+    }
+    
+    // Sort by match percentage (highest first)
+    return similarities.sort((a, b) => {
+      const scoreA = parseInt(a.match.replace('%', ''));
+      const scoreB = parseInt(b.match.replace('%', ''));
+      return scoreB - scoreA;
+    }).slice(0, 5); // Return top 5 matches
+    
+  } catch (error) {
+    console.error('Error finding similar incidents:', error);
+    return [];
+  }
+}
+
+// Calculate content similarity between two log strings
+function calculateContentSimilarity(content1: string, content2: string): number {
+  if (!content1 || !content2) return 0;
+  
+  // Extract key terms from both contents
+  const extractTerms = (text: string) => {
+    const terms = text.toLowerCase()
+      .match(/\b[a-z]{4,}\b/g) || []; // Words with 4+ characters
+    return new Set(terms.filter(term => 
+      !['this', 'that', 'with', 'have', 'will', 'from', 'they', 'been', 'were', 'said'].includes(term)
+    ));
+  };
+  
+  const terms1 = extractTerms(content1);
+  const terms2 = extractTerms(content2);
+  
+  if (terms1.size === 0 || terms2.size === 0) return 0;
+  
+  // Calculate Jaccard similarity
+  const intersection = new Set([...terms1].filter(term => terms2.has(term)));
+  const union = new Set([...terms1, ...terms2]);
+  
+  return intersection.size / union.size;
 }
 
 // Generate detailed explanation combining all AI agent results
