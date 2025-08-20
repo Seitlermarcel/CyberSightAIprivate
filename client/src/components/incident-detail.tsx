@@ -326,7 +326,19 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
             threatScore: indicator.threat_score || 0,
             pulseCount: indicator.pulse_count || 0,
             tags: indicator.tags || [],
-            malicious: indicator.malicious || false
+            malicious: indicator.malicious || false,
+            // Enhanced fields for detailed analysis
+            hash_type: indicator.hash_type,
+            file_name: indicator.file_name,
+            file_size: indicator.file_size,
+            file_type: indicator.file_type,
+            url_status: indicator.url_status,
+            domain_registrar: indicator.domain_registrar,
+            creation_date: indicator.creation_date,
+            first_seen: indicator.first_seen,
+            last_seen: indicator.last_seen,
+            country: indicator.country,
+            organization: indicator.organization
           };
         });
       }
@@ -1228,14 +1240,95 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                               </p>
                             </div>
                             <div>
-                              <span className="text-gray-400">Geo-Location:</span>
-                              <p className="text-gray-300 mt-1">{ioc.geoLocation}</p>
+                              <span className="text-gray-400">
+                                {ioc.type?.toLowerCase().includes('url') ? 'Status:' : 'Geo-Location:'}
+                              </span>
+                              <p className="text-gray-300 mt-1">
+                                {ioc.type?.toLowerCase().includes('url') ? (ioc.url_status || 'Unknown') : ioc.geoLocation}
+                              </p>
                             </div>
                             <div>
                               <span className="text-gray-400">Threat Intelligence:</span>
                               <p className="text-gray-300 mt-1">{ioc.threatIntelligence}</p>
                             </div>
                           </div>
+
+                          {/* Enhanced details for different IOC types */}
+                          {(ioc.type?.toLowerCase().includes('hash') || ioc.type?.toLowerCase().includes('md5') || ioc.type?.toLowerCase().includes('sha')) && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <span className="text-gray-400 text-xs mb-2 block">File Analysis:</span>
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <span className="text-gray-500">Hash Type:</span>
+                                  <p className="text-gray-300">{ioc.hash_type || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">File Name:</span>
+                                  <p className="text-gray-300 truncate">{ioc.file_name || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">File Size:</span>
+                                  <p className="text-gray-300">{ioc.file_size ? `${(ioc.file_size / 1024).toFixed(2)} KB` : 'Unknown'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">File Type:</span>
+                                  <p className="text-gray-300">{ioc.file_type || 'Unknown'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {ioc.type?.toLowerCase().includes('url') && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <span className="text-gray-400 text-xs mb-2 block">URL Analysis:</span>
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <span className="text-gray-500">Status:</span>
+                                  <p className={`${ioc.malicious ? 'text-red-400' : 'text-green-400'}`}>
+                                    {ioc.url_status || 'Unknown'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Hosting Location:</span>
+                                  <p className="text-gray-300">{ioc.geoLocation}</p>
+                                </div>
+                                {ioc.first_seen && (
+                                  <div>
+                                    <span className="text-gray-500">First Seen:</span>
+                                    <p className="text-gray-300">{new Date(ioc.first_seen).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                                {ioc.last_seen && (
+                                  <div>
+                                    <span className="text-gray-500">Last Seen:</span>
+                                    <p className="text-gray-300">{new Date(ioc.last_seen).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {(ioc.type?.toLowerCase().includes('domain') && !ioc.type?.toLowerCase().includes('url')) && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <span className="text-gray-400 text-xs mb-2 block">Domain Analysis:</span>
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <span className="text-gray-500">Registrar:</span>
+                                  <p className="text-gray-300">{ioc.domain_registrar || ioc.organization || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Country:</span>
+                                  <p className="text-gray-300">{ioc.country || 'Unknown'}</p>
+                                </div>
+                                {ioc.creation_date && (
+                                  <div>
+                                    <span className="text-gray-500">Created:</span>
+                                    <p className="text-gray-300">{new Date(ioc.creation_date).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Tags */}
                           {ioc.tags && ioc.tags.length > 0 && (
