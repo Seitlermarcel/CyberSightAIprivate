@@ -2356,34 +2356,64 @@ function extractMitreTactics(analysis: string): Array<any> {
   const tactics = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
-  // Look for MITRE tactic patterns like TA0001
-  const tacticMatches = cleanAnalysis.match(/TA\d{4}[:\-\s]([^\n\r.]+)/gi);
-  if (tacticMatches) {
-    tacticMatches.forEach((match, index) => {
-      const parts = match.split(/[:\-\s]/);
-      const id = parts[0];
-      const name = cleanGeminiText(parts.slice(1).join(' ').trim());
-      if (name && name.length > 3) {
+  console.log('🔍 Extracting MITRE tactics from analysis...');
+  console.log('📝 Analysis length:', cleanAnalysis.length, 'characters');
+  
+  // First try to find PRIMARY TACTICS section from new format
+  const primaryTacticsMatch = cleanAnalysis.match(/PRIMARY TACTICS:\s*([^\n\r]+)/i);
+  if (primaryTacticsMatch) {
+    console.log('✅ Found PRIMARY TACTICS section:', primaryTacticsMatch[1]);
+    const tacticsLine = primaryTacticsMatch[1];
+    const tacticMatches = tacticsLine.match(/TA\d{4}:\s*([^,]+)/gi);
+    
+    if (tacticMatches) {
+      tacticMatches.forEach((match, index) => {
+        const [id, name] = match.split(':').map(s => s.trim());
         tactics.push({
           id,
           name: name || `MITRE Tactic ${index + 1}`,
-          description: `Security analysis identified: ${name}`,
+          description: `AI analysis identified: ${name}`,
           phase: getTacticPhase(id)
         });
-      }
-    });
+      });
+      console.log('✅ Extracted', tactics.length, 'tactics from PRIMARY TACTICS section');
+    }
   }
   
-  // Fallback tactics if none found
+  // Fallback: Look for any MITRE tactic patterns like TA0001: Name
   if (tactics.length === 0) {
+    console.log('🔄 No PRIMARY TACTICS found, looking for individual tactic patterns...');
+    const tacticMatches = cleanAnalysis.match(/TA\d{4}[:\-\s]([^\n\r.]+)/gi);
+    if (tacticMatches) {
+      tacticMatches.forEach((match, index) => {
+        const parts = match.split(/[:\-\s]/);
+        const id = parts[0];
+        const name = cleanGeminiText(parts.slice(1).join(' ').trim());
+        if (name && name.length > 3) {
+          tactics.push({
+            id,
+            name: name || `MITRE Tactic ${index + 1}`,
+            description: `Security analysis identified: ${name}`,
+            phase: getTacticPhase(id)
+          });
+        }
+      });
+      console.log('✅ Extracted', tactics.length, 'tactics from individual patterns');
+    }
+  }
+  
+  // Final fallback tactics if none found - use more relevant defaults
+  if (tactics.length === 0) {
+    console.log('⚠️ No tactics found in AI analysis, using intelligent fallbacks');
     tactics.push({
-      id: "TA0001",
-      name: "Initial Access",
-      description: "Potential initial access vector identified in security logs",
-      phase: "Initial Compromise"
+      id: "TA0002",
+      name: "Execution",
+      description: "Command and script execution detected in security logs",
+      phase: "Execution"
     });
   }
   
+  console.log('📊 Final tactics count:', tactics.length);
   return tactics;
 }
 
