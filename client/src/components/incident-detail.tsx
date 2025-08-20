@@ -301,18 +301,34 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     try {
       // Use threat intelligence indicators if available (rich data from AlienVault OTX)
       if (threatReport?.indicators && Array.isArray(threatReport.indicators)) {
-        return threatReport.indicators.map((indicator: any) => ({
-          value: indicator.value,
-          type: indicator.type,
-          confidence: indicator.malicious ? 'high' : indicator.threat_score > 5 ? 'medium' : 'low',
-          reputation: indicator.malicious ? 'Malicious' : indicator.threat_score > 5 ? 'Suspicious' : 'Clean',
-          geoLocation: indicator.geo_location || 'Location unknown',
-          threatIntelligence: `AlienVault OTX: ${indicator.pulse_count || 0} threat reports`,
-          threatScore: indicator.threat_score || 0,
-          pulseCount: indicator.pulse_count || 0,
-          tags: indicator.tags || [],
-          malicious: indicator.malicious || false
-        }));
+        return threatReport.indicators.map((indicator: any) => {
+          // Construct geo-location from country and organization data
+          let geoLocation = 'Location unknown';
+          if (indicator.country) {
+            geoLocation = indicator.country;
+            if (indicator.organization) {
+              geoLocation += ` - ${indicator.organization}`;
+            }
+            if (indicator.asn) {
+              geoLocation += ` (ASN: ${indicator.asn})`;
+            }
+          } else if (indicator.organization) {
+            geoLocation = indicator.organization;
+          }
+          
+          return {
+            value: indicator.value,
+            type: indicator.type,
+            confidence: indicator.malicious ? 'high' : indicator.threat_score > 5 ? 'medium' : 'low',
+            reputation: indicator.malicious ? 'Malicious' : indicator.threat_score > 5 ? 'Suspicious' : 'Clean',
+            geoLocation: geoLocation,
+            threatIntelligence: `AlienVault OTX: ${indicator.pulse_count || 0} threat reports`,
+            threatScore: indicator.threat_score || 0,
+            pulseCount: indicator.pulse_count || 0,
+            tags: indicator.tags || [],
+            malicious: indicator.malicious || false
+          };
+        });
       }
       
       // Fallback for basic IOCs array
