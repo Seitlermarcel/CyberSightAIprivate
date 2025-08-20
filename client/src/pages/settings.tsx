@@ -127,17 +127,37 @@ export default function Settings() {
     });
   };
 
-  const getCurrentValue = (key: keyof InsertSettings) => {
+  const getCurrentValue = (key: keyof InsertSettings): any => {
     // Use formData if it has the key, otherwise use settings with safe defaults
     if (formData.hasOwnProperty(key)) {
       return formData[key];
     }
     const settingsValue = settings?.[key];
-    // Handle null/undefined for text fields
-    if ((key === 'customInstructions' || key === 'emailAddress') && (settingsValue === null || settingsValue === undefined)) {
-      return "";
+    
+    // Provide proper defaults based on field type
+    switch (key) {
+      case 'analysisDepth':
+        return (settingsValue as string) || "comprehensive";
+      case 'confidenceThreshold':
+        return (settingsValue as number) || 80;
+      case 'sessionTimeout':
+        return (settingsValue as number) || 480;
+      case 'theme':
+        return (settingsValue as string) || "dark";
+      case 'customInstructions':
+      case 'emailAddress':
+        return (settingsValue as string) || "";
+      case 'enableDualAI':
+      case 'autoSeverityAdjustment':
+      case 'compactView':
+      case 'autoRefresh':
+      case 'requireComments':
+      case 'emailNotifications':
+      case 'highSeverityAlerts':
+        return (settingsValue as boolean) || false;
+      default:
+        return settingsValue;
     }
-    return settingsValue;
   };
 
   if (isLoading || !settings) {
