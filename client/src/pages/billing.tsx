@@ -266,6 +266,9 @@ export default function Billing() {
               <p className="text-sm text-gray-400">
                 Remaining analyses • {(user as any)?.subscriptionPlan || 'Free'} plan
               </p>
+              <div className="text-xs text-gray-500 mt-1">
+                {(usage as any)?.incidentsAnalyzed || 0} incidents analyzed this month
+              </div>
               <Button 
                 className="w-full cyber-blue hover:bg-blue-600"
                 onClick={() => setShowPurchaseDialog(true)}
@@ -320,10 +323,24 @@ export default function Billing() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="font-semibold">Total Cost</span>
-                  <span className="font-bold">€{((usage as any)?.totalCost || 0).toFixed(2)}</span>
+                  <span className="font-bold">€{(() => {
+                    const plan = (user as any)?.subscriptionPlan || 'free';
+                    const incidentsAnalyzed = parseFloat((usage as any)?.incidentsAnalyzed || "0");
+                    let costPerIncident = 25.00;
+                    
+                    switch(plan) {
+                      case 'starter': costPerIncident = 25.00; break;
+                      case 'professional': costPerIncident = 23.75; break;
+                      case 'business': costPerIncident = 22.50; break;
+                      case 'enterprise': costPerIncident = 20.00; break;
+                      default: costPerIncident = 25.00;
+                    }
+                    
+                    return (incidentsAnalyzed * costPerIncident).toFixed(2);
+                  })()}</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  This month's charges
+                  This month's charges • Dynamic pricing
                 </div>
               </div>
             </div>
@@ -338,17 +355,60 @@ export default function Billing() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <Badge className="capitalize">
-                {(user as any)?.subscriptionPlan || "Free"}
-              </Badge>
-              <p className="text-sm text-gray-400">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Badge className="capitalize text-sm px-3 py-1">
+                  {(user as any)?.subscriptionPlan || "Free"}
+                </Badge>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-cyber-blue">
+                    {((storageData as any)?.limit || 0)} GB
+                  </div>
+                  <div className="text-xs text-gray-400">Storage Limit</div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-2 cyber-dark rounded">
+                  <div className="text-cyan-400 font-medium">
+                    €{(() => {
+                      const plan = (user as any)?.subscriptionPlan || 'free';
+                      switch(plan) {
+                        case 'starter': return '25.00';
+                        case 'professional': return '23.75';
+                        case 'business': return '22.50';
+                        case 'enterprise': return '20.00';
+                        default: return '25.00';
+                      }
+                    })()}
+                  </div>
+                  <div className="text-gray-400">Per Analysis</div>
+                </div>
+                <div className="p-2 cyber-dark rounded">
+                  <div className="text-green-400 font-medium">
+                    {(() => {
+                      const plan = (user as any)?.subscriptionPlan || 'free';
+                      switch(plan) {
+                        case 'starter': return '0%';
+                        case 'professional': return '5%';
+                        case 'business': return '10%';
+                        case 'enterprise': return '20%';
+                        default: return '0%';
+                      }
+                    })()} 
+                  </div>
+                  <div className="text-gray-400">Discount</div>
+                </div>
+              </div>
+              
+              <p className="text-xs text-gray-400">
                 {(user as any)?.subscriptionPlan === "free" 
-                  ? "Limited features" 
+                  ? "Limited features • Upgrade for full access" 
                   : "Full access to all features"}
               </p>
+              
               {(user as any)?.subscriptionPlan === "free" && (
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full text-xs">
                   Upgrade Plan
                 </Button>
               )}
@@ -416,6 +476,9 @@ export default function Billing() {
                 <div className="mt-2 p-2 bg-cyber-slate-dark rounded border-l-2 border-yellow-500">
                   <p className="text-xs text-yellow-400">
                     <strong>Next Cleanup:</strong> {((cleanupData as any)?.incidentsToBeDeleted || 0)} incidents will be deleted tomorrow
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Incidents older than 30 days are automatically removed to optimize storage
                   </p>
                 </div>
               </div>
