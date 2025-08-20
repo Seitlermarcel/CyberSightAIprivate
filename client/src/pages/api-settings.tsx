@@ -58,13 +58,13 @@ export default function ApiSettings() {
   const [showAddDialog, setShowAddDialog] = useState(false);
 
   // Fetch API configurations
-  const { data: apiConfigs = [], isLoading } = useQuery<any[]>({
+  const { data: apiConfigs, isLoading } = useQuery({
     queryKey: ["/api/api-configurations"],
   });
 
   // Fetch user data for webhook endpoints
-  const { data: user } = useQuery<{ id: string }>({
-    queryKey: ["/api/user"],
+  const { data: user } = useQuery({
+    queryKey: ["/api/auth/user"],
   });
 
   // Create API configuration
