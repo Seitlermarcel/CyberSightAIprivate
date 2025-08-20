@@ -23,10 +23,11 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  credits: decimal("credits", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  currentPackage: text("current_package").default("free"), // free, starter, professional, business, enterprise
+  remainingIncidents: integer("remaining_incidents").default(3).notNull(), // Default 3 incidents for free plan
+  packageExpiry: timestamp("package_expiry"),
   storageUsedGB: real("storage_used_gb").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
-  subscriptionPlan: text("subscription_plan").default("free"), // free, starter, professional, enterprise
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -109,9 +110,10 @@ export const apiConfigurations = pgTable("api_configurations", {
 export const billingTransactions = pgTable("billing_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  type: text("type").notNull(), // credit-purchase, incident-analysis, storage-fee, refund
+  type: text("type").notNull(), // package-purchase, incident-analysis, storage-fee, refund
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  credits: decimal("credits", { precision: 10, scale: 2 }),
+  incidentsIncluded: integer("incidents_included"),
+  packageName: text("package_name"),
   description: text("description"),
   stripePaymentId: text("stripe_payment_id"),
   status: text("status").default("pending"), // pending, completed, failed, refunded
@@ -200,3 +202,14 @@ export type InsertBillingTransaction = z.infer<typeof insertBillingTransactionSc
 export type UsageTracking = typeof usageTracking.$inferSelect;
 export type QueryHistory = typeof queryHistory.$inferSelect;
 export type InsertQueryHistory = z.infer<typeof insertQueryHistorySchema>;
+
+// Package definitions
+export const PACKAGES = {
+  free: { name: "Free", incidents: 3, price: 0, storageGB: 0.1 },
+  starter: { name: "Starter", incidents: 25, price: 49, storageGB: 2 },
+  professional: { name: "Professional", incidents: 100, price: 149, storageGB: 10 },
+  business: { name: "Business", incidents: 500, price: 499, storageGB: 50 },
+  enterprise: { name: "Enterprise", incidents: 2000, price: 1499, storageGB: 200 }
+} as const;
+
+export type PackageType = keyof typeof PACKAGES;
