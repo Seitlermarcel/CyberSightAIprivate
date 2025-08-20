@@ -454,7 +454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update usage tracking with current data  
       await storage.updateUsageTracking(userId, currentMonth, {
         incidentsAnalyzed: usage?.incidentsAnalyzed || 0,
-        storageGB: storageGB.toString(),
+        storageGB: storageGB,
         totalCost: totalCost.toString()
       });
       
