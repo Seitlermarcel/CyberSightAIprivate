@@ -1850,7 +1850,11 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   const threatPrediction = generateThreatPredictionAnalysis(aiResult, incident);
   
   // Similar incidents - use real database query
-  const similarIncidents: any[] = []; // Simplified for now
+  const similarIncidents = await findRealSimilarIncidents(
+    (incident.logData || '') + ' ' + (incident.title || '') + ' ' + (incident.systemContext || ''),
+    incident,
+    userId || ''
+  );
   
   // Enhance analysis confidence based on threat intelligence findings
   const threatIntelligenceImpact = { confidenceBoost: 0, maliciousIndicators: 0, totalIndicators: 0, insights: [] };
@@ -3324,7 +3328,7 @@ async function analyzeWithMultipleAIAgents(content: string, incident: any, confi
   };
   
   // Similarity AI Agent - Create actual database query for similar incidents
-  const similarIncidents: any[] = []; // Simplified similar incidents
+  const similarIncidents = await findRealSimilarIncidents(content, incident, userId || '');
 
   // Apply settings-based adjustments
   let finalConfidence = classification.confidence;
@@ -5162,18 +5166,108 @@ function findSimilarIncidents(content: string, incident: any) {
 // Find real similar incidents in the database
 async function findRealSimilarIncidents(content: string, incident: any, userId: string): Promise<any[]> {
   try {
+    console.log('🔍 Finding similar incidents for user:', userId);
+    
     // Get all incidents for the user
     const allIncidents = await storage.getIncidentsByUserId(userId);
     
     if (!allIncidents || allIncidents.length <= 1) {
+      console.log('📊 No incidents found for similarity comparison');
       return []; // No other incidents to compare
     }
     
-    return []; // Simplified for now
+    const similarIncidents = [];
+    const currentKeywords = extractKeywords(content + ' ' + (incident.title || '') + ' ' + (incident.systemContext || ''));
+    
+    console.log('🔑 Current incident keywords:', currentKeywords.slice(0, 5));
+    
+    for (const existingIncident of allIncidents) {
+      // Skip comparing with itself
+      if (existingIncident.id === incident.id) continue;
+      
+      // Extract keywords from existing incident
+      const existingContent = (existingIncident.logData || '') + ' ' + 
+                            (existingIncident.title || '') + ' ' + 
+                            (existingIncident.systemContext || '') + ' ' +
+                            (existingIncident.aiAnalysis || '');
+      
+      const existingKeywords = extractKeywords(existingContent);
+      
+      // Calculate similarity
+      const similarity = calculateContentSimilarity(currentKeywords, existingKeywords);
+      
+      // Only include if similarity is above threshold
+      if (similarity > 0.3) { // 30% threshold
+        const matchPercentage = Math.round(similarity * 100);
+        
+        // Extract patterns from the incident
+        const patterns = extractSimilarityPatterns(content, existingContent);
+        
+        similarIncidents.push({
+          id: existingIncident.id,
+          incidentId: existingIncident.id, // For navigation
+          title: existingIncident.title || 'Untitled Incident',
+          match: `${matchPercentage}%`,
+          similarity: similarity,
+          severity: existingIncident.severity || 'medium',
+          createdAt: existingIncident.createdAt,
+          patterns: patterns,
+          analysis: `Similar attack patterns detected with ${matchPercentage}% correlation. Both incidents share: ${patterns.slice(0, 2).join(', ')}`
+        });
+      }
+    }
+    
+    // Sort by similarity score (highest first) and limit to top 5
+    const topSimilar = similarIncidents
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
+      
+    console.log('✅ Found', topSimilar.length, 'similar incidents with scores:', 
+                topSimilar.map(s => `${s.match} (${s.title.substring(0, 30)}...)`));
+    
+    return topSimilar;
   } catch (error) {
-    console.error('Error finding similar incidents:', error);
+    console.error('❌ Error finding similar incidents:', error);
     return [];
   }
+}
+
+// Calculate content similarity between keyword arrays
+function calculateContentSimilarity(keywords1: string[], keywords2: string[]): number {
+  if (!keywords1.length || !keywords2.length) return 0;
+  
+  const set1 = new Set(keywords1);
+  const set2 = new Set(keywords2);
+  const intersection = new Set(Array.from(set1).filter(x => set2.has(x)));
+  const union = new Set([...Array.from(set1), ...Array.from(set2)]);
+  
+  // Jaccard similarity coefficient
+  return intersection.size / union.size;
+}
+
+// Extract patterns that are similar between two incident contents
+function extractSimilarityPatterns(content1: string, content2: string): string[] {
+  const patterns = [];
+  
+  // Common security patterns to look for
+  const securityPatterns = [
+    { pattern: /lsass|mimikatz|credential/i, label: 'Credential Access' },
+    { pattern: /powershell|ps1|invoke/i, label: 'PowerShell Execution' },
+    { pattern: /registry|hklm|hkcu/i, label: 'Registry Modification' },
+    { pattern: /schtasks|schedule|task/i, label: 'Scheduled Tasks' },
+    { pattern: /network|connection|tcp|http/i, label: 'Network Activity' },
+    { pattern: /process|execution|cmd/i, label: 'Process Activity' },
+    { pattern: /file|create|write|copy/i, label: 'File Operations' },
+    { pattern: /admin|privilege|elevation/i, label: 'Privilege Activity' }
+  ];
+  
+  for (const { pattern, label } of securityPatterns) {
+    if (pattern.test(content1) && pattern.test(content2)) {
+      patterns.push(label);
+    }
+  }
+  
+  return patterns.length > 0 ? patterns : ['General Security Activity'];
 }
 
 // Helper function to extract keywords for similarity analysis
