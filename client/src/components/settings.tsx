@@ -39,7 +39,7 @@ export default function Settings() {
   
   // Get the actual user from the auth endpoint
   const { data: user } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/user"],
   });
   
   const userId = user?.id || "default-user"; // Use actual user ID

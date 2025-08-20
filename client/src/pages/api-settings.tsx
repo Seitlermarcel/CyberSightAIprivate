@@ -64,7 +64,7 @@ export default function ApiSettings() {
 
   // Fetch user data for webhook endpoints
   const { data: user } = useQuery({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/user"],
   });
 
   // Create API configuration

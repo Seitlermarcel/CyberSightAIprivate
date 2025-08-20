@@ -139,39 +139,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      
-      if (!isDevelopment) {
-        // Production mode: Check if user has remaining incident analyses in their package
-        const remainingIncidents = user.remainingIncidents || 0;
-        if (remainingIncidents < 1) {
-          return res.status(402).json({ 
-            error: "No incident analyses remaining", 
-            message: `Your ${user.currentPackage || 'current'} package has no remaining incident analyses. Please purchase a new package.`,
-            currentPackage: user.currentPackage || 'free',
-            remainingIncidents: remainingIncidents
-          });
-        }
-        
-        // Deduct one incident analysis from user's package
-        const success = await storage.deductIncident(userId);
-        if (!success) {
-          return res.status(402).json({ 
-            error: "Failed to deduct incident analysis", 
-            message: "Unable to process. Please try again."
-          });
-        }
-        
-        // Log the transaction
-        await storage.createBillingTransaction({
-          type: 'incident-analysis',
-          amount: '0', // No charge per incident, cost is in package
-          incidentsIncluded: 1,
-          packageName: user.currentPackage || 'free',
-          description: `Incident analysis: ${validatedData.title}`,
-          status: 'completed'
-        }, userId);
+      // Check if user has remaining incident analyses in their package
+      const remainingIncidents = user.remainingIncidents || 0;
+      if (remainingIncidents < 1) {
+        return res.status(402).json({ 
+          error: "No incident analyses remaining", 
+          message: `Your ${user.currentPackage || 'current'} package has no remaining incident analyses. Please purchase a new package.`,
+          currentPackage: user.currentPackage || 'free',
+          remainingIncidents: remainingIncidents
+        });
       }
+      
+      // Deduct one incident analysis from user's package
+      const success = await storage.deductIncident(userId);
+      if (!success) {
+        return res.status(402).json({ 
+          error: "Failed to deduct incident analysis", 
+          message: "Unable to process. Please try again."
+        });
+      }
+      
+      // Log the transaction
+      await storage.createBillingTransaction({
+        type: 'incident-analysis',
+        amount: '0', // No charge per incident, cost is in package
+        incidentsIncluded: 1,
+        packageName: user.currentPackage || 'free',
+        description: `Incident analysis: ${validatedData.title}`,
+        status: 'completed'
+      }, userId);
       // Get user settings for email notifications
       const userSettings = await storage.getUserSettings(userId);
       
