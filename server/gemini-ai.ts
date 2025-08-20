@@ -51,11 +51,11 @@ export class GeminiCyberAnalyst {
     console.log('🎯 Model:', this.MODEL);
     
     try {
-      console.log('🚀 Starting parallel execution of 8 AI agents...');
+      console.log('🚀 Starting parallel execution of 12 AI agents...');
     console.log('💰 🔥 REAL GEMINI API INTEGRATION ACTIVE 🔥');
     console.log('💸 Each agent will make a separate API call to Gemini 2.5 Flash');
-    console.log('💵 Expected total cost for this analysis: ~$0.02-0.05 USD');
-      // Run all 8 AI agents in parallel with timeout protection
+    console.log('💵 Expected total cost for this analysis: ~$0.03-0.08 USD');
+      // Run all 12 AI agents in parallel with timeout protection
       const agentPromises = [
         this.runPatternRecognitionAgent(fullContent).catch(e => this.getFailsafeResponse("Pattern Recognition", fullContent)),
         this.runThreatIntelligenceAgent(fullContent).catch(e => this.getFailsafeResponse("Threat Intelligence", fullContent)),
@@ -68,7 +68,12 @@ export class GeminiCyberAnalyst {
           chiefAnalyst: "Chief analyst synthesis failed"
         })),
         this.runPurpleTeamAgent(fullContent).catch(e => this.getFailsafeResponse("Purple Team", fullContent)),
-        this.runEntityMappingAgent(fullContent).catch(e => this.getFailsafeResponse("Entity Mapping", fullContent))
+        this.runEntityMappingAgent(fullContent).catch(e => this.getFailsafeResponse("Entity Mapping", fullContent)),
+        // NEW AGENTS: 9-12
+        this.runVulnerabilityAssessmentAgent(fullContent, threatReport).catch(e => this.getFailsafeResponse("Vulnerability Assessment", fullContent)),
+        this.runNetworkAnalysisAgent(fullContent).catch(e => this.getFailsafeResponse("Network Analysis", fullContent)),
+        this.runBehavioralAnalysisAgent(fullContent).catch(e => this.getFailsafeResponse("Behavioral Analysis", fullContent)),
+        this.runComplianceAgent(fullContent, settings).catch(e => this.getFailsafeResponse("Compliance Analysis", fullContent))
       ];
       
       // Add overall timeout for all agents
@@ -89,9 +94,13 @@ export class GeminiCyberAnalyst {
           this.getFailsafeResponse("Classification", fullContent),
           { tacticalAnalyst: "Analysis timeout", strategicAnalyst: "Analysis timeout", chiefAnalyst: "Analysis timeout" },
           this.getFailsafeResponse("Purple Team", fullContent),
-          this.getFailsafeResponse("Entity Mapping", fullContent)
+          this.getFailsafeResponse("Entity Mapping", fullContent),
+          this.getFailsafeResponse("Vulnerability Assessment", fullContent),
+          this.getFailsafeResponse("Network Analysis", fullContent),
+          this.getFailsafeResponse("Behavioral Analysis", fullContent),
+          this.getFailsafeResponse("Compliance Analysis", fullContent)
         ];
-      });
+      }) as any[];
 
       const [
         patternRecognition,
@@ -101,11 +110,15 @@ export class GeminiCyberAnalyst {
         classification,
         dualAI,
         purpleTeam,
-        entityMapping
+        entityMapping,
+        vulnerabilityAssessment,
+        networkAnalysis,
+        behavioralAnalysis,
+        complianceAnalysis
       ] = results;
       
       console.log('✅ All AI agents completed successfully');
-      console.log('💰 🎉 TOTAL GEMINI API CALLS MADE: 8+ real API calls to Gemini 2.5 Flash');
+      console.log('💰 🎉 TOTAL GEMINI API CALLS MADE: 12+ real API calls to Gemini 2.5 Flash');
       console.log('💸 💰 You should see these costs in your Google Cloud Console billing');
       console.log('📊 Agent results summary:', {
         patternRecognition: patternRecognition?.confidence || 0,
@@ -114,13 +127,18 @@ export class GeminiCyberAnalyst {
         iocEnrichment: iocEnrichment?.confidence || 0,
         classification: classification?.confidence || 0,
         purpleTeam: purpleTeam?.confidence || 0,
-        entityMapping: entityMapping?.confidence || 0
+        entityMapping: entityMapping?.confidence || 0,
+        vulnerabilityAssessment: vulnerabilityAssessment?.confidence || 0,
+        networkAnalysis: networkAnalysis?.confidence || 0,
+        behavioralAnalysis: behavioralAnalysis?.confidence || 0,
+        complianceAnalysis: complianceAnalysis?.confidence || 0
       });
 
       // Calculate overall confidence and final classification
       const overallConfidence = this.calculateOverallConfidence([
         patternRecognition, threatIntelligence, mitreMapping, 
-        iocEnrichment, classification, purpleTeam, entityMapping
+        iocEnrichment, classification, purpleTeam, entityMapping,
+        vulnerabilityAssessment, networkAnalysis, behavioralAnalysis, complianceAnalysis
       ]);
       
       const finalClassification = classification?.analysis?.includes('TRUE POSITIVE') ? 'true-positive' : 'false-positive';
@@ -136,11 +154,16 @@ export class GeminiCyberAnalyst {
         dualAI,
         purpleTeam,
         entityMapping,
+        vulnerabilityAssessment,
+        networkAnalysis,
+        behavioralAnalysis,
+        complianceAnalysis,
         overallConfidence,
         finalClassification,
         reasoning: this.synthesizeReasoning([
           patternRecognition, threatIntelligence, mitreMapping,
-          iocEnrichment, classification, purpleTeam, entityMapping
+          iocEnrichment, classification, purpleTeam, entityMapping,
+          vulnerabilityAssessment, networkAnalysis, behavioralAnalysis, complianceAnalysis
         ])
       };
       
@@ -690,6 +713,230 @@ RECOMMENDATIONS: [3-4 actionable items]`;
     } catch (error) {
       console.error('Entity Mapping Agent error:', error);
       return this.getFailsafeResponse("Entity Mapping", content);
+    }
+  }
+
+  /**
+   * AI Agent 9: Vulnerability Assessment - Identifies potential vulnerabilities
+   */
+  private static async runVulnerabilityAssessmentAgent(content: string, threatReport: any): Promise<AIAgentResponse> {
+    const prompt = `You are a vulnerability assessment specialist. Analyze the log data to identify potential security vulnerabilities and misconfigurations.
+
+CONTENT TO ANALYZE:
+${content}
+
+THREAT INTELLIGENCE CONTEXT:
+${threatReport ? JSON.stringify(threatReport, null, 2) : 'No threat intelligence available'}
+
+FORMATTING REQUIREMENTS:
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Provide actionable vulnerability insights
+
+Analyze for:
+- Unpatched software vulnerabilities (CVE identifiers)
+- Misconfigurations in security settings
+- Weak authentication mechanisms
+- Exposed services and ports
+- Privilege escalation opportunities
+- Buffer overflow indicators
+- SQL injection patterns
+- Cross-site scripting (XSS) potential
+
+Provide assessment in this format:
+VULNERABILITY ASSESSMENT: [detailed findings with specific vulnerability types]
+CONFIDENCE: [1-100]
+KEY FINDINGS: [3-5 bullet points with vulnerability names]
+RECOMMENDATIONS: [3-4 specific remediation actions]`;
+
+    try {
+      console.log('💰 GEMINI API CALL - Vulnerability Assessment Agent');
+      console.log(`📊 Request size: ${prompt.length} characters`);
+      
+      const startTime = Date.now();
+      const response = await ai.models.generateContent({
+        model: this.MODEL,
+        contents: prompt,
+      });
+
+      const duration = Date.now() - startTime;
+      const analysis = response.text || "Analysis failed";
+      
+      console.log('✅ Vulnerability Assessment Agent completed');
+      console.log(`⏱️ API call duration: ${duration}ms`);
+      console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + analysis.length / 1000000 * 0.30).toFixed(6)}`);
+      
+      return this.parseAgentResponse("Vulnerability Assessment", analysis);
+    } catch (error) {
+      console.error('❌ Vulnerability Assessment Agent error:', error);
+      return this.getFailsafeResponse("Vulnerability Assessment", content);
+    }
+  }
+
+  /**
+   * AI Agent 10: Network Analysis - Analyzes network traffic patterns and connections
+   */
+  private static async runNetworkAnalysisAgent(content: string): Promise<AIAgentResponse> {
+    const prompt = `You are a network security analyst. Analyze the log data for network traffic patterns, connections, and potential network-based threats.
+
+CONTENT TO ANALYZE:
+${content}
+
+FORMATTING REQUIREMENTS:
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Focus on network behavior analysis
+
+Analyze for:
+- Unusual network traffic patterns
+- Suspicious connection attempts
+- Network reconnaissance activities
+- Data exfiltration indicators
+- C2 communication patterns
+- Port scanning activities
+- Protocol anomalies
+- Geographic analysis of connections
+
+Provide analysis in this format:
+NETWORK ANALYSIS: [detailed network behavior findings]
+CONFIDENCE: [1-100]
+KEY FINDINGS: [3-5 bullet points with network indicators]
+RECOMMENDATIONS: [3-4 network security actions]`;
+
+    try {
+      console.log('💰 GEMINI API CALL - Network Analysis Agent');
+      console.log(`📊 Request size: ${prompt.length} characters`);
+      
+      const startTime = Date.now();
+      const response = await ai.models.generateContent({
+        model: this.MODEL,
+        contents: prompt,
+      });
+
+      const duration = Date.now() - startTime;
+      const analysis = response.text || "Analysis failed";
+      
+      console.log('✅ Network Analysis Agent completed');
+      console.log(`⏱️ API call duration: ${duration}ms`);
+      console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + analysis.length / 1000000 * 0.30).toFixed(6)}`);
+      
+      return this.parseAgentResponse("Network Analysis", analysis);
+    } catch (error) {
+      console.error('❌ Network Analysis Agent error:', error);
+      return this.getFailsafeResponse("Network Analysis", content);
+    }
+  }
+
+  /**
+   * AI Agent 11: Behavioral Analysis - Analyzes user and system behavioral patterns
+   */
+  private static async runBehavioralAnalysisAgent(content: string): Promise<AIAgentResponse> {
+    const prompt = `You are a behavioral analysis specialist. Analyze the log data for abnormal user behavior, system behavior, and behavioral indicators of compromise.
+
+CONTENT TO ANALYZE:
+${content}
+
+FORMATTING REQUIREMENTS:
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Focus on behavioral anomalies
+
+Analyze for:
+- Abnormal user login patterns
+- Unusual time-based activities
+- Privilege escalation behaviors
+- Data access anomalies
+- Process execution patterns
+- File system behavior changes
+- Command execution sequences
+- Session duration anomalies
+
+Provide analysis in this format:
+BEHAVIORAL ANALYSIS: [detailed behavioral pattern findings]
+CONFIDENCE: [1-100]
+KEY FINDINGS: [3-5 bullet points with behavioral indicators]
+RECOMMENDATIONS: [3-4 behavioral monitoring improvements]`;
+
+    try {
+      console.log('💰 GEMINI API CALL - Behavioral Analysis Agent');
+      console.log(`📊 Request size: ${prompt.length} characters`);
+      
+      const startTime = Date.now();
+      const response = await ai.models.generateContent({
+        model: this.MODEL,
+        contents: prompt,
+      });
+
+      const duration = Date.now() - startTime;
+      const analysis = response.text || "Analysis failed";
+      
+      console.log('✅ Behavioral Analysis Agent completed');
+      console.log(`⏱️ API call duration: ${duration}ms`);
+      console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + analysis.length / 1000000 * 0.30).toFixed(6)}`);
+      
+      return this.parseAgentResponse("Behavioral Analysis", analysis);
+    } catch (error) {
+      console.error('❌ Behavioral Analysis Agent error:', error);
+      return this.getFailsafeResponse("Behavioral Analysis", content);
+    }
+  }
+
+  /**
+   * AI Agent 12: Compliance Analysis - Analyzes regulatory and compliance impacts
+   */
+  private static async runComplianceAgent(content: string, settings: any): Promise<AIAgentResponse> {
+    const prompt = `You are a compliance and regulatory specialist. Analyze the incident for compliance violations and regulatory implications.
+
+CONTENT TO ANALYZE:
+${content}
+
+ANALYSIS SETTINGS:
+- Industry Context: ${settings.industryContext || 'General'}
+- Compliance Frameworks: ${settings.complianceFrameworks || 'GDPR, HIPAA, SOX, PCI-DSS'}
+- Regulatory Environment: ${settings.regulatoryEnvironment || 'Multi-jurisdictional'}
+
+FORMATTING REQUIREMENTS:
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Focus on compliance implications
+
+Analyze for:
+- GDPR data protection violations
+- HIPAA healthcare data breaches
+- SOX financial controls impact
+- PCI-DSS payment card data exposure
+- ISO 27001 security control failures
+- NIST framework alignment
+- Industry-specific regulations
+- Breach notification requirements
+
+Provide analysis in this format:
+COMPLIANCE ANALYSIS: [regulatory impact assessment]
+CONFIDENCE: [1-100]
+KEY FINDINGS: [3-5 bullet points with compliance violations]
+RECOMMENDATIONS: [3-4 compliance remediation actions]`;
+
+    try {
+      console.log('💰 GEMINI API CALL - Compliance Analysis Agent');
+      console.log(`📊 Request size: ${prompt.length} characters`);
+      
+      const startTime = Date.now();
+      const response = await ai.models.generateContent({
+        model: this.MODEL,
+        contents: prompt,
+      });
+
+      const duration = Date.now() - startTime;
+      const analysis = response.text || "Analysis failed";
+      
+      console.log('✅ Compliance Analysis Agent completed');
+      console.log(`⏱️ API call duration: ${duration}ms`);
+      console.log(`💰 Estimated cost: ~$${(prompt.length / 1000000 * 0.075 + analysis.length / 1000000 * 0.30).toFixed(6)}`);
+      
+      return this.parseAgentResponse("Compliance Analysis", analysis);
+    } catch (error) {
+      console.error('❌ Compliance Analysis Agent error:', error);
+      return this.getFailsafeResponse("Compliance Analysis", content);
     }
   }
 
