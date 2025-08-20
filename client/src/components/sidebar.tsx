@@ -205,8 +205,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
             </p>
             <p className="text-xs text-gray-400">Security Analyst</p>
             <div className="text-xs space-y-1">
-              <p className="text-green-400">● {(user as any)?.remainingIncidents || 0} analyses left</p>
-              <p className="text-cyan-400">📦 {((user as any)?.currentPackage || 'starter').charAt(0).toUpperCase() + ((user as any)?.currentPackage || 'starter').slice(1)} plan</p>
+              <p className="text-green-400">● {stats?.totalIncidents || 0} Incidents analysed in total</p>
             </div>
           </div>
         </div>
