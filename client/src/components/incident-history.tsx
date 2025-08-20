@@ -26,6 +26,10 @@ export default function IncidentHistory({ compactView = false, requireComments =
     queryKey: ["/api/incidents"],
   });
 
+  const { data: user } = useQuery({
+    queryKey: ["/api/user"],
+  });
+
   const filteredIncidents = incidents?.filter((incident: Incident) => {
     const matchesSearch = incident.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClassification = classificationFilter === "all" || incident.classification === classificationFilter;
@@ -83,13 +87,26 @@ export default function IncidentHistory({ compactView = false, requireComments =
     <div className="h-full overflow-y-auto">
       {/* Header */}
       <div className="cyber-slate border-b border-cyber-slate-light p-6">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 cyber-purple rounded-xl flex items-center justify-center">
-            <History className="text-white text-xl" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 cyber-purple rounded-xl flex items-center justify-center">
+              <History className="text-white text-xl" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-cyber-purple">Incident History</h2>
+              <p className="text-gray-400">Review and analyze past security incidents</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-cyber-purple">Incident History</h2>
-            <p className="text-gray-400">Review and analyze past security incidents</p>
+          <div className="text-right">
+            <div className="text-sm font-medium text-cyan-400">
+              {(user as any)?.remainingIncidents || 0} analyses left
+            </div>
+            <div className="text-xs text-gray-400 capitalize">
+              {(user as any)?.currentPackage || 'starter'} plan
+            </div>
+            <div className="text-xs text-purple-400">
+              {filteredIncidents?.length || 0} incidents shown
+            </div>
           </div>
         </div>
       </div>

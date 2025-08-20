@@ -204,7 +204,10 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
               {user ? (`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown User') : 'Unknown User'}
             </p>
             <p className="text-xs text-gray-400">Security Analyst</p>
-            <p className="text-xs text-green-400">● {stats?.totalIncidents || 0} incidents tracked</p>
+            <div className="text-xs space-y-1">
+              <p className="text-green-400">● {(user as any)?.remainingIncidents || 0} analyses left</p>
+              <p className="text-cyan-400">📦 {((user as any)?.currentPackage || 'starter').charAt(0).toUpperCase() + ((user as any)?.currentPackage || 'starter').slice(1)} plan</p>
+            </div>
           </div>
         </div>
         <Button
