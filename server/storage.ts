@@ -467,15 +467,15 @@ export class DatabaseStorage implements IStorage {
 
   async getUserStorageLimit(userId: string): Promise<number> {
     const user = await this.getUser(userId);
-    if (!user) return 0.1; // 100MB for unknown users
+    if (!user) return 1; // 1GB for unknown users (starter default)
     
-    const plan = (user as any).subscriptionPlan || 'free';
+    const plan = (user as any).currentPackage || 'starter';
     switch (plan) {
-      case 'starter': return 2; // 2GB
-      case 'professional': return 10; // 10GB
-      case 'business': return 25; // 25GB
-      case 'enterprise': return 100; // 100GB
-      default: return 0.1; // 100MB for free plan
+      case 'starter': return 1; // 1GB
+      case 'professional': return 2.5; // 2.5GB
+      case 'business': return 10; // 10GB
+      case 'enterprise': return 50; // 50GB
+      default: return 1; // 1GB for starter plan
     }
   }
 

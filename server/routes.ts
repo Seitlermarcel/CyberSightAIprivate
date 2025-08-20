@@ -565,40 +565,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Define subscription plans with incident analysis and storage benefits
       const packages: Record<string, any> = {
         starter: { 
-          incidentsIncluded: 25,
-          storageIncluded: 2, // GB
-          price: 49,
+          incidentsIncluded: 10,
+          storageIncluded: 1, // GB
+          price: 250,
+          pricePerIncident: 25,
+          discount: 0,
           name: 'Starter Package',
-          description: '25 incident analyses + 2GB storage included',
+          description: '10 incident analyses (€25 each) + 1GB storage included',
           dataRetention: 30, // days
-          features: ['25 incident analyses', '2GB storage included', 'Basic AI analysis', '30-day data retention']
+          features: ['10 incident analyses', '1GB storage included', '€25 per incident', '30-day data retention']
         },
         professional: { 
-          incidentsIncluded: 100,
-          storageIncluded: 10, // GB
-          price: 149,
+          incidentsIncluded: 50,
+          storageIncluded: 2.5, // GB
+          price: 1187.50,
+          pricePerIncident: 23.75,
+          discount: 5,
           name: 'Professional Package', 
-          description: '100 incident analyses + 10GB storage included',
-          dataRetention: 60, // days
-          features: ['100 incident analyses', '10GB storage included', 'Enhanced AI analysis', '60-day data retention', 'Priority support']
+          description: '50 incident analyses (€23.75 each, 5% discount) + 2.5GB storage included',
+          dataRetention: 30, // days
+          features: ['50 incident analyses', '2.5GB storage included', '€23.75 per incident', '5% discount', '30-day data retention']
         },
         business: { 
-          incidentsIncluded: 500,
-          storageIncluded: 50, // GB
-          price: 499,
+          incidentsIncluded: 100,
+          storageIncluded: 10, // GB
+          price: 2250,
+          pricePerIncident: 22.50,
+          discount: 10,
           name: 'Business Package',
-          description: '500 incident analyses + 50GB storage included',
-          dataRetention: 90, // days
-          features: ['500 incident analyses', '50GB storage included', 'Advanced AI analysis', '90-day data retention', 'API access']
+          description: '100 incident analyses (€22.50 each, 10% discount) + 10GB storage included',
+          dataRetention: 30, // days
+          features: ['100 incident analyses', '10GB storage included', '€22.50 per incident', '10% discount', '30-day data retention']
         },
         enterprise: { 
-          incidentsIncluded: 2000,
-          storageIncluded: 200, // GB
-          price: 1499,
+          incidentsIncluded: 250,
+          storageIncluded: 50, // GB
+          price: 5000,
+          pricePerIncident: 20,
+          discount: 20,
           name: 'Enterprise Package',
-          description: '2000 incident analyses + 200GB storage included',
-          dataRetention: 365, // days
-          features: ['2000 incident analyses', '200GB storage included', 'Full AI analysis suite', '365-day data retention', 'Dedicated support', 'Custom integrations']
+          description: '250 incident analyses (€20 each, 20% discount) + 50GB storage included',
+          dataRetention: 30, // days
+          features: ['250 incident analyses', '50GB storage included', '€20 per incident', '20% discount', '30-day data retention']
         }
       };
       

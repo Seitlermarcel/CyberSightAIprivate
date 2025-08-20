@@ -180,34 +180,42 @@ export default function Billing() {
     { 
       id: "starter", 
       name: "Starter Package", 
-      incidentsIncluded: 25, 
-      storageIncluded: 2,
-      price: 49, 
-      features: ['25 incident analyses', '2GB storage included', 'Basic AI analysis', '30-day data retention']
+      incidentsIncluded: 10, 
+      storageIncluded: 1,
+      price: 250, 
+      pricePerIncident: 25,
+      discount: 0,
+      features: ['10 incident analyses', '1GB storage included', '€25 per incident', '30-day data retention']
     },
     { 
       id: "professional", 
       name: "Professional Package", 
-      incidentsIncluded: 100, 
-      storageIncluded: 10,
-      price: 149, 
-      features: ['100 incident analyses', '10GB storage included', 'Enhanced AI analysis', '60-day data retention', 'Priority support']
+      incidentsIncluded: 50, 
+      storageIncluded: 2.5,
+      price: 1187.50, 
+      pricePerIncident: 23.75,
+      discount: 5,
+      features: ['50 incident analyses', '2.5GB storage included', '€23.75 per incident', '5% discount', '30-day data retention']
     },
     { 
       id: "business", 
       name: "Business Package", 
-      incidentsIncluded: 500, 
-      storageIncluded: 50,
-      price: 499, 
-      features: ['500 incident analyses', '50GB storage included', 'Advanced AI analysis', '90-day data retention', 'API access']
+      incidentsIncluded: 100, 
+      storageIncluded: 10,
+      price: 2250, 
+      pricePerIncident: 22.50,
+      discount: 10,
+      features: ['100 incident analyses', '10GB storage included', '€22.50 per incident', '10% discount', '30-day data retention']
     },
     { 
       id: "enterprise", 
       name: "Enterprise Package", 
-      incidentsIncluded: 2000, 
-      storageIncluded: 200,
-      price: 1499, 
-      features: ['2000 incident analyses', '200GB storage included', 'Full AI analysis suite', '365-day data retention', 'Dedicated support', 'Custom integrations']
+      incidentsIncluded: 250, 
+      storageIncluded: 50,
+      price: 5000, 
+      pricePerIncident: 20,
+      discount: 20,
+      features: ['250 incident analyses', '50GB storage included', '€20 per incident', '20% discount', '30-day data retention']
     },
   ];
 
@@ -315,7 +323,7 @@ export default function Billing() {
                   <span className="font-bold">€0.00</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  No additional charges • Package-based billing
+                  Package quota system • No additional charges
                 </div>
               </div>
             </div>
@@ -449,8 +457,17 @@ export default function Billing() {
                 <Activity className="text-blue-500" />
                 <h4 className="font-semibold">Incident Analysis</h4>
               </div>
-              <p className="text-2xl font-bold">€20-25</p>
-              <p className="text-sm text-gray-400">per incident (varies by plan)</p>
+              <p className="text-2xl font-bold">€{(() => {
+                const currentPackage = (user as any)?.currentPackage || 'starter';
+                const packagePricing = {
+                  starter: '25',
+                  professional: '23.75',
+                  business: '22.50',
+                  enterprise: '20'
+                };
+                return packagePricing[currentPackage as keyof typeof packagePricing] || '25';
+              })()}</p>
+              <p className="text-sm text-gray-400">per incident ({(user as any)?.currentPackage || 'starter'} plan)</p>
             </div>
             <div className="p-4 cyber-dark rounded-lg">
               <div className="flex items-center space-x-2 mb-2">

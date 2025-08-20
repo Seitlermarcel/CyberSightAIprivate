@@ -205,10 +205,10 @@ export type InsertQueryHistory = z.infer<typeof insertQueryHistorySchema>;
 
 // Package definitions
 export const PACKAGES = {
-  starter: { name: "Starter", incidents: 25, price: 49, storageGB: 2 },
-  professional: { name: "Professional", incidents: 100, price: 149, storageGB: 10 },
-  business: { name: "Business", incidents: 500, price: 499, storageGB: 50 },
-  enterprise: { name: "Enterprise", incidents: 2000, price: 1499, storageGB: 200 }
+  starter: { name: "Starter", incidents: 10, price: 250, storageGB: 1, pricePerIncident: 25, discount: 0 },
+  professional: { name: "Professional", incidents: 50, price: 1187.50, storageGB: 2.5, pricePerIncident: 23.75, discount: 5 },
+  business: { name: "Business", incidents: 100, price: 2250, storageGB: 10, pricePerIncident: 22.50, discount: 10 },
+  enterprise: { name: "Enterprise", incidents: 250, price: 5000, storageGB: 50, pricePerIncident: 20, discount: 20 }
 } as const;
 
 export type PackageType = keyof typeof PACKAGES;
