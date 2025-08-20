@@ -28,7 +28,8 @@ import {
   Network,
   Loader2,
   Globe,
-  HelpCircle
+  HelpCircle,
+  Database
 } from "lucide-react";
 import { generateIncidentPDF } from "@/utils/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,12 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   // Get user's subscription plan for dynamic pricing
   const { data: userData } = useQuery({
     queryKey: ["/api/user"],
+  });
+
+  // Get incident storage size
+  const { data: storageData } = useQuery({
+    queryKey: ["/api/incidents", currentIncidentId, "storage-size"],
+    enabled: !!currentIncidentId,
   });
 
   // Calculate dynamic analysis cost based on subscription plan
@@ -1685,6 +1692,15 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400 flex items-center gap-1">
+                        <Database className="w-3 h-3" />
+                        Storage Size
+                      </p>
+                      <p className="text-sm font-semibold text-blue-400">
+                        {((storageData as any)?.storageSizeMB || 0).toFixed(2)} MB
+                      </p>
+                    </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-400">Analysis Cost</p>
                       <p className="text-sm font-semibold text-green-400">€{getAnalysisCost()}</p>
