@@ -306,14 +306,14 @@ export default function Billing() {
                   {((storageData as any)?.limit || 0)} GB limit • {((storageData as any)?.usage?.incidentCount || 0)} incidents
                 </div>
                 <Progress 
-                  value={((storageData as any)?.quota?.percentage || 0)} 
+                  value={Math.max(0.01, ((storageData as any)?.quota?.percentage || 0))} 
                   className={`h-2 ${
                     ((storageData as any)?.quota?.percentage || 0) > 90 ? 'bg-red-100 [&>div]:bg-red-500' : 
                     ((storageData as any)?.quota?.percentage || 0) > 75 ? 'bg-yellow-100 [&>div]:bg-yellow-500' : 'bg-green-100 [&>div]:bg-green-500'
                   }`}
                 />
                 <div className="text-xs text-gray-400 mt-1">
-                  {((storageData as any)?.quota?.percentage || 0)}% used • 
+                  {(((storageData as any)?.quota?.percentage || 0)).toFixed(2)}% used • 
                   {((storageData as any)?.quota?.canCreateNew ? ' Space available' : ' Near limit')}
                 </div>
               </div>
