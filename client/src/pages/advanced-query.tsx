@@ -58,12 +58,12 @@ export default function AdvancedQuery() {
   const [expandedTable, setExpandedTable] = useState<string | null>(null);
 
   // Fetch saved queries
-  const { data: savedQueries } = useQuery({
+  const { data: savedQueries = [] } = useQuery<any[]>({
     queryKey: ["/api/queries/saved"],
   });
 
   // Fetch query history
-  const { data: queryHistory } = useQuery({
+  const { data: queryHistory = [] } = useQuery<any[]>({
     queryKey: ["/api/queries/history"],
   });
 
