@@ -28,6 +28,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
+
+  // Storage usage endpoints
+  app.get("/api/storage/usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const [detailedUsage, storageLimit, quota] = await Promise.all([
+        storage.calculateDetailedStorageUsage(userId),
+        storage.getUserStorageLimit(userId),
+        storage.checkStorageQuota(userId)
+      ]);
+      
+      res.json({
+        usage: detailedUsage,
+        limit: storageLimit,
+        quota: quota,
+        planLimits: {
+          starter: 2,
+          professional: 10,
+          business: 25,
+          enterprise: 100,
+          free: 0.1
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching storage usage:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/storage/cleanup", isAuthenticated, async (req: any, res) => {
+    try {
+      const deletedCount = await storage.deleteExpiredIncidents();
+      res.json({ deletedIncidents: deletedCount, message: `Deleted ${deletedCount} expired incidents` });
+    } catch (error) {
+      console.error("Error cleaning up expired incidents:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
   // Incidents routes (user-specific)
   app.get("/api/incidents", isAuthenticated, async (req: any, res) => {
     try {

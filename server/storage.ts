@@ -21,7 +21,7 @@ import {
   type InsertQueryHistory
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte, or, asc } from "drizzle-orm";
+import { eq, and, desc, sql, gte, or, asc, lt } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -63,6 +63,12 @@ export interface IStorage {
   updateUsageTracking(userId: string, month: string, updates: Partial<UsageTracking>): Promise<UsageTracking>;
   getUserUsage(userId: string, month: string): Promise<UsageTracking | undefined>;
   calculateStorageUsage(userId: string): Promise<number>;
+  
+  // Enhanced storage management
+  calculateDetailedStorageUsage(userId: string): Promise<{ usageGB: number, incidentCount: number, details: any }>;
+  getUserStorageLimit(userId: string): Promise<number>;
+  deleteExpiredIncidents(): Promise<number>;
+  checkStorageQuota(userId: string): Promise<{ used: number, limit: number, percentage: number, canCreateNew: boolean }>;
   
   // Query History
   saveQuery(query: InsertQueryHistory, userId: string): Promise<QueryHistory>;
@@ -350,6 +356,146 @@ export class DatabaseStorage implements IStorage {
     
     const totalBytes = result[0]?.totalSize || 0;
     return totalBytes / (1024 * 1024 * 1024); // Convert to GB
+  }
+
+  async calculateDetailedStorageUsage(userId: string): Promise<{ usageGB: number, incidentCount: number, details: any }> {
+    const userIncidents = await db.select().from(incidents).where(eq(incidents.userId, userId));
+    
+    let totalSizeBytes = 0;
+    let breakdown = {
+      logData: 0,
+      additionalLogs: 0,
+      mitreDetails: 0,
+      iocDetails: 0,
+      entityMapping: 0,
+      threatPrediction: 0,
+      attackVectors: 0,
+      complianceImpact: 0,
+      purpleTeam: 0,
+      codeAnalysis: 0,
+      patternAnalysis: 0,
+      comments: 0,
+      metadata: 0
+    };
+    
+    for (const incident of userIncidents) {
+      // Calculate storage for each field
+      const logDataSize = (incident.logData || '').length;
+      const additionalLogsSize = (incident.additionalLogs || '').length;
+      const mitreDetailsSize = (incident.mitreDetails || '').length;
+      const iocDetailsSize = (incident.iocDetails || '').length;
+      const entityMappingSize = (incident.entityMapping || '').length;
+      const threatPredictionSize = (incident.threatPrediction || '').length;
+      const attackVectorsSize = (incident.attackVectors || '').length;
+      const complianceImpactSize = (incident.complianceImpact || '').length;
+      const purpleTeamSize = (incident.purpleTeam || '').length;
+      const codeAnalysisSize = (incident.codeAnalysis || '').length;
+      const patternAnalysisSize = (incident.patternAnalysis || '').length;
+      const commentsSize = JSON.stringify(incident.comments || []).length;
+      
+      // Add base metadata size (IDs, dates, etc.)
+      const metadataSize = JSON.stringify({
+        id: incident.id,
+        title: incident.title,
+        severity: incident.severity,
+        status: incident.status,
+        classification: incident.classification,
+        systemContext: incident.systemContext,
+        createdAt: incident.createdAt,
+        updatedAt: incident.updatedAt
+      }).length;
+      
+      // Update breakdown
+      breakdown.logData += logDataSize;
+      breakdown.additionalLogs += additionalLogsSize;
+      breakdown.mitreDetails += mitreDetailsSize;
+      breakdown.iocDetails += iocDetailsSize;
+      breakdown.entityMapping += entityMappingSize;
+      breakdown.threatPrediction += threatPredictionSize;
+      breakdown.attackVectors += attackVectorsSize;
+      breakdown.complianceImpact += complianceImpactSize;
+      breakdown.purpleTeam += purpleTeamSize;
+      breakdown.codeAnalysis += codeAnalysisSize;
+      breakdown.patternAnalysis += patternAnalysisSize;
+      breakdown.comments += commentsSize;
+      breakdown.metadata += metadataSize;
+      
+      totalSizeBytes += logDataSize + additionalLogsSize + mitreDetailsSize + 
+                      iocDetailsSize + entityMappingSize + threatPredictionSize +
+                      attackVectorsSize + complianceImpactSize + purpleTeamSize +
+                      codeAnalysisSize + patternAnalysisSize + commentsSize + metadataSize;
+    }
+    
+    // Convert bytes to GB and MB for breakdown
+    const usageGB = totalSizeBytes / (1024 * 1024 * 1024);
+    
+    const breakdownMB = Object.fromEntries(
+      Object.entries(breakdown).map(([key, bytes]) => [
+        key, 
+        Math.round((bytes / (1024 * 1024)) * 100) / 100
+      ])
+    );
+    
+    return {
+      usageGB: Math.round(usageGB * 1000) / 1000, // Round to 3 decimal places
+      incidentCount: userIncidents.length,
+      details: {
+        breakdownMB,
+        totalMB: Math.round((totalSizeBytes / (1024 * 1024)) * 100) / 100,
+        averageIncidentSizeMB: userIncidents.length > 0 ? 
+          Math.round(((totalSizeBytes / userIncidents.length) / (1024 * 1024)) * 100) / 100 : 0
+      }
+    };
+  }
+
+  async getUserStorageLimit(userId: string): Promise<number> {
+    const user = await this.getUser(userId);
+    if (!user) return 0.1; // 100MB for unknown users
+    
+    const plan = (user as any).subscriptionPlan || 'free';
+    switch (plan) {
+      case 'starter': return 2; // 2GB
+      case 'professional': return 10; // 10GB
+      case 'business': return 25; // 25GB
+      case 'enterprise': return 100; // 100GB
+      default: return 0.1; // 100MB for free plan
+    }
+  }
+
+  async deleteExpiredIncidents(): Promise<number> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const expiredIncidents = await db.select().from(incidents).where(
+      sql`${incidents.createdAt} < ${thirtyDaysAgo.toISOString()}`
+    );
+    
+    if (expiredIncidents.length > 0) {
+      await db.delete(incidents).where(
+        sql`${incidents.createdAt} < ${thirtyDaysAgo.toISOString()}`
+      );
+    }
+    
+    return expiredIncidents.length;
+  }
+
+  async checkStorageQuota(userId: string): Promise<{ used: number, limit: number, percentage: number, canCreateNew: boolean }> {
+    const [storageUsage, storageLimit] = await Promise.all([
+      this.calculateDetailedStorageUsage(userId),
+      this.getUserStorageLimit(userId)
+    ]);
+    
+    const usedGB = storageUsage.usageGB;
+    const limitGB = storageLimit;
+    const percentage = Math.round((usedGB / limitGB) * 100);
+    const canCreateNew = percentage < 95; // Allow up to 95% usage
+    
+    return {
+      used: usedGB,
+      limit: limitGB,
+      percentage,
+      canCreateNew
+    };
   }
 
   // Query History
