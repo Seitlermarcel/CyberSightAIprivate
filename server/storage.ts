@@ -110,6 +110,7 @@ export class DatabaseStorage implements IStorage {
           ...userData,
           currentPackage: 'free',
           remainingIncidents: 3, // Give new users 3 incident analyses on free plan
+          credits: 5, // Give new users 5 analysis credits (worth €12.50)
         })
         .returning();
       return user;

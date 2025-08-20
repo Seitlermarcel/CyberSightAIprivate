@@ -94,20 +94,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('✅ AI analysis completed successfully');
       } catch (error) {
         console.error('❌ AI analysis failed:', error);
-        // Fallback to basic analysis if AI fails
-        aiAnalysisResult = {
-          patternRecognition: { agent: "Pattern Recognition", analysis: "Analysis failed", confidence: 50, keyFindings: [], recommendations: [] },
-          threatIntelligence: { agent: "Threat Intelligence", analysis: "Analysis failed", confidence: 50, keyFindings: [], recommendations: [] },
-          mitreMapping: { agent: "MITRE ATT&CK", analysis: "Analysis failed", confidence: 50, keyFindings: [], recommendations: [] },
-          iocEnrichment: { agent: "IOC Enrichment", analysis: "Analysis failed", confidence: 50, keyFindings: [], recommendations: [] },
-          classification: { agent: "Classification", analysis: "Analysis failed", confidence: 50, keyFindings: [], recommendations: [] },
-          dualAI: { tacticalAnalyst: "Analysis failed", strategicAnalyst: "Analysis failed", chiefAnalyst: "Analysis failed" },
-          purpleTeam: { agent: "Purple Team", analysis: "Analysis failed", confidence: 50, keyFindings: [], recommendations: [] },
-          entityMapping: { agent: "Entity Mapping", analysis: "Analysis failed", confidence: 50, keyFindings: [], recommendations: [] },
-          overallConfidence: 50,
-          finalClassification: "needs-review",
-          reasoning: "AI analysis system encountered an error"
-        };
+        // Critical error - AI analysis completely failed
+        console.error('🚨 CRITICAL: All AI agents failed - this should not happen in production');
+        return res.status(500).json({ 
+          error: "AI analysis system is temporarily unavailable. Please try again in a few minutes.",
+          details: "All 12 Gemini AI agents failed to respond"
+        });
       }
 
       // Extract MITRE ATT&CK techniques and IOCs from AI analysis
@@ -231,12 +223,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('💾 Saving incident with comprehensive AI analysis to database...');
       const incident = await storage.createIncident(incidentData, userId);
       
+      // Track usage and charge credits for AI analysis
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+      const existingUsage = await storage.getUserUsage(userId, currentMonth);
+      
+      // Update usage tracking
+      await storage.updateUsageTracking(userId, currentMonth, {
+        incidentsAnalyzed: (existingUsage?.incidentsAnalyzed || 0) + 1,
+        updatedAt: new Date()
+      });
+      
+      // Deduct credit for analysis (€2.50 per incident)
+      const user = await storage.getUser(userId);
+      if (user && user.credits > 0) {
+        await storage.updateUser(userId, { 
+          credits: Math.max(0, user.credits - 1) // Deduct 1 credit (worth €2.50)
+        });
+        console.log('💳 Deducted 1 analysis credit from user account');
+      }
+      
+      // Create billing transaction for analysis
+      await storage.createBillingTransaction({
+        type: 'incident_analysis',
+        amount: 2.50, // €2.50 per incident
+        description: `AI analysis of incident: ${incident.title}`,
+        status: 'completed',
+        metadata: JSON.stringify({ 
+          incidentId: incident.id,
+          analysisAgents: 12,
+          geminiModel: 'gemini-2.5-pro'
+        })
+      }, userId);
+      
       console.log('✅ Incident analysis complete:', {
         id: incident.id,
         confidence: incident.confidence,
         classification: incident.classification,
         mitreCount: mitreAttackTechniques.length,
-        iocCount: extractedIOCs.length
+        iocCount: extractedIOCs.length,
+        cost: '€2.50',
+        agentsUsed: 12
       });
 
       res.status(201).json(incident);
@@ -355,6 +381,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  // Billing and usage routes
+  app.get("/api/billing/transactions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const transactions = await storage.getUserTransactions(userId);
+      res.json(transactions);
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
+  app.get("/api/billing/usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+      const usage = await storage.getUserUsage(userId, currentMonth);
+      
+      // Calculate current storage
+      const storageData = await storage.calculateDetailedStorageUsage(userId);
+      
+      res.json({
+        month: currentMonth,
+        incidentsAnalyzed: usage?.incidentsAnalyzed || 0,
+        storageUsedGB: storageData.usageGB,
+        incidentCount: storageData.incidentCount,
+        totalCost: ((usage?.incidentsAnalyzed || 0) * 2.5) + (storageData.usageGB * 1.0), // €2.50 per incident + €1/GB
+        storageBreakdown: storageData.details
+      });
+    } catch (error) {
+      console.error('Failed to fetch usage:', error);
+      res.status(500).json({ error: "Failed to fetch usage data" });
+    }
+  });
+
+  app.post("/api/billing/purchase-credits", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { packageType, amount } = req.body;
+      
+      if (!packageType || !amount) {
+        return res.status(400).json({ error: "Package type and amount required" });
+      }
+
+      // Create billing transaction
+      const transaction = await storage.createBillingTransaction({
+        type: 'credit_purchase',
+        amount: parseFloat(amount),
+        description: `Credit package: ${packageType}`,
+        status: 'completed', // Simulated instant payment
+        metadata: JSON.stringify({ packageType })
+      }, userId);
+
+      // Calculate credits based on package (€2.50 per incident analysis)
+      const creditsToAdd = Math.floor(parseFloat(amount) / 2.5);
+      
+      // Update user credits
+      const user = await storage.getUser(userId);
+      if (user) {
+        await storage.updateUser(userId, { 
+          credits: (user.credits || 0) + creditsToAdd 
+        });
+      }
+
+      res.json({ 
+        transaction, 
+        creditsAdded: creditsToAdd,
+        message: `Successfully purchased ${creditsToAdd} analysis credits` 
+      });
+    } catch (error) {
+      console.error('Failed to purchase credits:', error);
+      res.status(500).json({ error: "Failed to process purchase" });
+    }
+  });
+
+  app.get("/api/storage/usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const storageData = await storage.calculateDetailedStorageUsage(userId);
+      const quota = await storage.checkStorageQuota(userId);
+      
+      res.json({
+        ...storageData,
+        quota: quota
+      });
+    } catch (error) {
+      console.error('Failed to fetch storage usage:', error);
+      res.status(500).json({ error: "Failed to fetch storage usage" });
+    }
+  });
+
+  app.get("/api/storage/cleanup-preview", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const incidents = await storage.getUserIncidents(userId);
+      
+      // Find incidents older than 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const expiredIncidents = incidents.filter(incident => 
+        new Date(incident.createdAt!) < thirtyDaysAgo
+      );
+
+      // Calculate storage that would be freed
+      let storageToFreeBytes = 0;
+      expiredIncidents.forEach(incident => {
+        const fields = [
+          incident.logData,
+          incident.additionalLogs,
+          incident.aiAnalysis,
+          incident.mitreDetails,
+          incident.iocDetails,
+          incident.patternAnalysis,
+          incident.purpleTeam,
+          incident.entityMapping,
+          incident.threatIntelligence
+        ];
+        
+        storageToFreeBytes += fields.reduce((acc, field) => {
+          return acc + (field ? new Blob([field]).size : 0);
+        }, 0);
+      });
+
+      res.json({
+        expiredIncidents: expiredIncidents.length,
+        storageToFreeGB: storageToFreeBytes / (1024 * 1024 * 1024),
+        incidents: expiredIncidents.map(i => ({
+          id: i.id,
+          title: i.title,
+          createdAt: i.createdAt,
+          severity: i.severity
+        }))
+      });
+    } catch (error) {
+      console.error('Failed to fetch cleanup preview:', error);
+      res.status(500).json({ error: "Failed to fetch cleanup preview" });
+    }
+  });
+
+  app.post("/api/storage/cleanup", isAuthenticated, async (req: any, res) => {
+    try {
+      const deletedCount = await storage.deleteExpiredIncidents();
+      res.json({ 
+        deletedIncidents: deletedCount,
+        message: `Successfully deleted ${deletedCount} expired incidents` 
+      });
+    } catch (error) {
+      console.error('Failed to cleanup storage:', error);
+      res.status(500).json({ error: "Failed to cleanup storage" });
     }
   });
 
