@@ -718,6 +718,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test incident creation endpoint (for development)
+  app.post("/api/create-test-incident", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      console.log('🎯 Creating comprehensive test incident for user:', userId);
+      
+      const testIncidentData = {
+        title: "🚨 APT Campaign - Credential Harvesting & Lateral Movement",
+        logData: `2025-01-20 05:05:12 SECURITY ALERT: Advanced Persistent Threat Activity Detected
+Event ID: 4688 - Suspicious Process Creation
+┌─ Process Information ─┐
+│ Process Name: lsass.exe
+│ Parent Process: C:\\Tools\\mimikatz.exe  
+│ User Account: CORP\\administrator
+│ Logon Session: 0x3E7
+│ Command Line: lsass.exe --dump-memory --export-keys
+│ Process ID: 2847
+│ Parent Process ID: 1923
+└────────────────────────┘
+
+2025-01-20 05:05:15 POWERSHELL EXECUTION DETECTED:
+Event ID: 4103 - PowerShell Module Logging
+┌─ PowerShell Activity ─┐
+│ Process: powershell.exe
+│ User: CORP\\administrator  
+│ Script Block: Invoke-WebRequest -Uri "http://192.168.1.100:8080/data.txt"
+│ Encoded Command: SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHIAaQAgAGgAdAB0AHAAOgAvAC8AMQA5ADIALgAxADYAOAAuADEALgAxADAAMAA6ADgAMAA4ADAALwBkAGEAdABhAC4AdAB4AHQA
+│ Execution Policy: Bypass
+│ Window Style: Hidden
+└────────────────────────┘
+
+2025-01-20 05:05:18 NETWORK CONNECTION ESTABLISHED:
+Event ID: 5156 - Windows Filtering Platform Connection
+┌─ Network Activity ─┐
+│ Source IP: 192.168.1.50 (Internal)
+│ Destination IP: 185.220.101.42 (External - Suspicious)
+│ Destination Port: 443 (HTTPS)
+│ Protocol: TCP
+│ Process: powershell.exe
+│ User: CORP\\administrator
+│ Connection State: Established
+└────────────────────────┘`,
+        
+        severity: "critical",
+        systemContext: "Windows Domain Controller - CORPDC01.corp.local - Production Environment - Critical Infrastructure - Active Directory Services",
+        
+        additionalLogs: `2025-01-20 05:05:20 REGISTRY PERSISTENCE DETECTED:
+Event ID: 13 - Registry Value Set (Sysmon)
+┌─ Registry Modification ─┐
+│ Key: HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run
+│ Value Name: SecurityUpdate
+│ Value Data: C:\\Windows\\Temp\\update.exe
+│ Process: powershell.exe
+│ User: CORP\\administrator
+│ Operation: CreateValue
+└────────────────────────┘
+
+2025-01-20 05:05:22 MALICIOUS FILE CREATION:
+Event ID: 11 - File Created (Sysmon)
+┌─ File System Activity ─┐
+│ File: C:\\Windows\\Temp\\credentials.txt
+│ Process: mimikatz.exe
+│ User: CORP\\administrator
+│ File Size: 15,847 bytes
+│ MD5: d41d8cd98f00b204e9800998ecf8427e
+│ SHA256: a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+│ Creation Time: 2025-01-20 05:05:22.847
+└────────────────────────┘
+
+2025-01-20 05:05:25 SCHEDULED TASK PERSISTENCE:
+Event ID: 4698 - Scheduled Task Created
+┌─ Task Scheduler Activity ─┐
+│ Task Name: WindowsSecurityUpdate
+│ Task Path: \\Microsoft\\Windows\\WindowsUpdate\\
+│ User: CORP\\administrator
+│ Action: C:\\Windows\\Temp\\update.exe
+│ Trigger: Daily at 3:00 AM
+│ Run Level: Highest
+└────────────────────────┘
+
+2025-01-20 05:05:28 SUSPICIOUS DNS QUERIES:
+Event ID: 22 - DNS Query (Sysmon)
+┌─ DNS Resolution ─┐
+│ Domain: malware-command-control.darkweb.onion
+│ Query Type: A Record
+│ Source: 192.168.1.50
+│ Process: powershell.exe
+│ Result: 185.220.101.42
+└────────────────────────┘
+
+2025-01-20 05:05:30 CREDENTIAL ACCESS ATTEMPT:
+Event ID: 4624 - Account Logon
+┌─ Authentication Event ─┐
+│ Account: CORP\\administrator
+│ Logon Type: 3 (Network)
+│ Source IP: 192.168.1.50
+│ Authentication Package: NTLM
+│ Process: lsass.exe
+│ Status: Success
+└────────────────────────┘`
+      };
+
+      console.log('🔥 Starting REAL Gemini AI analysis with 8 specialized agents...');
+      console.log('💰 This will make 8+ API calls to Google Gemini 2.5 Flash');
+      console.log('📊 Total log data:', (testIncidentData.logData + testIncidentData.additionalLogs).length, 'characters');
+
+      // Get user settings for analysis configuration
+      const userSettings = await storage.getUserSettings(userId);
+      
+      // Analyze threat intelligence 
+      const threatReport = await threatIntelligence.analyzeThreatIntelligence(
+        testIncidentData.logData,
+        testIncidentData.additionalLogs
+      );
+      
+      // Trigger real Gemini AI analysis
+      const aiAnalysis = await generateRealAIAnalysis(testIncidentData, userSettings, threatReport);
+      
+      const incidentData = {
+        ...testIncidentData,
+        userId: userId,
+        ...aiAnalysis,
+        threatIntelligence: JSON.stringify(threatReport)
+      };
+      
+      const incident = await storage.createIncident(incidentData, userId);
+      
+      console.log('✅ Test incident created successfully with ID:', incident.id);
+      console.log('💰 Gemini API analysis completed - check your Google Cloud Console for costs!');
+      
+      res.status(201).json({ 
+        success: true, 
+        incident: incident,
+        message: "Test incident created with real Gemini AI analysis - 8+ API calls made!"
+      });
+    } catch (error: any) {
+      console.error("Test incident creation error:", error);
+      res.status(500).json({ error: "Failed to create test incident", details: error.message });
+    }
+  });
+
   // Cleanup old incidents (run periodically)
   app.post("/api/admin/cleanup", isAuthenticated, async (req: any, res) => {
     try {
