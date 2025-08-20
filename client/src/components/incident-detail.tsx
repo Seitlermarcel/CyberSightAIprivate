@@ -1937,44 +1937,44 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">8-Agent AI Analysis System</span>
-                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.30).toFixed(2)}</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.24).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">MITRE ATT&CK Framework Mapping</span>
-                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.15).toFixed(2)}</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.12).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">AlienVault OTX Threat Intelligence</span>
-                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.15).toFixed(2)}</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.12).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">IOC Geo-location & Risk Assessment</span>
-                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.10).toFixed(2)}</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Entity Relationship Mapping</span>
-                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.10).toFixed(2)}</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Purple Team Analysis</span>
-                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.10).toFixed(2)}</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Compliance Framework Assessment</span>
-                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.10).toFixed(2)}</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Threat Prediction Modeling</span>
-                        <span className="text-green-400">€0.35</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.12).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Business Impact Analysis</span>
-                        <span className="text-green-400">€0.20</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
                       </div>
                       <div className="border-t border-gray-600 pt-2 mt-2">
                         <div className="flex justify-between text-sm font-semibold">
                           <span className="text-gray-300">Total Analysis Cost</span>
-                          <span className="text-green-400">€2.50</span>
+                          <span className="text-green-400">€{getAnalysisCost()}</span>
                         </div>
                       </div>
                     </div>

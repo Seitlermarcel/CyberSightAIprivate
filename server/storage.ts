@@ -476,12 +476,12 @@ export class DatabaseStorage implements IStorage {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
     const expiredIncidents = await db.select().from(incidents).where(
-      sql`${incidents.createdAt} < ${thirtyDaysAgo.toISOString()}`
+      lt(incidents.createdAt, thirtyDaysAgo)
     );
     
     if (expiredIncidents.length > 0) {
       await db.delete(incidents).where(
-        sql`${incidents.createdAt} < ${thirtyDaysAgo.toISOString()}`
+        lt(incidents.createdAt, thirtyDaysAgo)
       );
     }
     
@@ -512,7 +512,7 @@ export class DatabaseStorage implements IStorage {
     twentyNineDaysAgo.setDate(twentyNineDaysAgo.getDate() - 29);
     
     const incidentsToDelete = await db.select().from(incidents).where(
-      sql`${incidents.createdAt} < ${twentyNineDaysAgo.toISOString()}`
+      lt(incidents.createdAt, twentyNineDaysAgo)
     );
     
     return incidentsToDelete.length;

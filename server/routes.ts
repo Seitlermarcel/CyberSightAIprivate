@@ -67,6 +67,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auto cleanup job - run this periodically
+  app.post("/api/storage/auto-cleanup", isAuthenticated, async (req: any, res) => {
+    try {
+      const deletedCount = await storage.deleteExpiredIncidents();
+      console.log(`Auto-cleanup: Deleted ${deletedCount} expired incidents`);
+      res.json({ deletedIncidents: deletedCount, message: `Auto-cleanup completed: ${deletedCount} incidents deleted` });
+    } catch (error) {
+      console.error("Error in auto-cleanup:", error);
+      res.status(500).json({ message: "Auto-cleanup failed" });
+    }
+  });
+
   app.get("/api/storage/cleanup-preview", isAuthenticated, async (req: any, res) => {
     try {
       const incidentsToDelete = await storage.getIncidentsToBeDeleted();
