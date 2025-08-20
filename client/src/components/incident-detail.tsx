@@ -62,6 +62,12 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
   const [isLoadingThreatIntel, setIsLoadingThreatIntel] = useState(false);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: incident, isLoading } = useQuery<Incident>({
+    queryKey: ["/api/incidents", currentIncidentId],
+  });
 
   // Reset threat intel loading state when incident data is loaded
   useEffect(() => {
@@ -69,12 +75,6 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
       setIsLoadingThreatIntel(false);
     }
   }, [incident]);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const { data: incident, isLoading } = useQuery<Incident>({
-    queryKey: ["/api/incidents", currentIncidentId],
-  });
 
   // Get user's subscription plan for dynamic pricing
   const { data: userData } = useQuery({
