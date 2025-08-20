@@ -1174,7 +1174,7 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   };
   
   // Transform IOC details with threat intelligence integration
-  const iocDetails = transformIOCsToDetailedFormat(aiResult?.iocEnrichment?.analysis || '', threatReport);
+  const iocDetails = await transformIOCsToDetailedFormat(aiResult?.iocEnrichment?.analysis || '', threatReport);
   
   // Transform pattern analysis
   const patternAnalysis = extractPatternAnalysis(aiResult?.patternRecognition?.analysis || '');
@@ -1196,22 +1196,17 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   const threatPrediction = generateThreatPredictionAnalysis(aiResult, incident);
   
   // Similar incidents - use real database query
-  const similarIncidents = []; // Simplified for now
+  const similarIncidents = await findSimilarIncidents(incident, userId);
   
   // Enhance analysis confidence based on threat intelligence findings
-  const threatIntelligenceImpact = { confidenceBoost: 0, maliciousIndicators: 0, totalIndicators: 0, insights: [] };
-  const enhancedConfidence = Math.min(100, aiResult?.overallConfidence || 50);
+  const threatIntelligenceImpact = await calculateThreatIntelligenceImpact(threatReport, iocDetails);
+  const enhancedConfidence = Math.min(100, (aiResult?.overallConfidence || 50) + threatIntelligenceImpact.confidenceBoost);
   
   // Enhanced attack vectors with detailed AI-generated analysis
   const attackVectors = generateDetailedAttackVectors(aiResult, incident, enhancedConfidence);
   
   // Enhanced compliance impact analysis with actual framework assessment
-  const complianceImpact = {
-    summary: "Compliance assessment completed based on incident analysis",
-    frameworks: ["GDPR", "SOX", "HIPAA", "PCI-DSS"],
-    violations: [],
-    recommendations: ["Implement additional monitoring", "Review access controls"]
-  };
+  const complianceImpact = await generateComplianceAnalysis(aiResult, incident, enhancedConfidence);
   
   console.log('🔍 Threat Intelligence Impact:', {
     originalConfidence: aiResult?.overallConfidence || 50,
@@ -1240,7 +1235,8 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
     analysisExplanation: cleanGeminiText(aiResult?.classification?.analysis || 'Cybersecurity analysis completed with advanced intelligence'),
     
     // JSON string fields that frontend expects
-    mitreMapping: JSON.stringify(mitreDetails),
+    mitreDetails: JSON.stringify(mitreDetails),
+    mitreMapping: JSON.stringify(mitreDetails), // Backward compatibility
     threatIntelligence: JSON.stringify({
       indicators: Array.isArray(iocDetails) ? iocDetails : [],
       risk_score: Math.min(100, 50 + threatIntelligenceImpact.confidenceBoost * 2),
@@ -2031,7 +2027,7 @@ function estimateGeoLocation(ip: string): string {
   }
 }
 
-function transformIOCsToDetailedFormat(analysis: string, threatReport?: any): Array<any> {
+async function transformIOCsToDetailedFormat(analysis: string, threatReport?: any): Promise<Array<any>> {
   const iocs: any[] = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
@@ -2088,7 +2084,9 @@ function transformIOCsToDetailedFormat(analysis: string, threatReport?: any): Ar
           geoLocation,
           threatIntelligence: threatInfo,
           riskLevel,
-          firstSeen: new Date().toISOString().split('T')[0]
+          firstSeen: new Date().toISOString().split('T')[0],
+          lastSeen: new Date().toISOString().split('T')[0],
+          source: 'AlienVault OTX Enhanced Analysis'
         });
       }
     });
@@ -4741,5 +4739,352 @@ function extractPrimaryTactics(techniques: any[]): any[] {
   
   return Object.values(tacticMap);
 }
+
+// Find similar incidents from database based on patterns and IOCs
+async function findSimilarIncidents(currentIncident: any, userId: string): Promise<any[]> {
+  try {
+    const similarIncidents = [];
+    console.log('🔍 Finding similar incidents for user:', userId);
+    
+    // Get user's incidents from storage
+    const userIncidents = await storage.getUserIncidents(userId);
+    
+    if (!userIncidents || userIncidents.length <= 1) {
+      return [];
+    }
+    
+    // Extract key indicators from current incident
+    const currentIOCs = extractKeyIndicators(currentIncident);
+    const currentMitre = currentIncident.mitreAttack || [];
+    
+    // Compare with other incidents
+    for (const incident of userIncidents) {
+      if (incident.id === currentIncident.id) continue; // Skip self
+      
+      const incidentIOCs = extractKeyIndicators(incident);
+      const incidentMitre = incident.mitreAttack || [];
+      
+      // Calculate similarity score
+      const matchScore = calculateSimilarityScore(currentIOCs, incidentIOCs, currentMitre, incidentMitre);
+      
+      if (matchScore > 15) { // Only include matches above 15%
+        similarIncidents.push({
+          id: incident.id,
+          incidentId: incident.id,
+          title: incident.title,
+          severity: incident.severity,
+          classification: incident.classification,
+          createdAt: incident.createdAt,
+          matchPercentage: Math.round(matchScore),
+          match: `${Math.round(matchScore)}%`,
+          reasons: generateMatchReasons(currentIOCs, incidentIOCs, currentMitre, incidentMitre),
+          patterns: generateMatchReasons(currentIOCs, incidentIOCs, currentMitre, incidentMitre)
+        });
+      }
+    }
+    
+    // Sort by match percentage and return top 5
+    return similarIncidents
+      .sort((a, b) => b.matchPercentage - a.matchPercentage)
+      .slice(0, 5);
+      
+  } catch (error) {
+    console.error('Error finding similar incidents:', error);
+    return [];
+  }
 }
+
+// Extract key indicators for comparison
+function extractKeyIndicators(incident: any): string[] {
+  const indicators = [];
+  
+  // Extract from IOCs
+  if (incident.iocs && Array.isArray(incident.iocs)) {
+    indicators.push(...incident.iocs);
+  }
+  
+  // Extract from log data patterns
+  const logData = (incident.logData || '') + (incident.additionalLogs || '');
+  const patterns = [
+    /powershell[^\s]*\.exe/gi,
+    /cmd[^\s]*\.exe/gi,
+    /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g,
+    /[a-f0-9]{32,64}/gi,
+    /T\d{4}(?:\.\d{3})?/gi
+  ];
+  
+  patterns.forEach(pattern => {
+    const matches = logData.match(pattern);
+    if (matches) {
+      indicators.push(...matches.map(m => m.toLowerCase()));
+    }
+  });
+  
+  // Extract process names
+  const processMatches = logData.match(/(\w+\.exe)/gi);
+  if (processMatches) {
+    indicators.push(...processMatches.map(m => m.toLowerCase()));
+  }
+  
+  return [...new Set(indicators)]; // Remove duplicates
+}
+
+// Calculate similarity score between two incidents
+function calculateSimilarityScore(iocs1: string[], iocs2: string[], mitre1: string[], mitre2: string[]): number {
+  let totalScore = 0;
+  
+  // IOC similarity (60% weight)
+  const iocIntersection = iocs1.filter(ioc => iocs2.includes(ioc));
+  const iocUnion = [...new Set([...iocs1, ...iocs2])];
+  const iocSimilarity = iocUnion.length > 0 ? (iocIntersection.length / iocUnion.length) * 100 : 0;
+  totalScore += iocSimilarity * 0.6;
+  
+  // MITRE similarity (40% weight)
+  const mitreIntersection = mitre1.filter(technique => mitre2.includes(technique));
+  const mitreUnion = [...new Set([...mitre1, ...mitre2])];
+  const mitreSimilarity = mitreUnion.length > 0 ? (mitreIntersection.length / mitreUnion.length) * 100 : 0;
+  totalScore += mitreSimilarity * 0.4;
+  
+  return Math.min(totalScore, 95); // Cap at 95% to avoid perfect matches
+}
+
+// Generate reasons for the match
+function generateMatchReasons(iocs1: string[], iocs2: string[], mitre1: string[], mitre2: string[]): string[] {
+  const reasons = [];
+  
+  const commonIOCs = iocs1.filter(ioc => iocs2.includes(ioc));
+  if (commonIOCs.length > 0) {
+    reasons.push(`${commonIOCs.length} shared IOCs`);
+  }
+  
+  const commonMitre = mitre1.filter(technique => mitre2.includes(technique));
+  if (commonMitre.length > 0) {
+    reasons.push(`${commonMitre.length} common MITRE techniques`);
+  }
+  
+  const hasProcessSimilarity = commonIOCs.some(ioc => ioc.endsWith('.exe'));
+  if (hasProcessSimilarity) {
+    reasons.push('Similar process execution patterns');
+  }
+  
+  const hasNetworkSimilarity = commonIOCs.some(ioc => /\d+\.\d+\.\d+\.\d+/.test(ioc));
+  if (hasNetworkSimilarity) {
+    reasons.push('Common network indicators');
+  }
+  
+  return reasons.length > 0 ? reasons : ['Pattern similarity'];
+}
+
+// Generate compliance analysis based on AI results
+async function generateComplianceAnalysis(aiResult: any, incident: any, confidence: number): Promise<any> {
+  const frameworks = [];
+  const violations = [];
+  const recommendations = [];
+  
+  // Analyze for GDPR compliance
+  const hasPersonalData = checkForPersonalDataBreach(incident, aiResult);
+  if (hasPersonalData.detected) {
+    frameworks.push({
+      framework: 'GDPR',
+      article: 'Article 33 - Breach Notification',
+      impact: hasPersonalData.severity,
+      description: 'Potential personal data breach requiring notification within 72 hours'
+    });
+    if (hasPersonalData.severity === 'high') {
+      violations.push('Personal data breach detected');
+      recommendations.push('Notify data protection authority within 72 hours');
+      recommendations.push('Assess need for individual notification');
+    }
+  }
+  
+  // Analyze for SOX compliance (if financial data involved)
+  const hasFinancialData = checkForFinancialDataImpact(incident, aiResult);
+  if (hasFinancialData.detected) {
+    frameworks.push({
+      framework: 'SOX',
+      requirement: 'Section 404 - Internal Controls',
+      impact: hasFinancialData.severity,
+      description: 'Financial reporting systems may be compromised'
+    });
+    if (hasFinancialData.severity === 'high') {
+      violations.push('Financial system integrity compromise');
+      recommendations.push('Review internal controls over financial reporting');
+      recommendations.push('Assess impact on quarterly/annual reporting');
+    }
+  }
+  
+  // Analyze for HIPAA compliance (if healthcare context)
+  const hasHealthData = checkForHealthDataBreach(incident, aiResult);
+  if (hasHealthData.detected) {
+    frameworks.push({
+      framework: 'HIPAA',
+      requirement: 'Security Rule - Access Control',
+      impact: hasHealthData.severity,
+      description: 'Protected health information (PHI) may be compromised'
+    });
+    if (hasHealthData.severity === 'high') {
+      violations.push('PHI breach detected');
+      recommendations.push('Notify HHS within 60 days');
+      recommendations.push('Conduct risk assessment per HIPAA Security Rule');
+    }
+  }
+  
+  // Analyze for PCI-DSS compliance
+  const hasPaymentData = checkForPaymentDataImpact(incident, aiResult);
+  if (hasPaymentData.detected) {
+    frameworks.push({
+      framework: 'PCI-DSS',
+      requirement: 'Requirement 12.10 - Incident Response',
+      impact: hasPaymentData.severity,
+      description: 'Payment card data environment may be compromised'
+    });
+    if (hasPaymentData.severity === 'high') {
+      violations.push('Cardholder data environment breach');
+      recommendations.push('Notify card brands and acquiring bank');
+      recommendations.push('Conduct forensic investigation per PCI-DSS');
+    }
+  }
+  
+  // General recommendations based on incident severity
+  if (incident.severity === 'critical' || incident.severity === 'high') {
+    recommendations.push('Implement enhanced monitoring and logging');
+    recommendations.push('Review and update incident response procedures');
+    recommendations.push('Conduct security awareness training');
+  }
+  
+  return frameworks.length > 0 ? frameworks : [{
+    framework: 'General Security',
+    requirement: 'Security Incident Management',
+    impact: 'low',
+    description: 'Standard security incident with minimal compliance impact'
+  }];
+}
+
+// Check for personal data breach indicators
+function checkForPersonalDataBreach(incident: any, aiResult: any): { detected: boolean; severity: string } {
+  const content = `${incident.logData || ''} ${incident.additionalLogs || ''} ${aiResult?.classification?.analysis || ''}`.toLowerCase();
+  
+  const personalDataKeywords = ['email', 'ssn', 'social security', 'passport', 'driver license', 'personal', 'pii', 'gdpr'];
+  const detected = personalDataKeywords.some(keyword => content.includes(keyword));
+  
+  if (detected && (incident.severity === 'critical' || incident.severity === 'high')) {
+    return { detected: true, severity: 'high' };
+  } else if (detected) {
+    return { detected: true, severity: 'medium' };
+  }
+  
+  return { detected: false, severity: 'low' };
+}
+
+// Check for financial data impact
+function checkForFinancialDataImpact(incident: any, aiResult: any): { detected: boolean; severity: string } {
+  const content = `${incident.logData || ''} ${incident.additionalLogs || ''} ${aiResult?.classification?.analysis || ''}`.toLowerCase();
+  
+  const financialKeywords = ['financial', 'accounting', 'sap', 'erp', 'oracle', 'quickbooks', 'payroll', 'sox'];
+  const detected = financialKeywords.some(keyword => content.includes(keyword));
+  
+  return { 
+    detected, 
+    severity: detected && (incident.severity === 'critical' || incident.severity === 'high') ? 'high' : 'medium' 
+  };
+}
+
+// Check for health data breach
+function checkForHealthDataBreach(incident: any, aiResult: any): { detected: boolean; severity: string } {
+  const content = `${incident.logData || ''} ${incident.additionalLogs || ''} ${aiResult?.classification?.analysis || ''}`.toLowerCase();
+  
+  const healthKeywords = ['hipaa', 'phi', 'medical', 'patient', 'health', 'clinical', 'hospital', 'healthcare'];
+  const detected = healthKeywords.some(keyword => content.includes(keyword));
+  
+  return { 
+    detected, 
+    severity: detected && (incident.severity === 'critical' || incident.severity === 'high') ? 'high' : 'medium' 
+  };
+}
+
+// Check for payment data impact
+function checkForPaymentDataImpact(incident: any, aiResult: any): { detected: boolean; severity: string } {
+  const content = `${incident.logData || ''} ${incident.additionalLogs || ''} ${aiResult?.classification?.analysis || ''}`.toLowerCase();
+  
+  const paymentKeywords = ['credit card', 'payment', 'pos', 'pci', 'cardholder', 'visa', 'mastercard', 'amex'];
+  const detected = paymentKeywords.some(keyword => content.includes(keyword));
+  
+  return { 
+    detected, 
+    severity: detected && (incident.severity === 'critical' || incident.severity === 'high') ? 'high' : 'medium' 
+  };
+}
+
+// Calculate threat intelligence impact on analysis confidence
+async function calculateThreatIntelligenceImpact(threatReport: any, iocDetails: any[]): Promise<any> {
+  let confidenceBoost = 0;
+  let maliciousIndicators = 0;
+  const totalIndicators = iocDetails?.length || 0;
+  const insights: string[] = [];
+  let coverage = 'Limited';
+  
+  if (threatReport?.indicators && Array.isArray(threatReport.indicators)) {
+    const threatIndicators = threatReport.indicators;
+    
+    // Count malicious indicators
+    maliciousIndicators = threatIndicators.filter((indicator: any) => 
+      indicator.malicious || indicator.threat_score > 70
+    ).length;
+    
+    // Calculate confidence boost based on threat intelligence findings
+    if (maliciousIndicators > 0) {
+      confidenceBoost = Math.min(25, maliciousIndicators * 8); // Up to 25 points boost
+      insights.push(`${maliciousIndicators} malicious indicators confirmed by threat intelligence`);
+      coverage = maliciousIndicators >= 3 ? 'Comprehensive' : 'Partial';
+    }
+    
+    // Analyze geo-location patterns
+    const countries = threatIndicators
+      .map((ind: any) => ind.country)
+      .filter((country: string) => country && country !== 'Unknown');
+    
+    if (countries.length > 0) {
+      const uniqueCountries = [...new Set(countries)];
+      if (uniqueCountries.length === 1) {
+        insights.push(`All indicators originate from ${uniqueCountries[0]}`);
+        confidenceBoost += 5;
+      } else {
+        insights.push(`Indicators span ${uniqueCountries.length} countries: ${uniqueCountries.join(', ')}`);
+        confidenceBoost += 3;
+      }
+    }
+    
+    // Analyze threat actor patterns
+    const threatPulses = threatIndicators.filter((ind: any) => ind.pulse_count > 0);
+    if (threatPulses.length > 0) {
+      insights.push(`${threatPulses.length} indicators match known threat campaigns`);
+      confidenceBoost += Math.min(10, threatPulses.length * 2);
+    }
+  } else {
+    insights.push('Limited threat intelligence data available for analysis');
+  }
+  
+  // AlienVault OTX integration status
+  if (totalIndicators > 0) {
+    const enhancedIOCs = iocDetails.filter(ioc => 
+      ioc.threatIntelligence !== 'AlienVault OTX data pending' &&
+      ioc.reputation !== 'Analyzing...'
+    );
+    
+    if (enhancedIOCs.length === totalIndicators) {
+      insights.push('All IOCs enhanced with AlienVault OTX threat intelligence');
+      coverage = 'Complete';
+    } else if (enhancedIOCs.length > 0) {
+      insights.push(`${enhancedIOCs.length}/${totalIndicators} IOCs enhanced with threat intelligence`);
+      coverage = 'Partial';
+    }
+  }
+  
+  return {
+    confidenceBoost: Math.round(confidenceBoost),
+    maliciousIndicators,
+    totalIndicators,
+    insights,
+    coverage
+  };
 }
