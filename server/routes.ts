@@ -565,40 +565,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Define subscription plans with incident analysis and storage benefits
       const packages: Record<string, any> = {
         starter: { 
-          incidentsIncluded: 10,
+          incidentsIncluded: 25,
           storageIncluded: 2, // GB
-          price: 250, // €25 per incident × 10 incidents
+          price: 49,
           name: 'Starter Package',
-          description: '10 incident analyses (€25 each) + 2GB storage included',
+          description: '25 incident analyses + 2GB storage included',
           dataRetention: 30, // days
-          features: ['Basic Analysis', '2GB storage included', '€25 per incident', '30-day data retention']
+          features: ['25 incident analyses', '2GB storage included', 'Basic AI analysis', '30-day data retention']
         },
         professional: { 
-          incidentsIncluded: 25,
+          incidentsIncluded: 100,
           storageIncluded: 10, // GB
-          price: 594, // €23.75 per incident × 25 incidents (5% discount)
+          price: 149,
           name: 'Professional Package', 
-          description: '25 incident analyses (€23.75 each) + 10GB storage included',
+          description: '100 incident analyses + 10GB storage included',
           dataRetention: 60, // days
-          features: ['Enhanced Analysis', '10GB storage included', '€23.75 per incident (5% discount)', '60-day data retention']
+          features: ['100 incident analyses', '10GB storage included', 'Enhanced AI analysis', '60-day data retention', 'Priority support']
         },
         business: { 
-          incidentsIncluded: 100,
-          storageIncluded: 25, // GB
-          price: 2250, // €22.50 per incident × 100 incidents (10% discount)
+          incidentsIncluded: 500,
+          storageIncluded: 50, // GB
+          price: 499,
           name: 'Business Package',
-          description: '100 incident analyses (€22.50 each) + 25GB storage included',
+          description: '500 incident analyses + 50GB storage included',
           dataRetention: 90, // days
-          features: ['Advanced Analysis', '25GB storage included', '€22.50 per incident (10% discount)', '90-day data retention', 'Priority support']
+          features: ['500 incident analyses', '50GB storage included', 'Advanced AI analysis', '90-day data retention', 'API access']
         },
         enterprise: { 
-          incidentsIncluded: 250,
-          storageIncluded: 100, // GB
-          price: 5000, // €20 per incident × 250 incidents (20% discount)
+          incidentsIncluded: 2000,
+          storageIncluded: 200, // GB
+          price: 1499,
           name: 'Enterprise Package',
-          description: '250 incident analyses (€20 each) + 100GB storage included',
+          description: '2000 incident analyses + 200GB storage included',
           dataRetention: 365, // days
-          features: ['Full Analysis Suite', '100GB storage included', '€20 per incident (20% discount)', '365-day data retention', 'Dedicated support']
+          features: ['2000 incident analyses', '200GB storage included', 'Full AI analysis suite', '365-day data retention', 'Dedicated support', 'Custom integrations']
         }
       };
       
@@ -622,7 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Create transaction record
         const transaction = await storage.createBillingTransaction({
-          type: "subscription-purchase",
+          type: "credit-purchase",
           amount: selectedPackage.price.toString(),
           incidentsIncluded: selectedPackage.incidentsIncluded,
           packageName: selectedPackage.name,

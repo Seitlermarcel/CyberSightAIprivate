@@ -205,7 +205,6 @@ export type InsertQueryHistory = z.infer<typeof insertQueryHistorySchema>;
 
 // Package definitions
 export const PACKAGES = {
-  free: { name: "Free", incidents: 3, price: 0, storageGB: 0.1 },
   starter: { name: "Starter", incidents: 25, price: 49, storageGB: 2 },
   professional: { name: "Professional", incidents: 100, price: 149, storageGB: 10 },
   business: { name: "Business", incidents: 500, price: 499, storageGB: 50 },
