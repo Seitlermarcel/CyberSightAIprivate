@@ -308,8 +308,8 @@ export default function Billing() {
                 <Progress 
                   value={((storageData as any)?.quota?.percentage || 0)} 
                   className={`h-2 ${
-                    ((storageData as any)?.quota?.percentage || 0) > 90 ? 'bg-red-100' : 
-                    ((storageData as any)?.quota?.percentage || 0) > 75 ? 'bg-yellow-100' : 'bg-green-100'
+                    ((storageData as any)?.quota?.percentage || 0) > 90 ? 'bg-red-100 [&>div]:bg-red-500' : 
+                    ((storageData as any)?.quota?.percentage || 0) > 75 ? 'bg-yellow-100 [&>div]:bg-yellow-500' : 'bg-green-100 [&>div]:bg-green-500'
                   }`}
                 />
                 <div className="text-xs text-gray-400 mt-1">
