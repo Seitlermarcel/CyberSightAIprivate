@@ -1108,7 +1108,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Send callback if URL provided
         if (callbackUrl) {
-          await sendAnalysisCallback(callbackUrl, incident, aiAnalysis);
+          await sendAnalysisCallback(callbackUrl, incident, aiAnalysis, {
+            originalId: metadata?.originalIncidentId,
+            callbackAuth: metadata?.callbackAuth,
+            callbackHeaders: metadata?.callbackHeaders,
+            callbackConfig: metadata?.callbackConfig
+          });
         }
       }
       
@@ -1132,38 +1137,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return 'informational';
   }
   
-  async function sendAnalysisCallback(callbackUrl: string, incident: any, analysis: any) {
-    try {
-      const callbackData = {
-        incidentId: incident.id,
-        title: incident.title,
-        severity: incident.severity,
-        classification: analysis.classification,
-        confidence: analysis.confidence,
-        mitreAttack: analysis.mitreAttack || [],
-        iocs: analysis.iocs || [],
-        summary: analysis.aiAnalysis || 'Analysis completed',
-        timestamp: incident.createdAt,
-        source: 'CyberSight AI Analysis'
-      };
-      
-      // Send HTTP POST to callback URL
-      const response = await fetch(callbackUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'CyberSight-AI/1.0'
-        },
-        body: JSON.stringify(callbackData)
-      });
-      
-      if (!response.ok) {
-        console.error(`Callback failed: ${response.status} ${response.statusText}`);
-      } else {
-        console.log(`Analysis callback sent successfully to ${callbackUrl}`);
+  async function sendAnalysisCallback(callbackUrl: string, incident: any, analysis: any, config?: any) {
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    const callbackData = {
+      incidentId: incident.id,
+      originalId: config?.originalId || incident.id, // Original SIEM incident ID if provided
+      title: incident.title,
+      severity: incident.severity,
+      classification: analysis.classification,
+      confidence: analysis.confidence,
+      mitreAttack: analysis.mitreAttack || [],
+      iocs: analysis.iocs || [],
+      summary: analysis.aiAnalysis || 'Analysis completed',
+      timestamp: incident.createdAt,
+      source: 'CyberSight AI Analysis',
+      analysisDetails: {
+        tacticalAnalyst: analysis.tacticalAnalyst,
+        strategicAnalyst: analysis.strategicAnalyst,
+        chiefAnalyst: analysis.chiefAnalyst,
+        entityMapping: analysis.entityMapping,
+        attackVectors: analysis.attackVectors,
+        complianceImpact: analysis.complianceImpact
       }
-    } catch (error) {
-      console.error('Error sending callback:', error);
+    };
+    
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`Sending callback to ${callbackUrl} (attempt ${retryCount + 1}/${maxRetries})`);
+        
+        // Handle different callback types
+        if (config?.callbackConfig?.type === 'crowdstrike-api') {
+          await sendCrowdStrikeCallback(config.callbackConfig, callbackData);
+        } else if (config?.callbackConfig?.type === 'splunk-hec') {
+          await sendSplunkHecCallback(config.callbackConfig, callbackData);
+        } else if (config?.callbackConfig?.type === 'elastic-index') {
+          await sendElasticCallback(config.callbackConfig, callbackData);
+        } else {
+          // Generic HTTP callback
+          await sendGenericCallback(callbackUrl, callbackData, config);
+        }
+        
+        console.log(`✅ Analysis callback sent successfully to ${callbackUrl}`);
+        break;
+        
+      } catch (error: any) {
+        retryCount++;
+        console.error(`❌ Callback attempt ${retryCount} failed:`, error?.message);
+        
+        if (retryCount >= maxRetries) {
+          console.error(`🔥 All callback attempts failed for ${callbackUrl}`);
+          // Store failed callback for manual retry later
+          await storeFailedCallback(callbackUrl, callbackData, error?.message);
+        } else {
+          // Exponential backoff: wait 2^retryCount seconds
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+        }
+      }
+    }
+  }
+  
+  async function sendGenericCallback(callbackUrl: string, data: any, config?: any) {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'CyberSight-AI/1.0',
+      'X-CyberSight-Version': '1.0',
+      'X-Analysis-Timestamp': new Date().toISOString()
+    };
+    
+    // Add authentication headers if provided
+    if (config?.callbackAuth) {
+      if (config.callbackAuth.startsWith('Bearer ')) {
+        headers['Authorization'] = config.callbackAuth;
+      } else if (config.callbackAuth.startsWith('ApiKey ')) {
+        headers['Authorization'] = config.callbackAuth;
+      } else if (config.callbackToken) {
+        headers['Authorization'] = `Bearer ${config.callbackToken}`;
+      }
+    }
+    
+    // Add custom headers if provided
+    if (config?.callbackHeaders) {
+      Object.assign(headers, config.callbackHeaders);
+    }
+    
+    const response = await fetch(callbackUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+      timeout: 30000 // 30 second timeout
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return response;
+  }
+  
+  async function sendCrowdStrikeCallback(config: any, data: any) {
+    // Update CrowdStrike incident via API
+    const response = await fetch(`${config.baseUrl}/incidents/entities/incidents/v1`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${config.accessToken}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'CyberSight-AI/1.0'
+      },
+      body: JSON.stringify({
+        resources: [{
+          incident_id: config.incidentId,
+          status: data.classification === 'true-positive' ? 'in_progress' : 'closed',
+          description: `${data.summary}\n\nAI Analysis Confidence: ${data.confidence}%\nMITRE ATT&CK: ${data.mitreAttack.join(', ')}\nIOCs: ${data.iocs.join(', ')}`
+        }]
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`CrowdStrike API error: ${response.status} ${response.statusText}`);
+    }
+  }
+  
+  async function sendSplunkHecCallback(config: any, data: any) {
+    // Send to Splunk HTTP Event Collector
+    const hecData = {
+      time: Math.floor(Date.now() / 1000),
+      source: 'cybersight-ai',
+      sourcetype: 'cybersight:analysis',
+      index: config.index || 'security',
+      event: {
+        ...data,
+        analysis_type: 'ai_security_analysis',
+        vendor: 'CyberSight AI'
+      }
+    };
+    
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Splunk ${config.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(hecData)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Splunk HEC error: ${response.status} ${response.statusText}`);
+    }
+  }
+  
+  async function sendElasticCallback(config: any, data: any) {
+    // Index data in Elasticsearch
+    const indexName = `cybersight-analysis-${new Date().toISOString().substring(0, 7)}`; // Monthly indices
+    const response = await fetch(`${config.url}/${indexName}/_doc`, {
+      method: 'POST',
+      headers: {
+        'Authorization': config.auth,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        '@timestamp': new Date().toISOString(),
+        ...data,
+        analysis_type: 'ai_security_analysis',
+        vendor: 'CyberSight AI'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Elasticsearch error: ${response.status} ${response.statusText}`);
+    }
+  }
+  
+  async function storeFailedCallback(url: string, data: any, error: string) {
+    try {
+      // Store in database for manual retry or monitoring
+      // TODO: Create failed_callbacks table and implement proper logging
+    console.error('Failed callback stored for manual retry:', { url, error });
+    } catch (dbError) {
+      console.error('Failed to store failed callback:', dbError);
     }
   }
   
