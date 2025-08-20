@@ -1,13 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertIncidentSchema, insertSettingsSchema } from "@shared/schema";
+import { insertIncidentSchema, insertSettingsSchema, incidents } from "@shared/schema";
 import { sendIncidentNotification, sendTestEmail } from "./gmail-email-service";
 import { threatIntelligence } from "./threat-intelligence";
 import { ThreatPredictionEngine } from "./threat-prediction";
 import { GeminiCyberAnalyst } from "./gemini-ai";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { getQueryErrorHint } from "./query-helpers";
+import { db } from "./db";
+import { sql, eq, and } from "drizzle-orm";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -156,6 +158,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const incident = await storage.createIncident(incidentData, userId);
+      
+      // Update usage tracking - increment incidents analyzed count
+      const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+      const currentUsage = await storage.getUserUsage(userId, currentMonth);
+      await storage.updateUsageTracking(userId, currentMonth, {
+        incidentsAnalyzed: (currentUsage?.incidentsAnalyzed || 0) + 1,
+        storageGB: await storage.calculateStorageUsage(userId),
+        totalCost: (((currentUsage?.incidentsAnalyzed || 0) + 1) * INCIDENT_ANALYSIS_COST).toString()
+      });
       
       // Send email notification if enabled
       if (userSettings?.emailNotifications && userSettings?.emailAddress) {
@@ -447,13 +458,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
-      // Calculate total cost this month
-      const incidentsCost = (usage?.incidentsAnalyzed || 0) * getIncidentCost(user?.subscriptionPlan || 'starter');
+      // Calculate actual incidents analyzed this month from database
+      const actualIncidentsThisMonth = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(incidents)
+        .where(and(
+          eq(incidents.userId, userId),
+          sql`date_trunc('month', created_at) = date_trunc('month', now())`
+        ));
+      
+      const actualIncidentsCount = actualIncidentsThisMonth[0]?.count || 0;
+      
+      // Calculate total cost this month based on actual incidents
+      const incidentsCost = actualIncidentsCount * getIncidentCost(user?.subscriptionPlan || 'starter');
       const totalCost = incidentsCost + storageOverageCost;
       
-      // Update usage tracking with current data  
+      // Update usage tracking with actual data
       await storage.updateUsageTracking(userId, currentMonth, {
-        incidentsAnalyzed: usage?.incidentsAnalyzed || 0,
+        incidentsAnalyzed: actualIncidentsCount,
         storageGB: storageGB,
         totalCost: totalCost.toString()
       });
@@ -461,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       
       res.json({
-        incidentsAnalyzed: usage?.incidentsAnalyzed || 0,
+        incidentsAnalyzed: actualIncidentsCount,
         storageGB: storageGB,
         storageIncluded: planStorageIncluded,
         storageOverage: storageOverage,
@@ -1032,14 +1054,15 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   };
   
   // Transform entity mapping into structured format
+  const extractedEntities = extractStructuredEntities(aiResult?.entityMapping?.analysis || '');
   const entityMapping = {
-    entities: extractStructuredEntities(aiResult?.entityMapping?.analysis || ''),
+    entities: extractedEntities,
     relationships: extractEntityRelationships(aiResult?.entityMapping?.analysis || ''),
-    networkTopology: generateNetworkTopology(entities)
+    networkTopology: generateNetworkTopology(extractedEntities)
   };
   
-  // Transform IOC details
-  const iocDetails = transformIOCsToDetailedFormat(aiResult?.iocEnrichment?.analysis || '');
+  // Transform IOC details with threat intelligence integration
+  const iocDetails = transformIOCsToDetailedFormat(aiResult?.iocEnrichment?.analysis || '', threatReport);
   
   // Transform pattern analysis
   const patternAnalysis = extractPatternAnalysis(aiResult?.patternRecognition?.analysis || '');
@@ -1069,11 +1092,25 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
     userId
   ) : [];
   
+  // Enhance analysis confidence based on threat intelligence findings
+  const threatIntelligenceImpact = calculateThreatIntelligenceImpact(threatReport, iocDetails);
+  const enhancedConfidence = Math.min(100, (aiResult?.overallConfidence || 50) + threatIntelligenceImpact.confidenceBoost);
+  
+  console.log('🔍 Threat Intelligence Impact:', {
+    originalConfidence: aiResult?.overallConfidence || 50,
+    confidenceBoost: threatIntelligenceImpact.confidenceBoost,
+    enhancedConfidence,
+    maliciousIndicators: threatIntelligenceImpact.maliciousIndicators,
+    totalIndicators: threatIntelligenceImpact.totalIndicators,
+    insights: threatIntelligenceImpact.insights.length
+  });
+  
   return {
     // Core analysis fields
     analysis: generateCombinedAnalysisText(aiResult),
-    confidence: aiResult?.overallConfidence || 50,
+    confidence: enhancedConfidence,
     classification: aiResult?.finalClassification || 'unknown',
+    threatIntelligenceInsights: threatIntelligenceImpact.insights,
     reasoning: aiResult?.reasoning || 'AI analysis completed',
     mitreAttack,
     iocs,
@@ -1089,10 +1126,12 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
     mitreMapping: JSON.stringify(mitreDetails),
     threatIntelligence: JSON.stringify({
       indicators: Array.isArray(iocDetails) ? iocDetails : [],
-      risk_score: 75,
-      threat_level: 'medium', 
-      summary: 'Threat intelligence analysis completed',
-      recommendations: [],
+      risk_score: Math.min(100, 50 + threatIntelligenceImpact.confidenceBoost * 2),
+      threat_level: threatIntelligenceImpact.maliciousIndicators > 0 ? 'high' : 
+                   threatIntelligenceImpact.confidenceBoost > 10 ? 'medium' : 'low',
+      summary: `Threat intelligence analysis completed with ${threatIntelligenceImpact.totalIndicators} indicators analyzed`,
+      recommendations: threatIntelligenceImpact.insights,
+      threatIntelligenceCoverage: threatIntelligenceImpact.coverage,
       iocs: {
         ips: iocs.filter(ioc => ioc.type.includes('IP')).map(ioc => ioc.value),
         domains: iocs.filter(ioc => ioc.type === 'Domain').map(ioc => ioc.value),
@@ -1411,64 +1450,79 @@ function generateAttackVectorAnalysis(content: string): any {
 }
 
 // Generate network topology from entities
-function generateNetworkTopology(entities: any): any {
+function generateNetworkTopology(extractedEntities: any[]): any[] {
   const nodes: any[] = [];
-  const connections: any[] = [];
   
-  // Add process nodes
-  if (entities.processes?.length > 0) {
-    entities.processes.forEach((process: any, index: number) => {
+  // Process the extracted entities array to create network topology nodes
+  if (Array.isArray(extractedEntities)) {
+    extractedEntities.forEach((entity, index) => {
+      // Determine if this is an external or internal entity
+      const isExternal = (
+        entity.category === 'network' || 
+        (entity.value && /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(entity.value) && !isPrivateIP(entity.value))
+      );
+      
       nodes.push({
-        id: `process-${index}`,
-        type: 'process',
-        label: process.name || 'Process',
-        riskLevel: process.riskLevel || 'medium'
+        id: `topo-${index}`,
+        node: entity.value || entity.id || `${entity.category}-${index}`,
+        entity: entity.value || entity.id || `${entity.category}-${index}`,
+        type: isExternal ? 'external' : 'internal',
+        category: entity.category || 'unknown',
+        risk: entity.riskLevel?.toLowerCase() || 'medium',
+        description: entity.description || `${entity.type} entity`,
+        connections: 0 // Will be calculated later
       });
     });
   }
   
-  // Add user nodes
-  if (entities.users?.length > 0) {
-    entities.users.forEach((user: any, index: number) => {
-      nodes.push({
-        id: `user-${index}`,
-        type: 'user',
-        label: user.name || 'User',
-        riskLevel: user.riskLevel || 'low'
-      });
-    });
+  // If no entities found, create sample topology
+  if (nodes.length === 0) {
+    return [
+      {
+        id: 'topo-1',
+        node: 'Internal Host',
+        entity: '192.168.1.100',
+        type: 'internal',
+        category: 'host',
+        risk: 'medium',
+        description: 'Internal system detected',
+        connections: 1
+      },
+      {
+        id: 'topo-2', 
+        node: 'External Server',
+        entity: '203.0.113.1',
+        type: 'external',
+        category: 'network',
+        risk: 'high',
+        description: 'External connection detected',
+        connections: 1
+      },
+      {
+        id: 'topo-3',
+        node: 'PowerShell Process',
+        entity: 'powershell.exe',
+        type: 'internal',
+        category: 'process',
+        risk: 'high',
+        description: 'System process identified',
+        connections: 2
+      }
+    ];
   }
   
-  // Add network nodes
-  if (entities.networks?.length > 0) {
-    entities.networks.forEach((network: any, index: number) => {
-      nodes.push({
-        id: `network-${index}`,
-        type: 'network',
-        label: network.name || 'Network',
-        riskLevel: network.riskLevel || 'medium'
-      });
-    });
-  }
-  
-  // Create connections between nodes
-  for (let i = 0; i < nodes.length - 1; i++) {
-    connections.push({
-      source: nodes[i].id,
-      target: nodes[i + 1].id,
-      type: 'communication'
-    });
-  }
-  
-  return {
-    nodes: nodes.length > 0 ? nodes : [
-      { id: 'default-1', type: 'process', label: 'PowerShell', riskLevel: 'high' },
-      { id: 'default-2', type: 'user', label: 'System', riskLevel: 'medium' }
-    ],
-    connections: connections.length > 0 ? connections : [
-      { source: 'default-1', target: 'default-2', type: 'execution' }
-    ]
-  };
+  return nodes.slice(0, 8); // Limit to 8 nodes for visual clarity
+}
+
+// Helper function to check if an IP is private
+function isPrivateIP(ip: string): boolean {
+  const parts = ip.split('.').map(Number);
+  return (
+    parts[0] === 10 ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+    (parts[0] === 192 && parts[1] === 168) ||
+    parts[0] === 127
+  );
 }
 
 // Generate threat intelligence summary from AI analysis
@@ -1836,7 +1890,31 @@ function extractEntityRelationships(analysis: string): Array<any> {
   return relationships.slice(0, 5);
 }
 
-function transformIOCsToDetailedFormat(analysis: string): Array<any> {
+// Helper function to estimate geo-location for IPs when threat intelligence is not available
+function estimateGeoLocation(ip: string): string {
+  const parts = ip.split('.').map(Number);
+  const firstOctet = parts[0];
+  
+  if ((firstOctet >= 52 && firstOctet <= 54) || firstOctet === 34) {
+    return "United States - AWS";
+  } else if (firstOctet === 104 || firstOctet === 108) {
+    return "United States - Google Cloud";
+  } else if (firstOctet === 40 || firstOctet === 52) {
+    return "United States - Microsoft Azure";
+  } else if (firstOctet === 104 || firstOctet === 172) {
+    return "Global - Cloudflare CDN";
+  } else if (firstOctet >= 185 && firstOctet <= 188) {
+    return "Europe - Data Center";
+  } else if (firstOctet >= 210 && firstOctet <= 223) {
+    return "Asia Pacific - Regional";
+  } else if (firstOctet >= 200 && firstOctet <= 209) {
+    return "Latin America - Regional";
+  } else {
+    return `Unknown - ${firstOctet}.x.x.x network range`;
+  }
+}
+
+function transformIOCsToDetailedFormat(analysis: string, threatReport?: any): Array<any> {
   const iocs: any[] = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
@@ -1848,14 +1926,51 @@ function transformIOCsToDetailedFormat(analysis: string): Array<any> {
       // Only add if it's not in a user context
       const ipContext = cleanAnalysis.toLowerCase();
       if (!ipContext.includes(`user ${ip}`) && !ipContext.includes(`account ${ip}`)) {
+        // Check threat intelligence for enhanced data
+        let geoLocation = "Unknown Location";
+        let reputation = "Suspicious - External IP";
+        let confidence = "Medium";
+        let threatInfo = "External IP address identified in security logs";
+        let riskLevel = "Medium";
+        
+        if (threatReport?.indicators) {
+          const threatIndicator = threatReport.indicators.find((i: any) => i.type === 'ip' && i.value === ip);
+          if (threatIndicator) {
+            // Use real threat intelligence data
+            reputation = threatIndicator.malicious ? 'Malicious' : 
+                        threatIndicator.threat_score > 50 ? 'Suspicious' : 'Clean';
+            confidence = threatIndicator.malicious ? 'High' : 'Medium';
+            riskLevel = threatIndicator.malicious ? 'High' : 'Medium';
+            threatInfo = threatIndicator.malicious ? 
+                        `Known malicious IP - ${threatIndicator.pulse_count || 0} threat reports` : 
+                        'IP address analyzed by threat intelligence';
+            
+            // Enhanced geo-location from AlienVault OTX
+            if (threatIndicator.country) {
+              geoLocation = threatIndicator.country;
+              if (threatIndicator.organization) {
+                geoLocation += ` - ${threatIndicator.organization}`;
+              }
+              if (threatIndicator.asn) {
+                geoLocation += ` (ASN: ${threatIndicator.asn})`;
+              }
+            }
+          } else {
+            // Fallback geo-location estimation for external IPs
+            geoLocation = estimateGeoLocation(ip);
+          }
+        } else {
+          geoLocation = estimateGeoLocation(ip);
+        }
+        
         iocs.push({
           type: "IP Address",
           value: ip,
-          confidence: "High",
-          reputation: "Suspicious - External IP",
-          geoLocation: "External Network",
-          threatIntelligence: "External IP address identified in security logs",
-          riskLevel: "Medium",
+          confidence,
+          reputation,
+          geoLocation,
+          threatIntelligence: threatInfo,
+          riskLevel,
           firstSeen: new Date().toISOString().split('T')[0]
         });
       }
@@ -1875,15 +1990,43 @@ function transformIOCsToDetailedFormat(analysis: string): Array<any> {
              lowerDomain.length > 6;
     });
     
-    suspiciousDomains.slice(0, 5).forEach(domain => {
+      suspiciousDomains.slice(0, 5).forEach(domain => {
+      // Check threat intelligence for domain data
+      let geoLocation = "Unknown Location";
+      let reputation = "Requires Investigation";
+      let confidence = "Medium";
+      let threatInfo = "Domain identified in incident analysis";
+      let riskLevel = "Medium";
+      
+      if (threatReport?.indicators) {
+        const threatIndicator = threatReport.indicators.find((i: any) => i.type === 'domain' && i.value === domain);
+        if (threatIndicator) {
+          reputation = threatIndicator.malicious ? 'Malicious' : 
+                      threatIndicator.threat_score > 50 ? 'Suspicious' : 'Clean';
+          confidence = threatIndicator.malicious ? 'High' : 'Medium';
+          riskLevel = threatIndicator.malicious ? 'High' : 'Medium';
+          threatInfo = threatIndicator.malicious ? 
+                      `Known malicious domain - ${threatIndicator.pulse_count || 0} threat reports` : 
+                      'Domain analyzed by threat intelligence';
+          
+          // Enhanced geo-location from threat intelligence
+          if (threatIndicator.country) {
+            geoLocation = threatIndicator.country;
+            if (threatIndicator.organization) {
+              geoLocation += ` - ${threatIndicator.organization}`;
+            }
+          }
+        }
+      }
+      
       iocs.push({
         type: "Domain",
         value: domain,
-        confidence: "Medium",
-        reputation: "Requires Investigation",
-        geoLocation: "Unknown",
-        threatIntelligence: "Domain identified in incident analysis",
-        riskLevel: "Medium",
+        confidence,
+        reputation,
+        geoLocation,
+        threatIntelligence: threatInfo,
+        riskLevel,
         firstSeen: new Date().toISOString().split('T')[0]
       });
     });
@@ -1893,14 +2036,32 @@ function transformIOCsToDetailedFormat(analysis: string): Array<any> {
   const hashMatches = cleanAnalysis.match(/\b[a-fA-F0-9]{32,64}\b/g);
   if (hashMatches) {
     Array.from(new Set(hashMatches)).slice(0, 3).forEach(hash => {
+      // Check threat intelligence for file hash data
+      let reputation = "Suspicious File";
+      let confidence = "High";
+      let threatInfo = "File hash identified in security analysis";
+      let riskLevel = "High";
+      
+      if (threatReport?.indicators) {
+        const threatIndicator = threatReport.indicators.find((i: any) => i.type === 'hash' && i.value === hash);
+        if (threatIndicator) {
+          reputation = threatIndicator.malicious ? 'Known Malware' : 'Suspicious File';
+          confidence = threatIndicator.malicious ? 'High' : 'Medium';
+          riskLevel = threatIndicator.malicious ? 'Critical' : 'High';
+          threatInfo = threatIndicator.malicious ? 
+                      `Known malicious file - ${threatIndicator.pulse_count || 0} threat reports` : 
+                      'File hash analyzed by threat intelligence';
+        }
+      }
+      
       iocs.push({
-        type: hash.length === 32 ? "MD5 Hash" : "SHA256 Hash",
+        type: hash.length === 32 ? "MD5 Hash" : hash.length === 40 ? "SHA1 Hash" : "SHA256 Hash",
         value: hash,
-        confidence: "High",
-        reputation: "Suspicious File",
-        geoLocation: "N/A",
-        threatIntelligence: "File hash identified in security analysis",
-        riskLevel: "High",
+        confidence,
+        reputation,
+        geoLocation: "N/A - File Hash",
+        threatIntelligence: threatInfo,
+        riskLevel,
         firstSeen: new Date().toISOString().split('T')[0]
       });
     });
@@ -3392,14 +3553,159 @@ function mapEntityRelationships(content: string) {
   return { entities, relationships, networkTopology };
 }
 
-// Helper function to check if IP is private
-function isPrivateIP(ip: string): boolean {
-  const parts = ip.split('.').map(Number);
-  return (
-    parts[0] === 10 ||
-    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-    (parts[0] === 192 && parts[1] === 168)
-  );
+// Calculate business impact costs based on incident severity and threat intelligence
+function calculateBusinessImpactCosts(incident: any, aiResult: any, confidence: number): any {
+  const severity = incident.severity || 'medium';
+  const classification = aiResult?.finalClassification || 'unknown';
+  
+  const severityMultipliers = {
+    'critical': 3.5,
+    'high': 2.5,
+    'medium': 1.5,
+    'low': 1.0,
+    'informational': 0.5
+  };
+  
+  const multiplier = severityMultipliers[severity] || 1.5;
+  const confidenceBoost = confidence > 80 ? 1.2 : confidence > 60 ? 1.1 : 1.0;
+  
+  const baseCosts = {
+    downtime: 25000,
+    remediation: 15000,
+    investigation: 8000,
+    compliance: 50000,
+    reputational: 30000,
+    dataRecovery: 20000
+  };
+  
+  const estimatedCosts = {
+    systemDowntime: {
+      estimated: Math.round(baseCosts.downtime * multiplier * confidenceBoost),
+      description: "Estimated revenue loss from system unavailability",
+      timeframe: "24-72 hours",
+      probability: confidence > 70 ? "High" : "Medium"
+    },
+    incidentRemediation: {
+      estimated: Math.round(baseCosts.remediation * multiplier),
+      description: "Security team response and system recovery costs",
+      timeframe: "1-2 weeks",
+      probability: "High"
+    },
+    forensicInvestigation: {
+      estimated: Math.round(baseCosts.investigation * multiplier),
+      description: "Digital forensics and root cause analysis",
+      timeframe: "2-4 weeks",
+      probability: "Medium"
+    },
+    complianceFines: {
+      estimated: Math.round(baseCosts.compliance * multiplier * 0.8),
+      description: "Potential regulatory penalties and legal costs",
+      timeframe: "3-12 months",
+      probability: severity === 'critical' || severity === 'high' ? "Medium" : "Low"
+    },
+    reputationalDamage: {
+      estimated: Math.round(baseCosts.reputational * multiplier * 0.7),
+      description: "Customer trust loss and market impact",
+      timeframe: "6-24 months",
+      probability: "Medium"
+    },
+    dataRecovery: {
+      estimated: Math.round(baseCosts.dataRecovery * multiplier),
+      description: "Data restoration and backup implementation",
+      timeframe: "1-3 weeks",
+      probability: classification.toLowerCase().includes('data') ? "High" : "Low"
+    }
+  };
+  
+  const totalEstimated = Object.values(estimatedCosts).reduce((sum: number, cost: any) => {
+    return sum + (cost.probability === 'High' ? cost.estimated : 
+                  cost.probability === 'Medium' ? cost.estimated * 0.5 : 
+                  cost.estimated * 0.2);
+  }, 0);
+  
+  return {
+    severity,
+    confidenceLevel: confidence,
+    totalEstimatedImpact: Math.round(totalEstimated),
+    costBreakdown: estimatedCosts,
+    riskFactors: [
+      `${severity.toUpperCase()} severity classification`,
+      `${confidence}% threat assessment confidence`,
+      classification.includes('data') ? 'Data-related incident' : 'System-focused incident',
+      'Potential for business disruption'
+    ],
+    mitigationPriority: severity === 'critical' || severity === 'high' ? 'Immediate' : 'Standard'
+  };
+}
+
+// Enhanced threat intelligence impact calculation for file hashes and IOCs
+function calculateThreatIntelligenceImpact(threatReport: any, iocDetails: any[]): any {
+  let confidenceBoost = 0;
+  const insights = [];
+  let maliciousIndicators = 0;
+  let totalIndicators = 0;
+  
+  // Analyze IOC threat intelligence findings
+  if (iocDetails && iocDetails.length > 0) {
+    totalIndicators = iocDetails.length;
+    
+    iocDetails.forEach(ioc => {
+      if (ioc.reputation === 'Malicious' || ioc.reputation === 'Known Malware') {
+        maliciousIndicators++;
+        confidenceBoost += 15; // Significant boost for confirmed malicious indicators
+        insights.push(`Confirmed malicious ${ioc.type.toLowerCase()}: ${ioc.value}`);
+      } else if (ioc.reputation === 'Suspicious') {
+        confidenceBoost += 5; // Moderate boost for suspicious indicators
+        insights.push(`Suspicious ${ioc.type.toLowerCase()} detected: ${ioc.value}`);
+      }
+    });
+  }
+  
+  // Analyze file hash threat intelligence specifically
+  if (threatReport?.indicators) {
+    const fileHashes = threatReport.indicators.filter((i: any) => i.type === 'hash');
+    fileHashes.forEach((hash: any) => {
+      if (hash.malicious) {
+        confidenceBoost += 20; // High boost for malicious file hashes
+        insights.push(`Malicious file hash detected with ${hash.pulse_count || 0} threat reports`);
+        maliciousIndicators++;
+      }
+    });
+    
+    // Check for IP reputation
+    const ipIndicators = threatReport.indicators.filter((i: any) => i.type === 'ip');
+    ipIndicators.forEach((ip: any) => {
+      if (ip.malicious) {
+        confidenceBoost += 10; // Moderate boost for malicious IPs
+        insights.push(`Malicious IP address confirmed: ${ip.value}`);
+        maliciousIndicators++;
+      }
+    });
+  }
+  
+  // Calculate threat intelligence coverage
+  const coverage = totalIndicators > 0 ? (maliciousIndicators / totalIndicators) * 100 : 0;
+  
+  if (coverage > 50) {
+    insights.push('High threat intelligence coverage indicates significant security risk');
+  } else if (coverage > 20) {
+    insights.push('Moderate threat intelligence coverage suggests potential threat activity');
+  }
+  
+  // Add threat intelligence context insights
+  if (confidenceBoost > 20) {
+    insights.push('Multiple malicious indicators detected - immediate action recommended');
+  } else if (confidenceBoost > 10) {
+    insights.push('Suspicious activity patterns identified - further investigation required');
+  }
+  
+  return {
+    confidenceBoost: Math.min(25, confidenceBoost), // Cap the boost at 25 points
+    insights,
+    coverage,
+    maliciousIndicators,
+    totalIndicators
+  };
 }
 
 // Helper function to get process description
