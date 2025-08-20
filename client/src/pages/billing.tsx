@@ -168,6 +168,10 @@ export default function Billing() {
     queryKey: ["/api/storage/usage"],
   });
 
+  const { data: cleanupData = {} } = useQuery({
+    queryKey: ["/api/storage/cleanup-preview"],
+  });
+
   const handlePurchaseSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     queryClient.invalidateQueries({ queryKey: ["/api/billing/transactions"] });
@@ -260,7 +264,7 @@ export default function Billing() {
                 {Math.floor(parseFloat((user as any)?.credits || "0"))}
               </div>
               <p className="text-sm text-gray-400">
-                Remaining analyses in your {(user as any)?.subscriptionPlan || 'current'} plan
+                Remaining analyses • {(user as any)?.subscriptionPlan || 'Free'} plan
               </p>
               <Button 
                 className="w-full cyber-blue hover:bg-blue-600"
@@ -294,7 +298,9 @@ export default function Billing() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span>Storage Used</span>
-                  <span className="font-medium">{((storageData as any)?.usage?.usageGB || 0).toFixed(3)} GB</span>
+                  <span className="font-medium">
+                    {((storageData as any)?.usage?.details?.totalMB || 0).toFixed(2)} MB
+                  </span>
                 </div>
                 <div className="text-xs text-gray-400 mb-2">
                   {((storageData as any)?.limit || 0)} GB limit • {((storageData as any)?.usage?.incidentCount || 0)} incidents
@@ -369,7 +375,9 @@ export default function Billing() {
               <div className="space-y-3">
                 <div className="flex justify-between p-3 cyber-dark rounded-lg">
                   <span className="text-sm text-gray-400">Total Storage Used:</span>
-                  <span className="font-medium text-cyber-blue">{((storageData as any)?.usage?.usageGB || 0).toFixed(3)} GB</span>
+                  <span className="font-medium text-cyber-blue">
+                    {((storageData as any)?.usage?.details?.totalMB || 0).toFixed(2)} MB
+                  </span>
                 </div>
                 <div className="flex justify-between p-3 cyber-dark rounded-lg">
                   <span className="text-sm text-gray-400">Storage Limit:</span>
@@ -400,11 +408,16 @@ export default function Billing() {
           <div className="mt-6 p-4 bg-gradient-to-r from-cyber-dark to-cyber-slate-dark rounded-lg border border-cyber-slate-light">
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-cyber-blue flex-shrink-0" />
-              <div>
+              <div className="flex-1">
                 <p className="text-sm font-medium text-cyber-blue">Auto-Cleanup Policy</p>
                 <p className="text-xs text-gray-400 mt-1">
                   All incidents are automatically deleted after 30 days across all plans to optimize storage usage and ensure data freshness.
                 </p>
+                <div className="mt-2 p-2 bg-cyber-slate-dark rounded border-l-2 border-yellow-500">
+                  <p className="text-xs text-yellow-400">
+                    <strong>Next Cleanup:</strong> {((cleanupData as any)?.incidentsToBeDeleted || 0)} incidents will be deleted tomorrow
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -418,7 +431,7 @@ export default function Billing() {
           <CardDescription>Transparent pricing for all services</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 cyber-dark rounded-lg">
               <div className="flex items-center space-x-2 mb-2">
                 <Activity className="text-blue-500" />
@@ -426,14 +439,6 @@ export default function Billing() {
               </div>
               <p className="text-2xl font-bold">€20-25</p>
               <p className="text-sm text-gray-400">per incident (varies by plan)</p>
-            </div>
-            <div className="p-4 cyber-dark rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <Database className="text-orange-500" />
-                <h4 className="font-semibold">Data Storage</h4>
-              </div>
-              <p className="text-2xl font-bold">€1.00</p>
-              <p className="text-sm text-gray-400">per GB above plan limit</p>
             </div>
             <div className="p-4 cyber-dark rounded-lg">
               <div className="flex items-center space-x-2 mb-2">

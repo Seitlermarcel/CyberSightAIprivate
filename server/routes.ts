@@ -66,6 +66,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  app.get("/api/storage/cleanup-preview", isAuthenticated, async (req: any, res) => {
+    try {
+      const incidentsToDelete = await storage.getIncidentsToBeDeleted();
+      res.json({ incidentsToBeDeleted: incidentsToDelete });
+    } catch (error) {
+      console.error("Error getting cleanup preview:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/incidents/:id/storage-size", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const storageSize = await storage.calculateIncidentStorageSize(req.params.id, userId);
+      res.json({ storageSizeMB: storageSize });
+    } catch (error) {
+      console.error("Error calculating incident storage size:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
   // Incidents routes (user-specific)
   app.get("/api/incidents", isAuthenticated, async (req: any, res) => {
     try {

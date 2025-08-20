@@ -69,6 +69,8 @@ export interface IStorage {
   getUserStorageLimit(userId: string): Promise<number>;
   deleteExpiredIncidents(): Promise<number>;
   checkStorageQuota(userId: string): Promise<{ used: number, limit: number, percentage: number, canCreateNew: boolean }>;
+  getIncidentsToBeDeleted(): Promise<number>;
+  calculateIncidentStorageSize(incidentId: string, userId: string): Promise<number>;
   
   // Query History
   saveQuery(query: InsertQueryHistory, userId: string): Promise<QueryHistory>;
@@ -365,6 +367,8 @@ export class DatabaseStorage implements IStorage {
     let breakdown = {
       logData: 0,
       additionalLogs: 0,
+      aiAnalysis: 0,
+      analysisExplanation: 0,
       mitreDetails: 0,
       iocDetails: 0,
       entityMapping: 0,
@@ -382,6 +386,8 @@ export class DatabaseStorage implements IStorage {
       // Calculate storage for each field
       const logDataSize = (incident.logData || '').length;
       const additionalLogsSize = (incident.additionalLogs || '').length;
+      const aiAnalysisSize = (incident.aiAnalysis || '').length;
+      const analysisExplanationSize = (incident.analysisExplanation || '').length;
       const mitreDetailsSize = (incident.mitreDetails || '').length;
       const iocDetailsSize = (incident.iocDetails || '').length;
       const entityMappingSize = (incident.entityMapping || '').length;
@@ -408,6 +414,8 @@ export class DatabaseStorage implements IStorage {
       // Update breakdown
       breakdown.logData += logDataSize;
       breakdown.additionalLogs += additionalLogsSize;
+      breakdown.aiAnalysis += aiAnalysisSize;
+      breakdown.analysisExplanation += analysisExplanationSize;
       breakdown.mitreDetails += mitreDetailsSize;
       breakdown.iocDetails += iocDetailsSize;
       breakdown.entityMapping += entityMappingSize;
@@ -420,10 +428,11 @@ export class DatabaseStorage implements IStorage {
       breakdown.comments += commentsSize;
       breakdown.metadata += metadataSize;
       
-      totalSizeBytes += logDataSize + additionalLogsSize + mitreDetailsSize + 
-                      iocDetailsSize + entityMappingSize + threatPredictionSize +
-                      attackVectorsSize + complianceImpactSize + purpleTeamSize +
-                      codeAnalysisSize + patternAnalysisSize + commentsSize + metadataSize;
+      totalSizeBytes += logDataSize + additionalLogsSize + aiAnalysisSize + 
+                      analysisExplanationSize + mitreDetailsSize + iocDetailsSize + 
+                      entityMappingSize + threatPredictionSize + attackVectorsSize + 
+                      complianceImpactSize + purpleTeamSize + codeAnalysisSize + 
+                      patternAnalysisSize + commentsSize + metadataSize;
     }
     
     // Convert bytes to GB and MB for breakdown
@@ -487,7 +496,7 @@ export class DatabaseStorage implements IStorage {
     
     const usedGB = storageUsage.usageGB;
     const limitGB = storageLimit;
-    const percentage = Math.round((usedGB / limitGB) * 100);
+    const percentage = limitGB > 0 ? Math.round((usedGB / limitGB) * 100) : 0;
     const canCreateNew = percentage < 95; // Allow up to 95% usage
     
     return {
@@ -496,6 +505,56 @@ export class DatabaseStorage implements IStorage {
       percentage,
       canCreateNew
     };
+  }
+
+  async getIncidentsToBeDeleted(): Promise<number> {
+    const twentyNineDaysAgo = new Date();
+    twentyNineDaysAgo.setDate(twentyNineDaysAgo.getDate() - 29);
+    
+    const incidentsToDelete = await db.select().from(incidents).where(
+      sql`${incidents.createdAt} < ${twentyNineDaysAgo.toISOString()}`
+    );
+    
+    return incidentsToDelete.length;
+  }
+
+  async calculateIncidentStorageSize(incidentId: string, userId: string): Promise<number> {
+    const incident = await this.getIncident(incidentId, userId);
+    if (!incident) return 0;
+    
+    const logDataSize = (incident.logData || '').length;
+    const additionalLogsSize = (incident.additionalLogs || '').length;
+    const aiAnalysisSize = (incident.aiAnalysis || '').length;
+    const analysisExplanationSize = (incident.analysisExplanation || '').length;
+    const mitreDetailsSize = (incident.mitreDetails || '').length;
+    const iocDetailsSize = (incident.iocDetails || '').length;
+    const entityMappingSize = (incident.entityMapping || '').length;
+    const threatPredictionSize = (incident.threatPrediction || '').length;
+    const attackVectorsSize = (incident.attackVectors || '').length;
+    const complianceImpactSize = (incident.complianceImpact || '').length;
+    const purpleTeamSize = (incident.purpleTeam || '').length;
+    const codeAnalysisSize = (incident.codeAnalysis || '').length;
+    const patternAnalysisSize = (incident.patternAnalysis || '').length;
+    const commentsSize = JSON.stringify(incident.comments || []).length;
+    
+    const metadataSize = JSON.stringify({
+      id: incident.id,
+      title: incident.title,
+      severity: incident.severity,
+      status: incident.status,
+      classification: incident.classification,
+      systemContext: incident.systemContext,
+      createdAt: incident.createdAt,
+      updatedAt: incident.updatedAt
+    }).length;
+    
+    const totalBytes = logDataSize + additionalLogsSize + aiAnalysisSize + 
+                     analysisExplanationSize + mitreDetailsSize + iocDetailsSize + 
+                     entityMappingSize + threatPredictionSize + attackVectorsSize + 
+                     complianceImpactSize + purpleTeamSize + codeAnalysisSize + 
+                     patternAnalysisSize + commentsSize + metadataSize;
+    
+    return totalBytes / (1024 * 1024); // Return size in MB
   }
 
   // Query History
