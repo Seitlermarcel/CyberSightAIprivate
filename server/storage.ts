@@ -311,15 +311,25 @@ export class DatabaseStorage implements IStorage {
 
   // Usage Tracking
   async updateUsageTracking(userId: string, month: string, updates: Partial<UsageTracking>): Promise<UsageTracking> {
-    const [usage] = await db
-      .insert(usageTracking)
-      .values({ userId, month, ...updates })
-      .onConflictDoUpdate({
-        target: [usageTracking.userId, usageTracking.month],
-        set: { ...updates, updatedAt: new Date() },
-      })
-      .returning();
-    return usage;
+    // Try to find existing record first
+    const existing = await this.getUserUsage(userId, month);
+    
+    if (existing) {
+      // Update existing record
+      const [updated] = await db
+        .update(usageTracking)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(and(eq(usageTracking.userId, userId), eq(usageTracking.month, month)))
+        .returning();
+      return updated;
+    } else {
+      // Create new record
+      const [created] = await db
+        .insert(usageTracking)
+        .values({ userId, month, ...updates })
+        .returning();
+      return created;
+    }
   }
 
   async getUserUsage(userId: string, month: string): Promise<UsageTracking | undefined> {
