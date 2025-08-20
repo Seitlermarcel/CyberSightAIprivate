@@ -474,7 +474,6 @@ export class DatabaseStorage implements IStorage {
     if (!user) return 1; // 1GB for unknown users (starter default)
     
     const plan = (user as any).currentPackage || 'starter';
-    console.log("User package debug:", { currentPackage: plan, userId: userId });
     switch (plan) {
       case 'starter': return 1; // 1GB
       case 'professional': return 2.5; // 2.5GB
@@ -509,7 +508,7 @@ export class DatabaseStorage implements IStorage {
     
     const usedGB = storageUsage.usageGB;
     const limitGB = storageLimit;
-    const percentage = limitGB > 0 ? Math.round((usedGB / limitGB) * 10000) / 100 : 0; // Show up to 0.01% precision
+    const percentage = limitGB > 0 ? Math.round((usedGB / limitGB) * 1000000) / 10000 : 0; // Show up to 0.0001% precision
     const canCreateNew = percentage < 95; // Allow up to 95% usage
     
     return {
