@@ -133,42 +133,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Authentication required" });
       }
       
-      // Check if user has sufficient credits for incident analysis
+      // Check if user has sufficient incident analyses in their package
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Always deduct credits regardless of environment to ensure proper billing tracking
-      const isDevelopment = false; // Force credit deduction for proper billing
-      
-      // Get plan-based pricing
-      const getIncidentCost = (plan: string) => {
-        switch (plan) {
-          case 'starter': return 25; // €25 per incident
-          case 'professional': return 23.75; // 5% discount
-          case 'business': return 22.50; // 10% discount
-          case 'enterprise': return 20; // 20% discount
-          default: return 25; // Default to starter pricing
-        }
-      };
-      
-      const INCIDENT_ANALYSIS_COST = isDevelopment ? 0 : getIncidentCost(user.subscriptionPlan || 'starter');
+      const isDevelopment = process.env.NODE_ENV === 'development';
       
       if (!isDevelopment) {
-        // Production mode: Check if user has remaining incident analyses in their plan
-        const userCredits = parseFloat(user.credits || '0');
-        if (userCredits < 1) {
+        // Production mode: Check if user has remaining incident analyses in their package
+        const remainingIncidents = user.remainingIncidents || 0;
+        if (remainingIncidents < 1) {
           return res.status(402).json({ 
             error: "No incident analyses remaining", 
-            message: `Your ${user.subscriptionPlan || 'current'} plan has no remaining incident analyses. Please upgrade your plan.`,
-            requiredCredits: 1,
-            currentCredits: userCredits
+            message: `Your ${user.currentPackage || 'current'} package has no remaining incident analyses. Please purchase a new package.`,
+            currentPackage: user.currentPackage || 'free',
+            remainingIncidents: remainingIncidents
           });
         }
         
-        // Deduct one incident analysis from user's plan
-        const success = await storage.deductCredits(userId, 1);
+        // Deduct one incident analysis from user's package
+        const success = await storage.deductIncident(userId);
         if (!success) {
           return res.status(402).json({ 
             error: "Failed to deduct incident analysis", 
@@ -179,8 +165,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Log the transaction
         await storage.createBillingTransaction({
           type: 'incident-analysis',
-          amount: INCIDENT_ANALYSIS_COST.toString(),
-          credits: '1', // 1 incident analyzed
+          amount: '0', // No charge per incident, cost is in package
+          incidentsIncluded: 1,
+          packageName: user.currentPackage || 'free',
           description: `Incident analysis: ${validatedData.title}`,
           status: 'completed'
         }, userId);
@@ -393,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User with credits endpoint
+  // User with package information endpoint
   app.get("/api/user", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -514,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
-      const planStorageIncluded = getStorageIncluded(user?.subscriptionPlan || 'starter');
+      const planStorageIncluded = getStorageIncluded(user?.currentPackage || 'free');
       const storageOverage = Math.max(0, storageGB - planStorageIncluded);
       const storageOverageCost = storageOverage * 1; // €1 per GB over limit
       
@@ -624,21 +611,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
       
       if (isDevelopment || !process.env.STRIPE_SECRET_KEY) {
-        // Development mode: Add credits without payment
+        // Development mode: Set package without payment
         const user = await storage.getUser(userId);
         if (!user) {
           return res.status(404).json({ error: "User not found" });
         }
         
-        // Set credits to the number of incidents included in the plan
-        await storage.updateUserCredits(userId, selectedPackage.incidentsIncluded);
-        await storage.updateUser(userId, { subscriptionPlan: packageId });
+        // Set package with incidents included
+        await storage.updateUserPackage(userId, packageId, selectedPackage.incidentsIncluded);
         
         // Create transaction record
         const transaction = await storage.createBillingTransaction({
           type: "subscription-purchase",
           amount: selectedPackage.price.toString(),
-          credits: selectedPackage.incidentsIncluded.toString(),
+          incidentsIncluded: selectedPackage.incidentsIncluded,
+          packageName: selectedPackage.name,
           description: `${selectedPackage.name} (Dev Mode)`,
           status: "completed"
         }, userId);

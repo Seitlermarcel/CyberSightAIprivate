@@ -30,9 +30,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(userId: string, updates: Partial<User>): Promise<User | undefined>;
-  updateUserCredits(userId: string, credits: number): Promise<User | undefined>;
-  addCredits(userId: string, amount: number): Promise<User | undefined>;
-  deductCredits(userId: string, amount: number): Promise<boolean>;
+  updateUserPackage(userId: string, packageType: string, incidents: number, expiry?: Date): Promise<User | undefined>;
+  deductIncident(userId: string): Promise<boolean>;
+  getRemainingIncidents(userId: string): Promise<number>;
   
   // Incidents - now user-scoped
   getUserIncidents(userId: string): Promise<Incident[]>;
@@ -108,8 +108,8 @@ export class DatabaseStorage implements IStorage {
         .insert(users)
         .values({
           ...userData,
-          credits: "10", // Give new users 10 credits to start (4 incident analyses)
-          subscriptionPlan: 'free',
+          currentPackage: 'free',
+          remainingIncidents: 3, // Give new users 3 incident analyses on free plan
         })
         .returning();
       return user;
@@ -125,31 +125,39 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserCredits(userId: string, credits: number): Promise<User | undefined> {
+  async updateUserPackage(userId: string, packageType: string, incidents: number, expiry?: Date): Promise<User | undefined> {
     const [user] = await db
       .update(users)
-      .set({ credits: credits.toString(), updatedAt: new Date() })
+      .set({ 
+        currentPackage: packageType, 
+        remainingIncidents: incidents,
+        packageExpiry: expiry || null,
+        updatedAt: new Date() 
+      })
       .where(eq(users.id, userId))
       .returning();
     return user;
   }
 
-  async addCredits(userId: string, amount: number): Promise<User | undefined> {
+  async deductIncident(userId: string): Promise<boolean> {
     const user = await this.getUser(userId);
-    if (!user) return undefined;
+    if (!user || (user.remainingIncidents || 0) < 1) return false;
     
-    const currentCredits = parseFloat(user.credits);
-    const newCredits = currentCredits + amount;
-    return this.updateUserCredits(userId, newCredits);
+    const [updatedUser] = await db
+      .update(users)
+      .set({ 
+        remainingIncidents: (user.remainingIncidents || 0) - 1,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return !!updatedUser;
   }
 
-  async deductCredits(userId: string, amount: number): Promise<boolean> {
+  async getRemainingIncidents(userId: string): Promise<number> {
     const user = await this.getUser(userId);
-    if (!user || parseFloat(user.credits) < amount) return false;
-    
-    const newCredits = parseFloat(user.credits) - amount;
-    await this.updateUserCredits(userId, newCredits);
-    return true;
+    return user?.remainingIncidents || 0;
   }
 
   async getUserIncidents(userId: string): Promise<Incident[]> {

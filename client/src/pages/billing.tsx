@@ -85,7 +85,7 @@ function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
         } else {
           toast({
             title: "Payment Successful",
-            description: "Credits have been added to your account!",
+            description: "Package has been activated for your account!",
           });
           onSuccess();
         }
@@ -93,7 +93,7 @@ function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
         // Mock payment succeeded
         toast({
           title: "Purchase Successful",
-          description: "Credits have been added to your account!",
+          description: "Package has been activated for your account!",
         });
         onSuccess();
       }
@@ -180,48 +180,40 @@ export default function Billing() {
     { 
       id: "starter", 
       name: "Starter Package", 
-      incidentsIncluded: 10, 
+      incidentsIncluded: 25, 
       storageIncluded: 2,
-      price: 250, 
-      pricePerIncident: 25,
-      discount: 0,
-      features: ['Basic Analysis', '2GB storage included', '€25 per incident', '30-day data retention']
+      price: 49, 
+      features: ['25 incident analyses', '2GB storage included', 'Basic AI analysis', '30-day data retention']
     },
     { 
       id: "professional", 
       name: "Professional Package", 
-      incidentsIncluded: 25, 
+      incidentsIncluded: 100, 
       storageIncluded: 10,
-      price: 594, 
-      pricePerIncident: 23.75,
-      discount: 5,
-      features: ['Enhanced Analysis', '10GB storage included', '€23.75 per incident (5% discount)', '60-day data retention']
+      price: 149, 
+      features: ['100 incident analyses', '10GB storage included', 'Enhanced AI analysis', '60-day data retention', 'Priority support']
     },
     { 
       id: "business", 
       name: "Business Package", 
-      incidentsIncluded: 100, 
-      storageIncluded: 25,
-      price: 2250, 
-      pricePerIncident: 22.50,
-      discount: 10,
-      features: ['Advanced Analysis', '25GB storage included', '€22.50 per incident (10% discount)', '90-day data retention', 'Priority support']
+      incidentsIncluded: 500, 
+      storageIncluded: 50,
+      price: 499, 
+      features: ['500 incident analyses', '50GB storage included', 'Advanced AI analysis', '90-day data retention', 'API access']
     },
     { 
       id: "enterprise", 
       name: "Enterprise Package", 
-      incidentsIncluded: 250, 
-      storageIncluded: 100,
-      price: 5000, 
-      pricePerIncident: 20,
-      discount: 20,
-      features: ['Full Analysis Suite', '100GB storage included', '€20 per incident (20% discount)', '365-day data retention', 'Dedicated support']
+      incidentsIncluded: 2000, 
+      storageIncluded: 200,
+      price: 1499, 
+      features: ['2000 incident analyses', '200GB storage included', 'Full AI analysis suite', '365-day data retention', 'Dedicated support', 'Custom integrations']
     },
   ];
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case "credit-purchase": return <CreditCard className="text-green-500" />;
+      case "package-purchase": return <CreditCard className="text-green-500" />;
       case "incident-analysis": return <Activity className="text-blue-500" />;
       case "storage-fee": return <Database className="text-orange-500" />;
       case "refund": return <DollarSign className="text-purple-500" />;
@@ -231,7 +223,7 @@ export default function Billing() {
 
   const getTransactionColor = (type: string) => {
     switch (type) {
-      case "credit-purchase": return "text-green-500";
+      case "package-purchase": return "text-green-500";
       case "incident-analysis": return "text-blue-500";
       case "storage-fee": return "text-orange-500";
       case "refund": return "text-purple-500";
@@ -258,10 +250,10 @@ export default function Billing() {
           <CardContent>
             <div className="space-y-2">
               <div className="text-3xl font-bold">
-                {Math.floor(parseFloat((user as any)?.credits || "0"))}
+                {(user as any)?.remainingIncidents || 0}
               </div>
               <p className="text-sm text-gray-400">
-                Remaining analyses • {(user as any)?.subscriptionPlan || 'Free'} plan
+                Remaining incident analyses • {(user as any)?.currentPackage || 'free'} package
               </p>
               <div className="text-xs text-gray-500 mt-1">
                 {(usage as any)?.incidentsAnalyzed || 0} incidents analyzed this month
@@ -292,7 +284,7 @@ export default function Billing() {
                   <span className="font-medium">{(usage as any)?.incidentsAnalyzed || 0}</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  €{((usage as any)?.incidentsCost || 0).toFixed(2)} spent
+                  From {(user as any)?.currentPackage || 'free'} package
                 </div>
               </div>
               <div>
@@ -320,24 +312,10 @@ export default function Billing() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="font-semibold">Total Cost</span>
-                  <span className="font-bold">€{(() => {
-                    const plan = (user as any)?.subscriptionPlan || 'free';
-                    const incidentsAnalyzed = parseFloat((usage as any)?.incidentsAnalyzed || "0");
-                    let costPerIncident = 25.00;
-                    
-                    switch(plan) {
-                      case 'starter': costPerIncident = 25.00; break;
-                      case 'professional': costPerIncident = 23.75; break;
-                      case 'business': costPerIncident = 22.50; break;
-                      case 'enterprise': costPerIncident = 20.00; break;
-                      default: costPerIncident = 25.00;
-                    }
-                    
-                    return (incidentsAnalyzed * costPerIncident).toFixed(2);
-                  })()}</span>
+                  <span className="font-bold">€0.00</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  This month's charges • Dynamic pricing
+                  No additional charges • Package-based billing
                 </div>
               </div>
             </div>
@@ -355,56 +333,38 @@ export default function Billing() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Badge className="capitalize text-sm px-3 py-1">
-                  {(user as any)?.subscriptionPlan || "Free"}
+                  {(user as any)?.currentPackage || "free"}
                 </Badge>
                 <div className="text-right">
                   <div className="text-lg font-bold text-cyber-blue">
-                    {((storageData as any)?.limit || 0)} GB
+                    {(user as any)?.currentPackage || 'free'}
                   </div>
-                  <div className="text-xs text-gray-400">Storage Limit</div>
+                  <div className="text-xs text-gray-400">Current Package</div>
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-2 cyber-dark rounded">
                   <div className="text-cyan-400 font-medium">
-                    €{(() => {
-                      const plan = (user as any)?.subscriptionPlan || 'free';
-                      switch(plan) {
-                        case 'starter': return '25.00';
-                        case 'professional': return '23.75';
-                        case 'business': return '22.50';
-                        case 'enterprise': return '20.00';
-                        default: return '25.00';
-                      }
-                    })()}
+                    {(user as any)?.remainingIncidents || 0}
                   </div>
-                  <div className="text-gray-400">Per Analysis</div>
+                  <div className="text-gray-400">Remaining</div>
                 </div>
                 <div className="p-2 cyber-dark rounded">
                   <div className="text-green-400 font-medium">
-                    {(() => {
-                      const plan = (user as any)?.subscriptionPlan || 'free';
-                      switch(plan) {
-                        case 'starter': return '0%';
-                        case 'professional': return '5%';
-                        case 'business': return '10%';
-                        case 'enterprise': return '20%';
-                        default: return '0%';
-                      }
-                    })()} 
+                    {((storageData as any)?.limit || 0)} GB
                   </div>
-                  <div className="text-gray-400">Discount</div>
+                  <div className="text-gray-400">Storage</div>
                 </div>
               </div>
               
               <p className="text-xs text-gray-400">
-                {(user as any)?.subscriptionPlan === "free" 
+                {(user as any)?.currentPackage === "free" 
                   ? "Limited features • Upgrade for full access" 
                   : "Full access to all features"}
               </p>
               
-              {(user as any)?.subscriptionPlan === "free" && (
+              {(user as any)?.currentPackage === "free" && (
                 <Button variant="outline" className="w-full text-xs">
                   Upgrade Plan
                 </Button>
