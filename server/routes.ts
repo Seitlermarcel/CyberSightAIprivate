@@ -141,6 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         userId: userId, // Associate incident with user
         ...aiAnalysis,
+        title: validatedData.title, // Preserve original title (don't let AI overwrite it)
         threatIntelligence: JSON.stringify(threatReport)
       };
       
@@ -1661,7 +1662,7 @@ function extractStructuredEntities(analysis: string): Array<any> {
           value: value,
           description: `File path identified in security analysis`,
           riskLevel: value.toLowerCase().includes('temp') || value.toLowerCase().includes('downloads') ? "Medium" : "Low",
-          fileType: value.includes('.') ? value.split('.').pop().toUpperCase() : "Unknown"
+          fileType: value.includes('.') ? value.split('.').pop()?.toUpperCase() || "Unknown" : "Unknown"
         });
       }
     });
@@ -3748,8 +3749,8 @@ function calculateContentSimilarity(content1: string, content2: string): number 
   if (terms1.size === 0 || terms2.size === 0) return 0;
   
   // Calculate Jaccard similarity
-  const intersection = new Set([...terms1].filter(term => terms2.has(term)));
-  const union = new Set([...terms1, ...terms2]);
+  const intersection = new Set(Array.from(terms1).filter(term => terms2.has(term)));
+  const union = new Set([...Array.from(terms1), ...Array.from(terms2)]);
   
   return intersection.size / union.size;
 }
@@ -3758,7 +3759,7 @@ function calculateContentSimilarity(content1: string, content2: string): number 
 function generateDetailedExplanation(classification: any, threatAnalysis: any, patterns: any, config: any = {}) {
   let explanation = `Multiple AI security agents have analyzed this incident with the following findings:\n\n`;
   
-  explanation += `🔍 Pattern Recognition: Identified ${patterns.length} significant patterns including ${patterns.map(p => p.pattern).join(', ')}.\n\n`;
+  explanation += `🔍 Pattern Recognition: Identified ${patterns.length} significant patterns including ${patterns.map((p: any) => p.pattern).join(', ')}.\n\n`;
   
   explanation += `🛡️ Threat Intelligence: Detected ${threatAnalysis.behavioralIndicators.length} behavioral indicators`;
   if (threatAnalysis.networkIndicators.length > 0) {
