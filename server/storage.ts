@@ -458,7 +458,7 @@ export class DatabaseStorage implements IStorage {
     );
     
     return {
-      usageGB: Math.round(usageGB * 1000) / 1000, // Round to 3 decimal places
+      usageGB: Math.round(usageGB * 100000) / 100000, // Round to 5 decimal places for better precision
       incidentCount: userIncidents.length,
       details: {
         breakdownMB,
