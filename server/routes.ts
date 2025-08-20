@@ -1799,23 +1799,10 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   
   // Transform entity mapping into structured format with real names and geo-location
   const entityAnalysis = aiResult?.entityMapping?.analysis || '';
-  const extractedEntities = extractStructuredEntities(entityAnalysis);
+  const extractedEntities = extractStructuredEntities(entityAnalysis, threatReport);
   
-  // Enhance entities with threat intelligence geo-location for IPs
-  const enhancedEntities = await Promise.all(extractedEntities.map(async (entity: any) => {
-    if (entity.type === 'IP Address' && threatReport?.indicators) {
-      const ipIndicator = threatReport.indicators.find((ind: any) => ind.value === entity.value);
-      if (ipIndicator) {
-        return {
-          ...entity,
-          geoLocation: ipIndicator.geo_location || 'Location unknown',
-          threatScore: ipIndicator.threat_score || 0,
-          reputation: ipIndicator.malicious ? 'Malicious' : 'Clean'
-        };
-      }
-    }
-    return entity;
-  }));
+  // Entities are already enhanced with threat intelligence data during extraction
+  const enhancedEntities = extractedEntities;
   
   const entityMapping = {
     entities: enhancedEntities,
@@ -2515,7 +2502,7 @@ function extractBlueTeamDefenses(analysis: string): Array<any> {
   return defenses;
 }
 
-function extractStructuredEntities(analysis: string): Array<any> {
+function extractStructuredEntities(analysis: string, threatReport?: any): Array<any> {
   const entities: any[] = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
@@ -2581,14 +2568,35 @@ function extractStructuredEntities(analysis: string): Array<any> {
       const [a, b] = parts;
       let networkType = "External";
       let riskLevel = "High";
+      let geoLocation = "Location unknown";
+      let reputation = "Unknown";
+      let threatScore = 0;
       
       // Identify network type
       if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
         networkType = "Internal";
         riskLevel = "Low";
+        geoLocation = "Private Network - Internal";
       } else if (a === 127) {
         networkType = "Localhost";
         riskLevel = "Low";
+        geoLocation = "Localhost - 127.0.0.1";
+      } else {
+        // Check threat intelligence for external IPs
+        if (threatReport?.indicators) {
+          const threatIndicator = threatReport.indicators.find((ind: any) => ind.value === ip);
+          if (threatIndicator) {
+            geoLocation = threatIndicator.geo_location || threatIndicator.country || geoLocation;
+            reputation = threatIndicator.malicious ? 'Malicious' : 'Clean';
+            threatScore = threatIndicator.threat_score || 0;
+            riskLevel = threatIndicator.malicious ? 'Critical' : 'Medium';
+          } else {
+            // Use geo-location estimation if no threat intelligence
+            geoLocation = estimateGeoLocation(ip);
+          }
+        } else {
+          geoLocation = estimateGeoLocation(ip);
+        }
       }
       
       entities.push({
@@ -2597,7 +2605,10 @@ function extractStructuredEntities(analysis: string): Array<any> {
         value: ip,
         description: `${networkType} IP address from security logs`,
         riskLevel,
-        networkType
+        networkType,
+        geoLocation,
+        reputation,
+        threatScore
       });
     });
   }
