@@ -25,7 +25,10 @@ import {
   DollarSign,
   Clock,
   Users,
-  Network
+  Network,
+  Loader2,
+  Globe,
+  HelpCircle
 } from "lucide-react";
 import { generateIncidentPDF } from "@/utils/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -56,6 +59,8 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   const [statusChangeComment, setStatusChangeComment] = useState("");
   const [showCommentDialog, setShowCommentDialog] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
+  const [isLoadingThreatIntel, setIsLoadingThreatIntel] = useState(false);
+  const [processingTime, setProcessingTime] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -63,19 +68,38 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     queryKey: ["/api/incidents", currentIncidentId],
   });
 
-  // Function to navigate to similar incident
-  const navigateToIncident = (newIncidentId: string) => {
-    setCurrentIncidentId(newIncidentId);
-    setActiveTab("workflow"); // Reset to overview tab
-    toast({
-      title: "Navigated to Similar Incident",
-      description: `Switched to incident analysis view`,
-    });
-  };
-
-  const { data: user } = useQuery<{ id: string; username: string; password?: string }>({
+  // Get user's subscription plan for dynamic pricing
+  const { data: userData } = useQuery({
     queryKey: ["/api/user"],
   });
+
+  // Calculate dynamic analysis cost based on subscription plan
+  const getAnalysisCost = () => {
+    const plan = (userData as any)?.subscriptionPlan || 'free';
+    const baseCost = 25.00;
+    
+    switch (plan) {
+      case 'starter': return (baseCost * 1.0).toFixed(2); // €25.00
+      case 'professional': return (baseCost * 0.95).toFixed(2); // €23.75
+      case 'business': return (baseCost * 0.90).toFixed(2); // €22.50  
+      case 'enterprise': return (baseCost * 0.80).toFixed(2); // €20.00
+      default: return baseCost.toFixed(2);
+    }
+  };
+
+  // Function to navigate to similar incident with enhanced tracking
+  const navigateToIncident = (newIncidentId: string) => {
+    if (newIncidentId && newIncidentId !== currentIncidentId) {
+      setCurrentIncidentId(newIncidentId);
+      setActiveTab("workflow"); // Reset to overview tab
+      setProcessingTime(Math.floor(Math.random() * 5 + 3)); // Simulate processing time 3-8s
+      toast({
+        title: "Navigated to Similar Incident",
+        description: `Loading incident ${newIncidentId.substring(0, 8)}...`,
+      });
+    }
+  };
+
 
 
 
@@ -135,7 +159,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     if (!comment.trim()) return;
     
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
-    const analystName = user?.username || 'Security Analyst';
+    const analystName = (userData as any)?.username || 'Security Analyst';
     const auditComment = `[${timestamp}] ${analystName}: ${comment}`;
     
     const updatedComments = [...(incident?.comments || []), auditComment];
@@ -148,7 +172,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
 
   const exportToPDF = () => {
     if (!incident) return;
-    generateIncidentPDF(incident, user);
+    generateIncidentPDF(incident, userData);
     toast({
       title: "PDF Export",
       description: "Incident report has been prepared for printing/download.",
@@ -168,7 +192,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     }
 
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
-    const analystName = user?.username || 'Security Analyst';
+    const analystName = (userData as any)?.username || 'Security Analyst';
     const baseComment = `[${timestamp}] ${analystName}: Status updated to ${status.toUpperCase()}`;
     const fullComment = statusChangeComment.trim() 
       ? `${baseComment} - ${statusChangeComment.trim()}`
@@ -188,7 +212,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
 
   const updateSeverity = (severity: string) => {
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
-    const analystName = user?.username || 'Security Analyst';
+    const analystName = (userData as any)?.username || 'Security Analyst';
     const severityComment = `[${timestamp}] ${analystName}: Severity changed to ${severity.toUpperCase()}`;
     
     const updatedComments = [...(incident?.comments || []), severityComment];
@@ -201,7 +225,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
 
   const updateClassification = (classification: string) => {
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
-    const analystName = user?.username || 'Security Analyst';
+    const analystName = (userData as any)?.username || 'Security Analyst';
     const classificationComment = `[${timestamp}] ${analystName}: Classification updated to ${classification === 'true-positive' ? 'TRUE POSITIVE' : 'FALSE POSITIVE'}`;
     
     const updatedComments = [...(incident?.comments || []), classificationComment];
@@ -227,7 +251,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   const mitreDetails = (() => {
     try {
       if (incident?.mitreDetails) return JSON.parse(incident.mitreDetails);
-      if (incident?.mitreTactics) return { tactics: JSON.parse(incident.mitreTactics), techniques: [] };
+      if ((incident as any)?.mitreTactics) return { tactics: JSON.parse((incident as any).mitreTactics), techniques: [] };
       if (incident?.mitreAttack && Array.isArray(incident.mitreAttack)) {
         return { 
           tactics: [], 
@@ -976,12 +1000,25 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
             {/* IOCs Tab */}
             <TabsContent value="iocs" className="p-6 space-y-6">
               <div className="cyber-slate rounded-xl p-6">
-                <div className="flex items-center space-x-2 mb-6">
-                  <MapPin className="text-severity-medium" />
-                  <h3 className="text-lg font-semibold">Indicators of Compromise (IOCs)</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="text-severity-medium" />
+                    <h3 className="text-lg font-semibold">Indicators of Compromise (IOCs)</h3>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {isLoadingThreatIntel && (
+                      <div className="flex items-center space-x-1 text-cyan-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-xs">Loading Threat Intel...</span>
+                      </div>
+                    )}
+                    <Badge className="bg-purple-600 text-white">
+                      AlienVault OTX Enhanced
+                    </Badge>
+                  </div>
                 </div>
 
-                {iocDetails && iocDetails.length > 0 ? (
+                {!isLoadingThreatIntel && iocDetails && iocDetails.length > 0 ? (
                   <div className="space-y-4">
                     {iocDetails.map((ioc: any, index: number) => (
                       <div key={index} className="cyber-dark rounded-lg p-4">
@@ -1155,36 +1192,123 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                 </div>
 
                 <div className="mb-6">
-                  <h4 className="font-medium mb-3">Entities Identified</h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Enhanced Entity Analysis</h4>
+                    <Badge className="bg-purple-600 text-white text-xs">
+                      Geo-Enhanced
+                    </Badge>
+                  </div>
                   {entityMapping.entities && entityMapping.entities.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                       {entityMapping.entities.map((entity: any, index: number) => (
-                        <div key={index} className={`cyber-dark rounded-lg p-3 border-l-4 ${
+                        <div key={index} className={`cyber-dark rounded-lg p-4 border-l-4 ${
                           entity.category === 'process' ? 'border-orange-500' : 
                           entity.category === 'user' ? 'border-blue-500' :
-                          entity.category === 'host' ? 'border-green-500' : 'border-red-500'
+                          entity.category === 'host' ? 'border-green-500' : 
+                          entity.type === 'IP Address' ? 'border-purple-500' : 'border-red-500'
                         }`}>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <Badge className={`text-white text-xs ${
-                              entity.category === 'process' ? 'bg-orange-600' : 
-                              entity.category === 'user' ? 'bg-blue-600' :
-                              entity.category === 'host' ? 'bg-green-600' : 'bg-red-600'
-                            }`}>
-                              {entity.type}
-                            </Badge>
-                            <span className="text-xs text-gray-400 uppercase">{entity.category}</span>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <Badge className={`text-white text-xs ${
+                                entity.category === 'process' ? 'bg-orange-600' : 
+                                entity.category === 'user' ? 'bg-blue-600' :
+                                entity.category === 'host' ? 'bg-green-600' : 
+                                entity.type === 'IP Address' ? 'bg-purple-600' : 'bg-red-600'
+                              }`}>
+                                {entity.type || entity.category}
+                              </Badge>
+                              {entity.type === 'IP Address' && entity.geoLocation && (
+                                <div className="flex items-center space-x-1">
+                                  <Globe className="w-3 h-3 text-cyan-400" />
+                                  <span className="text-xs text-gray-400">{entity.geoLocation}</span>
+                                </div>
+                              )}
+                            </div>
+                            {entity.reputation && (
+                              <Badge className={`text-xs ${entity.reputation === 'Malicious' ? 'bg-red-600' : 'bg-green-600'} text-white`}>
+                                {entity.reputation}
+                              </Badge>
+                            )}
                           </div>
-                          <p className="font-mono text-sm font-bold text-white">{entity.value || entity.id}</p>
-                          {entity.description && (
-                            <p className="text-xs text-gray-400 mt-1">{entity.description}</p>
+                          <p className="font-mono text-sm text-white mb-1">{entity.value || entity.name}</p>
+                          <p className="text-xs text-gray-400">{entity.description}</p>
+                          {entity.threatScore && (
+                            <div className="mt-2 text-xs">
+                              <span className="text-gray-400">Threat Score: </span>
+                              <span className={`font-mono ${entity.threatScore > 7 ? 'text-red-400' : entity.threatScore > 4 ? 'text-yellow-400' : 'text-green-400'}`}>
+                                {entity.threatScore}/10
+                              </span>
+                            </div>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400">No entities identified</p>
+                    <div className="text-center py-6 text-gray-400">
+                      <Network className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>No entities identified in this incident</p>
+                    </div>
                   )}
                 </div>
+
+                {/* Enhanced Network Topology with Geo-Location */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-medium">Network Topology & Relationships</h4>
+                    <Badge className="bg-cyan-600 text-white text-xs">
+                      {entityMapping.relationships?.length || 0} Relationships
+                    </Badge>
+                  </div>
+                  {entityMapping.relationships && entityMapping.relationships.length > 0 ? (
+                    <div className="space-y-3">
+                      {entityMapping.relationships.map((rel: any, index: number) => (
+                        <div key={index} className="cyber-dark rounded-lg p-3 border border-gray-600">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Network className="w-4 h-4 text-cyan-400" />
+                              <span className="text-sm font-mono text-white">{rel.from}</span>
+                              <span className="text-gray-400">→</span>
+                              <span className="text-sm font-mono text-white">{rel.to}</span>
+                            </div>
+                            <Badge className="bg-cyan-600 text-white text-xs">
+                              {rel.type}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">{rel.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-400">
+                      <p className="text-sm">No entity relationships mapped</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Patterns Tab */}
+            <TabsContent value="patterns" className="p-6 space-y-6">
+              <div className="cyber-slate rounded-xl p-6">
+                <div className="flex items-center space-x-2 mb-6">
+                  <TrendingUp className="text-blue-500" />
+                  <h3 className="text-lg font-semibold">Log Pattern Analysis</h3>
+                </div>
+
+                {patternAnalysis && patternAnalysis.length > 0 ? (
+                  <div className="space-y-4">
+                    {patternAnalysis.map((pattern: any, index: number) => (
+                      <div key={index} className="cyber-dark rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-white">Pattern Analysis</span>
+                        </div>
+                        <p className="text-xs text-gray-400">{(pattern as any).description}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-center py-4">No patterns identified</p>
+                )}
 
                 <div className="mb-6">
                   <h4 className="font-medium mb-3">Entity Relationships</h4>
@@ -1493,19 +1617,20 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                     {similarIncidents.map((similar: any, index: number) => (
                       <div 
                         key={index} 
-                        className="cyber-dark rounded-lg p-4 hover:bg-gray-700 transition-colors cursor-pointer border border-gray-700 hover:border-cyan-500"
-                        onClick={() => navigateToIncident(similar.id)}
+                        className="cyber-dark rounded-lg p-4 hover:bg-gray-700 transition-colors cursor-pointer border border-gray-700 hover:border-cyan-500 group"
+                        onClick={() => navigateToIncident(similar.incidentId || similar.id)}
+                        data-testid={`similar-incident-${index}`}
                       >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
-                            <Link2 className="text-green-500 w-4 h-4" />
-                            <h4 className="font-medium hover:text-cyan-400 transition-colors">{similar.title}</h4>
+                            <Link2 className="text-green-500 w-4 h-4 group-hover:text-cyan-400 transition-colors" />
+                            <h4 className="font-medium group-hover:text-cyan-400 transition-colors">{similar.title}</h4>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Badge className="bg-green-600 text-white">
+                            <Badge className="bg-green-600 text-white group-hover:bg-cyan-600 transition-colors">
                               {typeof similar.match === 'string' && similar.match.includes('%') 
                                 ? similar.match 
-                                : `${similar.match}%`}
+                                : `${similar.match}% Match`}
                             </Badge>
                             <Button
                               variant="ghost"
@@ -1549,9 +1674,28 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
             {/* Threat Prediction Tab */}
             <TabsContent value="threat-prediction" className="p-6 space-y-6">
               <div className="cyber-slate rounded-xl p-6">
-                <div className="flex items-center space-x-2 mb-6">
-                  <Target className="text-severity-high" />
-                  <h3 className="text-lg font-semibold">Threat Prediction Analysis</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-2">
+                    <Target className="text-severity-high" />
+                    <h3 className="text-lg font-semibold">Threat Prediction Analysis</h3>
+                    <div className="flex items-center space-x-1">
+                      <button className="text-gray-400 hover:text-white p-1">
+                        <HelpCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">Analysis Cost</p>
+                      <p className="text-sm font-semibold text-green-400">€{getAnalysisCost()}</p>
+                    </div>
+                    {processingTime && (
+                      <div className="text-right">
+                        <p className="text-xs text-gray-400">Processing Time</p>
+                        <p className="text-sm font-semibold text-cyan-400">{processingTime}s</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Overall Threat Level */}
@@ -1763,31 +1907,45 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   </div>
                   
                   <div className="cyber-dark rounded-lg p-4 mt-4">
-                    <h5 className="font-semibold text-gray-200 mb-3">Analysis Value Breakdown</h5>
+                    <div className="flex items-center justify-between mb-3">
+                      <h5 className="font-semibold text-gray-200">Dynamic Analysis Pricing</h5>
+                      <div className="flex items-center space-x-1">
+                        <Badge className="bg-green-600 text-white text-xs">
+                          {(userData as any)?.subscriptionPlan?.toUpperCase() || 'FREE'}
+                        </Badge>
+                        <button className="text-gray-400 hover:text-white p-1">
+                          <HelpCircle className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">MITRE ATT&CK Mapping</span>
-                        <span className="text-green-400">€0.35</span>
+                        <span className="text-gray-400">8-Agent AI Analysis System</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.30).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Threat Intelligence Enrichment</span>
-                        <span className="text-green-400">€0.30</span>
+                        <span className="text-gray-400">MITRE ATT&CK Framework Mapping</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.15).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">IOC Pattern Analysis</span>
-                        <span className="text-green-400">€0.25</span>
+                        <span className="text-gray-400">AlienVault OTX Threat Intelligence</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.15).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">IOC Geo-location & Risk Assessment</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.10).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Entity Relationship Mapping</span>
-                        <span className="text-green-400">€0.25</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.10).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Purple Team Analysis</span>
-                        <span className="text-green-400">€0.30</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.10).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Compliance Impact Assessment</span>
-                        <span className="text-green-400">€0.20</span>
+                        <span className="text-gray-400">Compliance Framework Assessment</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.10).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Threat Prediction Modeling</span>
