@@ -56,10 +56,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-cyber-dark text-white">
-      <Sidebar 
-        currentView={currentView} 
-        onViewChange={(view: string) => setCurrentView(view as View)} 
-      />
+      <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       <div className="flex-1 overflow-hidden">
         {renderView()}
       </div>
