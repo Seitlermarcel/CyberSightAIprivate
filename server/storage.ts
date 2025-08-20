@@ -474,6 +474,7 @@ export class DatabaseStorage implements IStorage {
     if (!user) return 1; // 1GB for unknown users (starter default)
     
     const plan = (user as any).currentPackage || 'starter';
+    console.log("User package debug:", { currentPackage: plan, userId: userId });
     switch (plan) {
       case 'starter': return 1; // 1GB
       case 'professional': return 2.5; // 2.5GB

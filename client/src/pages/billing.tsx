@@ -315,7 +315,6 @@ export default function Billing() {
                 <div className="text-xs text-gray-400 mt-1">
                   {(((storageData as any)?.quota?.percentage || 0)).toFixed(2)}% used • 
                   {((storageData as any)?.quota?.canCreateNew ? ' Space available' : ' Near limit')}
-                  <div className="text-xs text-blue-400 mt-1">DEBUG: {JSON.stringify((storageData as any)?.quota)}</div>
                 </div>
               </div>
               <div>
