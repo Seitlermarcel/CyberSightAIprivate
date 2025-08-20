@@ -129,9 +129,6 @@ function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
         />
       </div>
       <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
         <Button 
           type="submit" 
           className="cyber-blue hover:bg-blue-600"

@@ -1719,7 +1719,18 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   <div className="cyber-dark rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-400">Overall Threat Level</span>
-                      <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                      <div className="flex items-center space-x-1">
+                        <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                        <button
+                          className="text-gray-400 hover:text-white p-1"
+                          onClick={() => {
+                            const message = "Overall Threat Level: This metric represents the combined security risk assessment based on AI analysis of the incident. It considers MITRE ATT&CK techniques, IOC severity, and behavioral patterns to provide an overall percentage indicating how dangerous this threat is to your organization.";
+                            window.alert(message);
+                          }}
+                        >
+                          <HelpCircle className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                     <div className="text-2xl font-bold mb-2">{incident.predictionConfidence || 75}%</div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
@@ -1733,7 +1744,18 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   <div className="cyber-dark rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-400">Risk Trend</span>
-                      <Activity className="h-4 w-4 text-blue-400" />
+                      <div className="flex items-center space-x-1">
+                        <Activity className="h-4 w-4 text-blue-400" />
+                        <button
+                          className="text-gray-400 hover:text-white p-1"
+                          onClick={() => {
+                            const message = "Risk Trend: This shows whether the threat is escalating, stable, or decreasing over time. Our AI analyzes historical patterns, attack progression, and threat intelligence to predict if this incident represents an increasing, stable, or decreasing security risk to your environment.";
+                            window.alert(message);
+                          }}
+                        >
+                          <HelpCircle className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                     <div className={`text-lg font-semibold capitalize mb-2 ${
                       incident.riskTrend === 'increasing' ? 'text-red-400' :
@@ -1767,7 +1789,18 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                   <div className="cyber-dark rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-400">Confidence</span>
-                      <Brain className="h-4 w-4 text-purple-400" />
+                      <div className="flex items-center space-x-1">
+                        <Brain className="h-4 w-4 text-purple-400" />
+                        <button
+                          className="text-gray-400 hover:text-white p-1"
+                          onClick={() => {
+                            const message = "Confidence: This represents how certain our AI is about its analysis of this incident. Higher confidence indicates more reliable threat assessment based on clear patterns, strong indicators, and comprehensive data analysis. Lower confidence suggests ambiguous or incomplete information requiring manual review.";
+                            window.alert(message);
+                          }}
+                        >
+                          <HelpCircle className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                     <div className="text-2xl font-bold mb-2">{incident.confidence || 82}%</div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
