@@ -68,7 +68,11 @@ export class GeminiCyberAnalyst {
           chiefAnalyst: "Chief analyst synthesis failed"
         })),
         this.runPurpleTeamAgent(fullContent).catch(e => this.getFailsafeResponse("Purple Team", fullContent)),
-        this.runEntityMappingAgent(fullContent).catch(e => this.getFailsafeResponse("Entity Mapping", fullContent))
+        this.runEntityMappingAgent(fullContent).catch(e => this.getFailsafeResponse("Entity Mapping", fullContent)),
+        this.runCodeAnalysisAgent(fullContent).catch(e => this.getFailsafeResponse("Code Analysis", fullContent)),
+        this.runAttackVectorsAgent(fullContent).catch(e => this.getFailsafeResponse("Attack Vectors", fullContent)),
+        this.runComplianceAgent(fullContent).catch(e => this.getFailsafeResponse("Compliance Impact", fullContent)),
+        this.runSimilarIncidentsAgent(fullContent).catch(e => this.getFailsafeResponse("Similar Incidents", fullContent))
       ];
       
       // Add overall timeout for all agents
@@ -89,7 +93,11 @@ export class GeminiCyberAnalyst {
           this.getFailsafeResponse("Classification", fullContent),
           { tacticalAnalyst: "Analysis timeout", strategicAnalyst: "Analysis timeout", chiefAnalyst: "Analysis timeout" },
           this.getFailsafeResponse("Purple Team", fullContent),
-          this.getFailsafeResponse("Entity Mapping", fullContent)
+          this.getFailsafeResponse("Entity Mapping", fullContent),
+          this.getFailsafeResponse("Code Analysis", fullContent),
+          this.getFailsafeResponse("Attack Vectors", fullContent),
+          this.getFailsafeResponse("Compliance Impact", fullContent),
+          this.getFailsafeResponse("Similar Incidents", fullContent)
         ];
       });
 
@@ -101,12 +109,17 @@ export class GeminiCyberAnalyst {
         classification,
         dualAI,
         purpleTeam,
-        entityMapping
-      ] = results;
+        entityMapping,
+        codeAnalysis,
+        attackVectors,
+        complianceAnalysis,
+        similarIncidents
+      ] = results as any[];
       
-      console.log('✅ All AI agents completed successfully');
-      console.log('💰 🎉 TOTAL GEMINI API CALLS MADE: 8+ real API calls to Gemini 2.5 Flash');
+      console.log('✅ All 12 AI agents completed successfully');
+      console.log('💰 🎉 TOTAL GEMINI API CALLS MADE: 12 real API calls to Gemini 2.5 Flash');
       console.log('💸 💰 You should see these costs in your Google Cloud Console billing');
+      console.log('🔥 New agents: Code Analysis, Attack Vectors, Compliance Impact, Similar Incidents');
       console.log('📊 Agent results summary:', {
         patternRecognition: patternRecognition?.confidence || 0,
         threatIntelligence: threatIntelligence?.confidence || 0,
@@ -136,11 +149,16 @@ export class GeminiCyberAnalyst {
         dualAI,
         purpleTeam,
         entityMapping,
+        codeAnalysis,
+        attackVectors,
+        complianceAnalysis,
+        similarIncidents,
         overallConfidence,
         finalClassification,
         reasoning: this.synthesizeReasoning([
           patternRecognition, threatIntelligence, mitreMapping,
-          iocEnrichment, classification, purpleTeam, entityMapping
+          iocEnrichment, classification, purpleTeam, entityMapping,
+          codeAnalysis, attackVectors, complianceAnalysis
         ])
       };
       
@@ -799,5 +817,212 @@ RECOMMENDATIONS: [3-4 actionable items]`;
     }
 
     return `Convergent AI analysis from ${responses.length} specialized agents: ${highConfidenceFindings.join('; ')}`;
+  }
+
+  /**
+   * AI Agent 9: Code Analysis - Analyzes malicious code and scripts
+   */
+  private static async runCodeAnalysisAgent(content: string): Promise<AIAgentResponse> {
+    const prompt = `You are a malware and code analysis specialist. Analyze the following incident data for malicious code, scripts, and suspicious executions.
+
+CONTENT TO ANALYZE:
+${content}
+
+FORMATTING REQUIREMENTS:
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Provide executable analysis scripts
+- Generate sandbox outputs
+
+Analyze for:
+- PowerShell scripts (obfuscated, encoded, suspicious commands)
+- Batch files and command sequences
+- JavaScript/VBScript execution
+- Binary execution patterns
+- File manipulation commands
+- Registry modifications
+- Scheduled task creation
+- Service installations
+
+Provide executable analysis scripts:
+- PowerShell deobfuscation
+- Registry query commands
+- Process analysis scripts
+- File hash extraction
+
+Format your response as:
+CODE ANALYSIS: [detailed findings with executable scripts]
+SANDBOX OUTPUT: [realistic command execution results]
+CONFIDENCE: [1-100]
+KEY FINDINGS: [3-5 bullet points]
+RECOMMENDATIONS: [3-4 actionable items]`;
+
+    try {
+      console.log('💰 GEMINI API CALL - Code Analysis Agent');
+      const response = await ai.models.generateContent({
+        model: this.MODEL,
+        contents: prompt,
+      });
+
+      const analysis = response.text || "Code analysis failed";
+      console.log('✅ Code Analysis Agent completed');
+      return this.parseAgentResponse("Code Analysis", analysis);
+    } catch (error) {
+      console.error('Code Analysis Agent error:', error);
+      return this.getFailsafeResponse("Code Analysis", content);
+    }
+  }
+
+  /**
+   * AI Agent 10: Attack Vectors - Identifies attack vectors and entry points
+   */
+  private static async runAttackVectorsAgent(content: string): Promise<AIAgentResponse> {
+    const prompt = `You are an attack vector analysis specialist. Identify potential attack vectors and entry points from the incident data.
+
+CONTENT TO ANALYZE:
+${content}
+
+FORMATTING REQUIREMENTS:
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Provide concise attack vector analysis
+
+Identify attack vectors:
+- Initial access methods (phishing, exploit, credential theft)
+- Lateral movement techniques
+- Privilege escalation paths
+- Persistence mechanisms
+- Data exfiltration routes
+- Command and control channels
+- Evasion techniques
+
+For each vector assess:
+- Likelihood of success
+- Impact potential
+- Detection difficulty
+- Mitigation strategies
+
+Format your response as:
+ATTACK VECTORS: [list identified vectors with assessments]
+CONFIDENCE: [1-100]
+KEY FINDINGS: [3-5 bullet points]
+RECOMMENDATIONS: [3-4 actionable items]`;
+
+    try {
+      console.log('💰 GEMINI API CALL - Attack Vectors Agent');
+      const response = await ai.models.generateContent({
+        model: this.MODEL,
+        contents: prompt,
+      });
+
+      const analysis = response.text || "Attack vector analysis failed";
+      console.log('✅ Attack Vectors Agent completed');
+      return this.parseAgentResponse("Attack Vectors", analysis);
+    } catch (error) {
+      console.error('Attack Vectors Agent error:', error);
+      return this.getFailsafeResponse("Attack Vectors", content);
+    }
+  }
+
+  /**
+   * AI Agent 11: Compliance Impact - Assesses regulatory compliance impact
+   */
+  private static async runComplianceAgent(content: string): Promise<AIAgentResponse> {
+    const prompt = `You are a cybersecurity compliance specialist. Assess the compliance impact of this security incident across major frameworks.
+
+CONTENT TO ANALYZE:
+${content}
+
+FORMATTING REQUIREMENTS:
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Provide concise compliance analysis
+
+Assess impact on frameworks:
+- SOC 2 Type II (CC6.1 Security Incidents, CC6.7 System Recovery)
+- ISO 27001:2013 (A.16.1 Incident Management)
+- NIST Cybersecurity Framework (Respond, Recover)
+- PCI DSS (if payment data involved)
+- GDPR (if personal data involved)
+- HIPAA (if healthcare data involved)
+- SOX (if financial data involved)
+
+For each framework evaluate:
+- Violation severity
+- Reporting requirements
+- Remediation timelines
+- Audit implications
+- Potential penalties
+
+Format your response as:
+COMPLIANCE IMPACT: [framework-specific assessments]
+CONFIDENCE: [1-100]
+KEY FINDINGS: [3-5 bullet points]
+RECOMMENDATIONS: [3-4 actionable items]`;
+
+    try {
+      console.log('💰 GEMINI API CALL - Compliance Impact Agent');
+      const response = await ai.models.generateContent({
+        model: this.MODEL,
+        contents: prompt,
+      });
+
+      const analysis = response.text || "Compliance analysis failed";
+      console.log('✅ Compliance Impact Agent completed');
+      return this.parseAgentResponse("Compliance Impact", analysis);
+    } catch (error) {
+      console.error('Compliance Impact Agent error:', error);
+      return this.getFailsafeResponse("Compliance Impact", content);
+    }
+  }
+
+  /**
+   * AI Agent 12: Similar Incidents - Finds related security incidents
+   */
+  private static async runSimilarIncidentsAgent(content: string): Promise<AIAgentResponse> {
+    const prompt = `You are a threat intelligence analyst specializing in incident correlation. Generate realistic similar incidents based on the attack patterns in this incident.
+
+CONTENT TO ANALYZE:
+${content}
+
+FORMATTING REQUIREMENTS:
+- Keep ALL titles to maximum 4 words
+- Avoid formatting symbols like *, -, •
+- Generate realistic similar incidents
+
+Generate 3-5 similar incidents with:
+- Incident titles reflecting similar attack types
+- Similarity percentages (60-95%)
+- Realistic timestamps (within last 90 days)
+- Appropriate severity levels
+- Brief descriptions of how they're similar
+
+Base similarities on:
+- Attack techniques (credential access, privilege escalation)
+- Indicators (similar IPs, domains, file hashes)
+- Target systems and processes
+- Timeline patterns
+- Impact scope
+
+Format your response as:
+SIMILAR INCIDENTS: [list of 3-5 realistic related incidents with details]
+CONFIDENCE: [1-100]
+KEY FINDINGS: [3-5 bullet points]
+RECOMMENDATIONS: [3-4 actionable items]`;
+
+    try {
+      console.log('💰 GEMINI API CALL - Similar Incidents Agent');
+      const response = await ai.models.generateContent({
+        model: this.MODEL,
+        contents: prompt,
+      });
+
+      const analysis = response.text || "Similar incidents analysis failed";
+      console.log('✅ Similar Incidents Agent completed');
+      return this.parseAgentResponse("Similar Incidents", analysis);
+    } catch (error) {
+      console.error('Similar Incidents Agent error:', error);
+      return this.getFailsafeResponse("Similar Incidents", content);
+    }
   }
 }
