@@ -386,7 +386,7 @@ export class ThreatPredictionEngine {
     });
 
     // Remove duplicates and limit recommendations
-    const uniqueRecommendations = [...new Set(recommendations)];
+    const uniqueRecommendations = Array.from(new Set(recommendations));
     return uniqueRecommendations.slice(0, 6);
   }
 

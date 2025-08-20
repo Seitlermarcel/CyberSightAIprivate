@@ -1981,67 +1981,43 @@ function getFunctionImpacted(analysis: string): string {
 }
 
 async function generateThreatPredictionFromIncidents(incidents: any[], userId: string): Promise<any> {
-  if (!incidents || incidents.length === 0) {
+  try {
+    // Use the proper ThreatPredictionEngine to generate comprehensive predictions
+    const prediction = ThreatPredictionEngine.generatePrediction(incidents);
+    return prediction;
+  } catch (error) {
+    console.error('Error in threat prediction generation:', error);
+    
+    // Fallback response with correct structure
     return {
       overallThreatLevel: 45,
       confidence: 60,
-      riskTrend: "stable",
-      threatScenarios: [],
-      environmentalImpact: {}
+      riskTrend: "stable" as const,
+      predictions: [
+        {
+          category: 'General Security Monitoring',
+          likelihood: 35,
+          timeframe: '7-14 days',
+          description: 'Baseline security monitoring indicates normal threat levels.',
+          impact: 'medium' as const
+        }
+      ],
+      factors: [
+        {
+          name: 'Incident Volume',
+          weight: 0.3,
+          contribution: 30,
+          trend: 'stable' as const
+        }
+      ],
+      recommendations: [
+        'Continue regular security monitoring',
+        'Review and update security policies',
+        'Maintain incident response procedures'
+      ],
+      lastUpdated: new Date().toISOString()
     };
   }
-
-  // Analyze recent incident patterns
-  const recentSeverities = incidents.map(inc => inc.severity);
-  const highSeverityCount = recentSeverities.filter(s => s === 'high' || s === 'critical').length;
-  const avgConfidence = incidents.reduce((sum, inc) => sum + (inc.confidence || 50), 0) / incidents.length;
-  
-  const overallThreatLevel = Math.min(95, Math.max(20, 
-    (highSeverityCount * 15) + (avgConfidence * 0.5) + 25
-  ));
-  
-  let riskTrend = "stable";
-  if (incidents.length >= 3) {
-    const recentThree = incidents.slice(0, 3);
-    const severityTrend = recentThree.map(inc => {
-      switch(inc.severity) {
-        case 'critical': return 5;
-        case 'high': return 4;
-        case 'medium': return 3;
-        case 'low': return 2;
-        default: return 1;
-      }
-    });
-    
-    const trendDirection = severityTrend[0] - severityTrend[2];
-    if (trendDirection > 0) riskTrend = "increasing";
-    else if (trendDirection < 0) riskTrend = "decreasing";
-  }
-
-  return {
-    overallThreatLevel: Math.round(overallThreatLevel),
-    confidence: Math.round(avgConfidence),
-    riskTrend,
-    recentIncidents: incidents.length,
-    threatScenarios: [
-      {
-        timeframe: "Immediate (0-24 hours)",
-        likelihood: highSeverityCount > 0 ? "High" : "Medium",
-        impact: highSeverityCount > 2 ? "Critical" : "Medium",
-        threats: [
-          "Continued exploitation of identified vulnerabilities",
-          "Lateral movement within network infrastructure", 
-          "Data exfiltration attempts from compromised systems"
-        ]
-      }
-    ],
-    environmentalImpact: {
-      networkInfrastructure: {
-        riskLevel: highSeverityCount > 1 ? "High" : "Medium",
-        description: "Network security posture based on recent incident analysis"
-      }
-    }
-  };
 }
 
 function generateThreatPredictionAnalysis(aiResult: any, incident: any): { prediction: any, confidence: number, trend: string } {
