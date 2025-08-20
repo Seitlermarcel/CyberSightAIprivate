@@ -9,6 +9,8 @@ export interface AIAgentResponse {
   confidence: number;
   keyFindings: string[];
   recommendations: string[];
+  sandboxOutput?: string;
+  codeGeneration?: string;
 }
 
 export interface AIAnalysisResult {
@@ -24,13 +26,17 @@ export interface AIAnalysisResult {
   };
   purpleTeam: AIAgentResponse;
   entityMapping: AIAgentResponse;
+  codeAnalysis: AIAgentResponse;
+  attackVectors: AIAgentResponse;
+  complianceAnalysis: AIAgentResponse;
+  similarIncidents: AIAgentResponse;
   overallConfidence: number;
   finalClassification: string;
   reasoning: string;
 }
 
 export class GeminiCyberAnalyst {
-  private static readonly MODEL = "gemini-2.5-flash";
+  private static readonly MODEL = "gemini-2.5-pro";
 
   /**
    * Main orchestrator that runs all 8 AI agents with real Gemini analysis
@@ -117,9 +123,9 @@ export class GeminiCyberAnalyst {
       ] = results as any[];
       
       console.log('✅ All 12 AI agents completed successfully');
-      console.log('💰 🎉 TOTAL GEMINI API CALLS MADE: 12 real API calls to Gemini 2.5 Flash');
+      console.log('💰 🎉 TOTAL GEMINI API CALLS MADE: 12 real API calls to Gemini 2.5 PRO');
       console.log('💸 💰 You should see these costs in your Google Cloud Console billing');
-      console.log('🔥 New agents: Code Analysis, Attack Vectors, Compliance Impact, Similar Incidents');
+      console.log('🔥 All agents upgraded to Gemini 2.5 PRO for maximum accuracy');
       console.log('📊 Agent results summary:', {
         patternRecognition: patternRecognition?.confidence || 0,
         threatIntelligence: threatIntelligence?.confidence || 0,
@@ -127,7 +133,11 @@ export class GeminiCyberAnalyst {
         iocEnrichment: iocEnrichment?.confidence || 0,
         classification: classification?.confidence || 0,
         purpleTeam: purpleTeam?.confidence || 0,
-        entityMapping: entityMapping?.confidence || 0
+        entityMapping: entityMapping?.confidence || 0,
+        codeAnalysis: codeAnalysis?.confidence || 0,
+        attackVectors: attackVectors?.confidence || 0,
+        complianceAnalysis: complianceAnalysis?.confidence || 0,
+        similarIncidents: similarIncidents?.confidence || 0
       });
 
       // Calculate overall confidence and final classification

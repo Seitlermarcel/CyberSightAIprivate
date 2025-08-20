@@ -25,6 +25,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   currentPackage: text("current_package").default("free"), // free, starter, professional, business, enterprise
   remainingIncidents: integer("remaining_incidents").default(3).notNull(), // Default 3 incidents for free plan
+  credits: integer("credits").default(5).notNull(), // Analysis credits (each worth €2.50)
   packageExpiry: timestamp("package_expiry"),
   storageUsedGB: real("storage_used_gb").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
