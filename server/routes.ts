@@ -69,35 +69,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if in development mode (bypass credit check)
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
       
-      // Reduced cost for efficiency
-      const INCIDENT_ANALYSIS_COST = isDevelopment ? 0 : 0.1; // FREE in dev, 0.1 in prod
+      // Get plan-based pricing
+      const getIncidentCost = (plan: string) => {
+        switch (plan) {
+          case 'starter': return 25; // €25 per incident
+          case 'professional': return 23.75; // 5% discount
+          case 'business': return 22.50; // 10% discount
+          case 'enterprise': return 20; // 20% discount
+          default: return 25; // Default to starter pricing
+        }
+      };
+      
+      const INCIDENT_ANALYSIS_COST = isDevelopment ? 0 : getIncidentCost(user.subscriptionPlan || 'starter');
       
       if (!isDevelopment) {
-        // Production mode: Enforce credit requirements
+        // Production mode: Check if user has remaining incident analyses in their plan
         const userCredits = parseFloat(user.credits || '0');
-        if (userCredits < INCIDENT_ANALYSIS_COST) {
+        if (userCredits < 1) {
           return res.status(402).json({ 
-            error: "Insufficient credits", 
-            message: "You need 0.1 credits to analyze an incident.",
-            requiredCredits: INCIDENT_ANALYSIS_COST,
+            error: "No incident analyses remaining", 
+            message: `Your ${user.subscriptionPlan || 'current'} plan has no remaining incident analyses. Please upgrade your plan.`,
+            requiredCredits: 1,
             currentCredits: userCredits
           });
         }
         
-        // Deduct credits for incident analysis
-        const success = await storage.deductCredits(userId, INCIDENT_ANALYSIS_COST);
+        // Deduct one incident analysis from user's plan
+        const success = await storage.deductCredits(userId, 1);
         if (!success) {
           return res.status(402).json({ 
-            error: "Failed to deduct credits", 
-            message: "Unable to process payment. Please try again."
+            error: "Failed to deduct incident analysis", 
+            message: "Unable to process. Please try again."
           });
         }
         
         // Log the transaction
         await storage.createBillingTransaction({
-          type: 'usage',
-          amount: (INCIDENT_ANALYSIS_COST * 2.50).toString(), // €2.50 per credit
-          credits: INCIDENT_ANALYSIS_COST.toString(),
+          type: 'incident-analysis',
+          amount: INCIDENT_ANALYSIS_COST.toString(),
+          credits: '1', // 1 incident analyzed
           description: `Incident analysis: ${validatedData.title}`,
           status: 'completed'
         }, userId);
@@ -406,14 +416,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/billing/usage", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
       const usage = await storage.getUserUsage(userId, currentMonth);
       const storageGB = await storage.calculateStorageUsage(userId);
       
+      // Get plan storage limits
+      const getStorageIncluded = (plan: string) => {
+        switch (plan) {
+          case 'starter': return 2;
+          case 'professional': return 10;
+          case 'business': return 25;
+          case 'enterprise': return 100;
+          default: return 0;
+        }
+      };
+      
+      const planStorageIncluded = getStorageIncluded(user?.subscriptionPlan || 'starter');
+      const storageOverage = Math.max(0, storageGB - planStorageIncluded);
+      const storageOverageCost = storageOverage * 1; // €1 per GB over limit
+      
+      // Get plan-based incident cost
+      const getIncidentCost = (plan: string) => {
+        switch (plan) {
+          case 'starter': return 25;
+          case 'professional': return 23.75;
+          case 'business': return 22.50;
+          case 'enterprise': return 20;
+          default: return 25;
+        }
+      };
+      
+      // Calculate total cost this month
+      const incidentsCost = (usage?.incidentsAnalyzed || 0) * getIncidentCost(user?.subscriptionPlan || 'starter');
+      const totalCost = incidentsCost + storageOverageCost;
+      
+      // Update usage tracking with current data  
+      await storage.updateUsageTracking(userId, currentMonth, {
+        incidentsAnalyzed: usage?.incidentsAnalyzed || 0,
+        storageGB: storageGB.toString(),
+        totalCost: totalCost.toString()
+      });
+      
+
+      
       res.json({
         incidentsAnalyzed: usage?.incidentsAnalyzed || 0,
         storageGB: storageGB,
-        month: currentMonth
+        storageIncluded: planStorageIncluded,
+        storageOverage: storageOverage,
+        storageOverageCost: storageOverageCost,
+        incidentsCost: incidentsCost,
+        totalCost: totalCost,
+        month: currentMonth,
+        subscriptionPlan: user?.subscriptionPlan || 'starter'
       });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch usage statistics" });
@@ -426,39 +482,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { packageId } = req.body;
       
-      // Define credit packages with subscription tiers and benefits
+      // Define subscription plans with incident analysis and storage benefits
       const packages: Record<string, any> = {
         starter: { 
-          credits: 20, 
-          price: 50,
+          incidentsIncluded: 10,
+          storageIncluded: 2, // GB
+          price: 250, // €25 per incident × 10 incidents
           name: 'Starter Package',
-          description: '20 credits - Basic incident analysis',
+          description: '10 incident analyses (€25 each) + 2GB storage included',
           dataRetention: 30, // days
-          features: ['Basic Analysis', '30-day data retention']
+          features: ['Basic Analysis', '2GB storage included', '€25 per incident', '30-day data retention']
         },
         professional: { 
-          credits: 55, // 10% bonus
-          price: 120,
+          incidentsIncluded: 25,
+          storageIncluded: 10, // GB
+          price: 594, // €23.75 per incident × 25 incidents (5% discount)
           name: 'Professional Package', 
-          description: '55 credits with 10% bonus - Enhanced analysis',
+          description: '25 incident analyses (€23.75 each) + 10GB storage included',
           dataRetention: 60, // days
-          features: ['Enhanced Analysis', '60-day data retention', '10% bonus credits']
+          features: ['Enhanced Analysis', '10GB storage included', '€23.75 per incident (5% discount)', '60-day data retention']
         },
         business: { 
-          credits: 115, // 15% bonus
-          price: 230,
+          incidentsIncluded: 100,
+          storageIncluded: 25, // GB
+          price: 2250, // €22.50 per incident × 100 incidents (10% discount)
           name: 'Business Package',
-          description: '115 credits with 15% bonus - Advanced features',
+          description: '100 incident analyses (€22.50 each) + 25GB storage included',
           dataRetention: 90, // days
-          features: ['Advanced Analysis', '90-day data retention', '15% bonus credits', 'Priority support']
+          features: ['Advanced Analysis', '25GB storage included', '€22.50 per incident (10% discount)', '90-day data retention', 'Priority support']
         },
         enterprise: { 
-          credits: 240, // 20% bonus
-          price: 440,
+          incidentsIncluded: 250,
+          storageIncluded: 100, // GB
+          price: 5000, // €20 per incident × 250 incidents (20% discount)
           name: 'Enterprise Package',
-          description: '240 credits with 20% bonus - Full features',
+          description: '250 incident analyses (€20 each) + 100GB storage included',
           dataRetention: 365, // days
-          features: ['Full Analysis Suite', '365-day data retention', '20% bonus credits', 'Dedicated support']
+          features: ['Full Analysis Suite', '100GB storage included', '€20 per incident (20% discount)', '365-day data retention', 'Dedicated support']
         }
       };
       
@@ -477,15 +537,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "User not found" });
         }
         
-        const newCredits = parseFloat(user.credits) + selectedPackage.credits;
-        await storage.updateUserCredits(userId, newCredits);
+        // Set credits to the number of incidents included in the plan
+        await storage.updateUserCredits(userId, selectedPackage.incidentsIncluded);
         await storage.updateUser(userId, { subscriptionPlan: packageId });
         
         // Create transaction record
         const transaction = await storage.createBillingTransaction({
-          type: "credit-purchase",
+          type: "subscription-purchase",
           amount: selectedPackage.price.toString(),
-          credits: selectedPackage.credits.toString(),
+          credits: selectedPackage.incidentsIncluded.toString(),
           description: `${selectedPackage.name} (Dev Mode)`,
           status: "completed"
         }, userId);
@@ -494,8 +554,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: true,
           devMode: true,
           transaction,
-          newBalance: newCredits,
-          message: "Development mode: Credits added without payment"
+          newBalance: selectedPackage.incidentsIncluded,
+          message: "Development mode: Plan purchased without payment"
         });
       }
       
@@ -512,7 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {
           userId,
           packageId,
-          credits: selectedPackage.credits.toString(),
+          incidentsIncluded: selectedPackage.incidentsIncluded.toString(),
           dataRetention: selectedPackage.dataRetention.toString()
         },
         description: `${selectedPackage.name} - ${user?.email || 'CyberSight AI User'}`
@@ -557,18 +617,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add credits to user account
         const user = await storage.getUser(userId);
         if (user) {
-          const newCredits = parseFloat(user.credits) + parseFloat(credits);
-          await storage.updateUserCredits(userId, newCredits);
-          await storage.updateUser(userId, { subscriptionPlan: packageId });
+          // Get package details to set incident allowance
+          const packages: Record<string, any> = {
+            starter: { incidentsIncluded: 10 },
+            professional: { incidentsIncluded: 25 },
+            business: { incidentsIncluded: 100 },
+            enterprise: { incidentsIncluded: 250 }
+          };
           
-          // Create billing transaction
-          await storage.createBillingTransaction({
-            type: 'credit-purchase',
-            amount: (paymentIntent.amount / 100).toString(),
-            credits: credits,
-            description: `Credit package purchase via Stripe`,
-            status: 'completed'
-          }, userId);
+          const packageDetails = packages[packageId];
+          if (packageDetails) {
+            await storage.updateUserCredits(userId, packageDetails.incidentsIncluded);
+            await storage.updateUser(userId, { subscriptionPlan: packageId });
+            
+            // Create billing transaction
+            await storage.createBillingTransaction({
+              type: 'subscription-purchase',
+              amount: (paymentIntent.amount / 100).toString(),
+              credits: packageDetails.incidentsIncluded.toString(),
+              description: `${packageId} subscription plan via Stripe`,
+              status: 'completed'
+            }, userId);
+          }
         }
       }
       

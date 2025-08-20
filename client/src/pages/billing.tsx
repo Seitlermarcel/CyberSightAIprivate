@@ -169,11 +169,47 @@ export default function Billing() {
     setSelectedPackage(null);
   };
 
-  const creditPackages = [
-    { id: "starter", name: "Starter Pack", credits: 20, price: 50, savings: 0 },
-    { id: "professional", name: "Professional", credits: 50, price: 120, savings: 5 },
-    { id: "business", name: "Business", credits: 100, price: 230, savings: 20 },
-    { id: "enterprise", name: "Enterprise", credits: 200, price: 440, savings: 60 },
+  const subscriptionPackages = [
+    { 
+      id: "starter", 
+      name: "Starter Package", 
+      incidentsIncluded: 10, 
+      storageIncluded: 2,
+      price: 250, 
+      pricePerIncident: 25,
+      discount: 0,
+      features: ['Basic Analysis', '2GB storage included', '€25 per incident', '30-day data retention']
+    },
+    { 
+      id: "professional", 
+      name: "Professional Package", 
+      incidentsIncluded: 25, 
+      storageIncluded: 10,
+      price: 594, 
+      pricePerIncident: 23.75,
+      discount: 5,
+      features: ['Enhanced Analysis', '10GB storage included', '€23.75 per incident (5% discount)', '60-day data retention']
+    },
+    { 
+      id: "business", 
+      name: "Business Package", 
+      incidentsIncluded: 100, 
+      storageIncluded: 25,
+      price: 2250, 
+      pricePerIncident: 22.50,
+      discount: 10,
+      features: ['Advanced Analysis', '25GB storage included', '€22.50 per incident (10% discount)', '90-day data retention', 'Priority support']
+    },
+    { 
+      id: "enterprise", 
+      name: "Enterprise Package", 
+      incidentsIncluded: 250, 
+      storageIncluded: 100,
+      price: 5000, 
+      pricePerIncident: 20,
+      discount: 20,
+      features: ['Full Analysis Suite', '100GB storage included', '€20 per incident (20% discount)', '365-day data retention', 'Dedicated support']
+    },
   ];
 
   const getTransactionIcon = (type: string) => {
@@ -199,8 +235,8 @@ export default function Billing() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Billing & Credits</h1>
-        <p className="text-gray-500">Manage your credits and view usage statistics</p>
+        <h1 className="text-2xl font-bold">Billing & Subscription</h1>
+        <p className="text-gray-500">Manage your subscription plan and view usage statistics</p>
       </div>
 
       {/* Current Balance & Quick Stats */}
@@ -208,22 +244,24 @@ export default function Billing() {
         <Card className="cyber-slate border-cyber-slate-light">
           <CardHeader>
             <CardTitle className="text-lg flex items-center justify-between">
-              <span>Current Balance</span>
+              <span>Remaining Analyses</span>
               <CreditCard className="text-cyber-blue" />
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="text-3xl font-bold">
-                €{parseFloat(user?.credits || "0").toFixed(2)}
+                {Math.floor(parseFloat(user?.credits || "0"))}
               </div>
-              <p className="text-sm text-gray-400">Available credits</p>
+              <p className="text-sm text-gray-400">
+                Remaining analyses in your {user?.subscriptionPlan || 'current'} plan
+              </p>
               <Button 
                 className="w-full cyber-blue hover:bg-blue-600"
                 onClick={() => setShowPurchaseDialog(true)}
               >
                 <ShoppingCart className="w-4 h-4 mr-2" />
-                Purchase Credits
+                Upgrade Plan
               </Button>
             </div>
           </CardContent>
@@ -244,7 +282,7 @@ export default function Billing() {
                   <span className="font-medium">{usage?.incidentsAnalyzed || 0}</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  €{((usage?.incidentsAnalyzed || 0) * 2.5).toFixed(2)} spent
+                  €{(usage?.incidentsCost || 0).toFixed(2)} spent
                 </div>
               </div>
               <div>
@@ -253,7 +291,16 @@ export default function Billing() {
                   <span className="font-medium">{(usage?.storageGB || 0).toFixed(2)} GB</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  €{(usage?.storageGB || 0).toFixed(2)} per month
+                  {(usage?.storageIncluded || 0)} GB included • €{(usage?.storageOverageCost || 0).toFixed(2)} overage
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="font-semibold">Total Cost</span>
+                  <span className="font-bold">€{(usage?.totalCost || 0).toFixed(2)}</span>
+                </div>
+                <div className="text-xs text-gray-400">
+                  This month's charges
                 </div>
               </div>
             </div>
@@ -300,8 +347,8 @@ export default function Billing() {
                 <Activity className="text-blue-500" />
                 <h4 className="font-semibold">Incident Analysis</h4>
               </div>
-              <p className="text-2xl font-bold">€2.50</p>
-              <p className="text-sm text-gray-400">per incident analyzed</p>
+              <p className="text-2xl font-bold">€20-25</p>
+              <p className="text-sm text-gray-400">per incident (varies by plan)</p>
             </div>
             <div className="p-4 cyber-dark rounded-lg">
               <div className="flex items-center space-x-2 mb-2">
@@ -309,7 +356,7 @@ export default function Billing() {
                 <h4 className="font-semibold">Data Storage</h4>
               </div>
               <p className="text-2xl font-bold">€1.00</p>
-              <p className="text-sm text-gray-400">per GB per month</p>
+              <p className="text-sm text-gray-400">per GB above plan limit</p>
             </div>
             <div className="p-4 cyber-dark rounded-lg">
               <div className="flex items-center space-x-2 mb-2">
@@ -372,13 +419,13 @@ export default function Billing() {
       <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Purchase Credits</DialogTitle>
+            <DialogTitle>Choose Subscription Plan</DialogTitle>
             <DialogDescription>
-              Select a credit package that suits your needs
+              Select a subscription plan that suits your analysis needs
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 mt-4">
-            {creditPackages.map((pkg) => (
+            {subscriptionPackages.map((pkg) => (
               <Card 
                 key={pkg.id} 
                 className={`cursor-pointer transition-all ${
@@ -390,20 +437,25 @@ export default function Billing() {
               >
                 <CardHeader>
                   <CardTitle className="text-lg">{pkg.name}</CardTitle>
-                  {pkg.savings > 0 && (
+                  {pkg.discount > 0 && (
                     <Badge className="bg-green-600 text-white">
-                      Save €{pkg.savings}
+                      {pkg.discount}% Discount
                     </Badge>
                   )}
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold mb-2">€{pkg.price}</div>
                   <p className="text-sm text-gray-400">
-                    {pkg.credits} credits • €{(pkg.price / pkg.credits).toFixed(2)} per credit
+                    {pkg.incidentsIncluded} incidents • {pkg.storageIncluded}GB storage
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    Analyze {Math.floor(pkg.credits / 2.5)} incidents
+                    €{pkg.pricePerIncident} per incident
                   </p>
+                  <ul className="text-xs text-gray-400 mt-2 space-y-1">
+                    {pkg.features.slice(0, 3).map((feature, index) => (
+                      <li key={index}>• {feature}</li>
+                    ))}
+                  </ul>
                 </CardContent>
               </Card>
             ))}

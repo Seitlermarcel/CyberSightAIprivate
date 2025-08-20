@@ -453,8 +453,6 @@ export class DatabaseStorage implements IStorage {
       // Parse structured query (JSON format)
       const queryObj = JSON.parse(query);
       
-      let dbQuery = db.select().from(incidents).where(eq(incidents.userId, userId));
-      
       // Apply filters using and() to combine conditions
       const conditions = [eq(incidents.userId, userId)];
       
@@ -468,22 +466,18 @@ export class DatabaseStorage implements IStorage {
         conditions.push(eq(incidents.classification, queryObj.classification));
       }
       
-      let query = db.select().from(incidents).where(and(...conditions));
+      // Execute the query with filters
+      const results = await db
+        .select()
+        .from(incidents)
+        .where(and(...conditions))
+        .orderBy(queryObj.orderBy === 'updatedAt' ? 
+          (queryObj.order === 'asc' ? asc(incidents.updatedAt) : desc(incidents.updatedAt)) :
+          (queryObj.order === 'asc' ? asc(incidents.createdAt) : desc(incidents.createdAt))
+        )
+        .limit(queryObj.limit || 100);
       
-      // Apply ordering
-      if (queryObj.orderBy && incidents[queryObj.orderBy as keyof typeof incidents]) {
-        const field = incidents[queryObj.orderBy as keyof typeof incidents];
-        query = queryObj.order === 'asc' ? query.orderBy(asc(field)) : query.orderBy(desc(field));
-      } else {
-        query = query.orderBy(desc(incidents.createdAt));
-      }
-      
-      // Apply limit
-      const limit = queryObj.limit || 100;
-      query = query.limit(limit);
-      
-      return await query;
-      
+      return results;
 
     } catch (error: any) {
       throw new Error(`Structured query failed: ${error.message}`);
