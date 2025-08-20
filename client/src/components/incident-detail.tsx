@@ -2114,8 +2114,8 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                         <span className="text-sm text-gray-400">Analysis Cost</span>
                         <Zap className="h-4 w-4 text-yellow-400" />
                       </div>
-                      <div className="text-2xl font-bold text-green-400 mb-2">€2.50</div>
-                      <p className="text-xs text-gray-500">Per incident analysis</p>
+                      <div className="text-2xl font-bold text-green-400 mb-2">€{getAnalysisCost()}</div>
+                      <p className="text-xs text-gray-500">Per incident analysis • {(userData as any)?.subscriptionPlan || 'Starter'} plan</p>
                     </div>
                     
                     <div className="cyber-dark rounded-lg p-4">
