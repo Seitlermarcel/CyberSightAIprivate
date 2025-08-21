@@ -57,7 +57,7 @@ const SIEM_TEMPLATES = [
     icon: Cloud,
     color: "text-blue-500",
     description: "Azure cloud-native SIEM and SOAR platform",
-    webhook: "/api/webhook/sentinel",
+    webhook: "/api/webhook/ingest",
     requiresLogicApp: true,
     steps: [
       "1. Create an Azure Logic App in your resource group",
@@ -74,7 +74,7 @@ const SIEM_TEMPLATES = [
     icon: Server,
     color: "text-green-500",
     description: "Premium security information and event management platform",
-    webhook: "/api/webhook/splunk",
+    webhook: "/api/webhook/ingest",
     requiresHttpEventCollector: true,
     steps: [
       "1. Enable HTTP Event Collector in Splunk Settings",
@@ -91,7 +91,7 @@ const SIEM_TEMPLATES = [
     icon: Database,
     color: "text-yellow-500",
     description: "Open source search and analytics engine",
-    webhook: "/api/webhook/elastic",
+    webhook: "/api/webhook/ingest",
     requiresIndex: true,
     steps: [
       "1. Create a webhook connector in Kibana Stack Management",
@@ -108,7 +108,7 @@ const SIEM_TEMPLATES = [
     icon: Shield,
     color: "text-red-500",
     description: "Endpoint protection and threat intelligence platform",
-    webhook: "/api/webhook/crowdstrike",
+    webhook: "/api/webhook/ingest",
     requiresApiIntegration: true,
     steps: [
       "1. Create API client in CrowdStrike Falcon console",
@@ -125,7 +125,7 @@ const SIEM_TEMPLATES = [
     icon: Webhook,
     color: "text-gray-500",
     description: "Universal webhook integration for any SIEM platform",
-    webhook: "/api/webhook/generic",
+    webhook: "/api/webhook/ingest",
     requiresCustomConfig: true,
     steps: [
       "1. Identify your SIEM's webhook or API capabilities",
@@ -259,22 +259,46 @@ export default function ApiSettings() {
                           ))}
                         </div>
                         
-                        <div className="mt-4 p-4 bg-slate-800/50 rounded-lg">
-                          <h4 className="font-semibold text-white mb-2">Webhook URL</h4>
-                          <div className="flex items-center space-x-2">
-                            <code className="flex-1 p-2 bg-slate-700/50 rounded text-green-400 text-sm">
-                              {window.location.origin}{selectedSiem.webhook}
-                            </code>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                navigator.clipboard.writeText(window.location.origin + selectedSiem.webhook);
-                                toast({ title: "Copied!", description: "Webhook URL copied to clipboard" });
-                              }}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
+                        <div className="mt-4 space-y-4">
+                          <div className="p-4 bg-slate-800/50 rounded-lg">
+                            <h4 className="font-semibold text-white mb-2">Primary Webhook URL</h4>
+                            <div className="flex items-center space-x-2">
+                              <code className="flex-1 p-2 bg-slate-700/50 rounded text-green-400 text-sm">
+                                {window.location.origin}{selectedSiem.webhook}
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(window.location.origin + selectedSiem.webhook);
+                                  toast({ title: "Copied!", description: "Primary webhook URL copied to clipboard" });
+                                }}
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">Generic endpoint - requires API key in request body</p>
+                          </div>
+                          
+                          <div className="p-4 bg-slate-800/50 rounded-lg">
+                            <h4 className="font-semibold text-white mb-2">Personal Webhook URL (Recommended)</h4>
+                            <div className="flex items-center space-x-2">
+                              <code className="flex-1 p-2 bg-slate-700/50 rounded text-cyan-400 text-sm">
+                                {window.location.origin}/api/webhook/ingest/{user ? (user as any).id : 'USER_ID'}/TOKEN
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const personalUrl = `${window.location.origin}/api/webhook/ingest/${user ? (user as any).id : 'USER_ID'}/TOKEN`;
+                                  navigator.clipboard.writeText(personalUrl);
+                                  toast({ title: "Copied!", description: "Personal webhook URL copied to clipboard" });
+                                }}
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2">User-specific endpoint - no API key needed in body, authentication via URL</p>
                           </div>
                         </div>
                       </CardContent>
@@ -337,15 +361,47 @@ export default function ApiSettings() {
                 </div>
                 
                 <div className="p-3 bg-purple-900/20 rounded-lg border border-purple-500/20">
-                  <h4 className="font-medium text-purple-400 mb-2">Example Webhook Payload:</h4>
+                  <h4 className="font-medium text-purple-400 mb-2">Example Webhook Payload (Primary URL):</h4>
                   <pre className="text-xs text-gray-300 overflow-x-auto">
 {`{
   "apiKey": "${user ? `cybersight_${(user as any).id}_TOKEN` : 'cybersight_USER_ID_TOKEN'}",
-  "incidentData": {
-    "title": "Suspicious Login Activity",
-    "severity": "high",
-    "logData": "..."
+  "source": "your-siem",
+  "logs": [
+    {
+      "timestamp": "2024-01-20T10:30:00Z",
+      "severity": "high",
+      "title": "Suspicious Login Activity",
+      "sourceIP": "192.168.1.100",
+      "targetUser": "admin@company.com",
+      "rawLog": "Failed login attempt detected"
+    }
+  ],
+  "metadata": {
+    "sourceSystem": "YourSIEM",
+    "alertId": "alert-12345"
   },
+  "callbackUrl": "https://your-siem.com/callback"
+}`}
+                  </pre>
+                </div>
+                
+                <div className="p-3 bg-cyan-900/20 rounded-lg border border-cyan-500/20 mt-3">
+                  <h4 className="font-medium text-cyan-400 mb-2">Example Personal URL Payload (No API Key Needed):</h4>
+                  <pre className="text-xs text-gray-300 overflow-x-auto">
+{`POST: ${window.location.origin}/api/webhook/ingest/${user ? (user as any).id : 'USER_ID'}/TOKEN
+
+{
+  "source": "your-siem",
+  "logs": [
+    {
+      "timestamp": "2024-01-20T10:30:00Z",
+      "severity": "high",
+      "title": "Suspicious Login Activity",
+      "sourceIP": "192.168.1.100",
+      "targetUser": "admin@company.com",
+      "rawLog": "Failed login attempt detected"
+    }
+  ],
   "callbackUrl": "https://your-siem.com/callback"
 }`}
                   </pre>
