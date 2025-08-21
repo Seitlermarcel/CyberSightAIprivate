@@ -607,33 +607,43 @@ export default function Billing() {
                   <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
                     Cancel
                   </Button>
-                  <Button 
-                    className="cyber-blue hover:bg-blue-600"
-                    disabled={!selectedPackage}
-                    onClick={async () => {
-                      if (selectedPackage) {
-                        try {
-                          const result = await apiRequest("POST", "/api/billing/create-payment-intent", { packageId: selectedPackage.id });
-                          const data = await result.json();
-                          if (data.devMode) {
-                            handlePurchaseSuccess();
+                  {/* Only show development mode purchase option to authorized developer */}
+                  {user?.id === '46095879' && (
+                    <Button 
+                      className="cyber-blue hover:bg-blue-600"
+                      disabled={!selectedPackage}
+                      onClick={async () => {
+                        if (selectedPackage) {
+                          try {
+                            const result = await apiRequest("POST", "/api/billing/create-payment-intent", { packageId: selectedPackage.id });
+                            const data = await result.json();
+                            if (data.devMode && user?.id === '46095879') {
+                              handlePurchaseSuccess();
+                              toast({
+                                title: "Development Mode",
+                                description: data.message,
+                              });
+                            } else if (data.devMode && user?.id !== '46095879') {
+                              // Unauthorized user trying to access dev mode - show error
+                              toast({
+                                title: "Payment Required",
+                                description: "Please complete payment through Stripe to purchase this package.",
+                                variant: "destructive",
+                              });
+                            }
+                          } catch (error) {
                             toast({
-                              title: "Development Mode",
-                              description: data.message,
+                              title: "Purchase Failed",
+                              description: "Unable to complete the purchase.",
+                              variant: "destructive",
                             });
                           }
-                        } catch (error) {
-                          toast({
-                            title: "Purchase Failed",
-                            description: "Unable to complete the purchase.",
-                            variant: "destructive",
-                          });
                         }
-                      }
-                    }}
-                  >
-                    Purchase {selectedPackage?.name}
-                  </Button>
+                      }}
+                    >
+                      Purchase {selectedPackage?.name} (Dev Mode)
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
