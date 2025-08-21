@@ -133,28 +133,34 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
   };
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="w-full space-y-6">
       {/* Header */}
-      <div className="cyber-slate border-b border-cyber-slate-light p-6">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 cyber-blue rounded-xl flex items-center justify-center">
-            <Search className="text-white text-xl" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-cyber-blue">CyberSight AI Security Incident Analysis</h2>
-            <p className="text-gray-400">AI-powered threat detection and MITRE ATT&CK mapping</p>
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl blur-xl"></div>
+        <div className="relative p-4 lg:p-6 bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50">
+          <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
+              <Search className="text-blue-400 w-5 h-5 lg:w-6 lg:h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">CyberSight AI Security Incident Analysis</h2>
+              <p className="text-gray-400 text-sm lg:text-base">AI-powered threat detection and MITRE ATT&CK mapping</p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex h-full">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Input Form Section */}
-        <div className="w-1/2 p-6 border-r border-cyber-slate-light">
-          <div className="cyber-slate rounded-xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-2">
-                <FileText className="text-cyber-blue" />
-                <h3 className="text-lg font-semibold">Incident Input</h3>
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl blur-xl"></div>
+          <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl border border-green-500/30">
+                  <FileText className="text-green-400 w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">Incident Input</h3>
               </div>
               <div className="text-right">
                 <div className="text-sm font-medium text-cyan-400">
@@ -169,17 +175,17 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {/* Incident Title and Severity */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="title"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-300">Incident Title</FormLabel>
+                        <FormLabel className="text-gray-300 font-medium">Incident Title</FormLabel>
                         <FormControl>
                           <Input
                             placeholder="Brief description of the incident"
-                            className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 focus:ring-cyber-blue focus:border-transparent"
+                            className="bg-slate-900/50 border-slate-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 rounded-lg"
                             {...field}
                           />
                         </FormControl>
@@ -192,14 +198,14 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                     name="severity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-300">SIEM Severity (Optional)</FormLabel>
+                        <FormLabel className="text-gray-300 font-medium">SIEM Severity (Optional)</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger className="cyber-dark border-cyber-slate-light text-white focus:ring-cyber-blue focus:border-transparent">
+                            <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 rounded-lg">
                               <SelectValue placeholder="Select severity" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent className="cyber-dark border-cyber-slate-light">
+                          <SelectContent className="bg-slate-800 border-slate-600">
                             <SelectItem value="critical">Critical</SelectItem>
                             <SelectItem value="high">High</SelectItem>
                             <SelectItem value="medium">Medium</SelectItem>
@@ -219,17 +225,17 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                   name="systemContext"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-300">System/Service Context (Optional)</FormLabel>
+                      <FormLabel className="text-gray-300 font-medium">System/Service Context (Optional)</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Describe the functions of affected systems, services, hosts, or devices (e.g., Domain controller, banking authentication for 500 users...)"
-                          className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 focus:ring-cyber-blue focus:border-transparent resize-none"
+                          className="bg-slate-900/50 border-slate-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none rounded-lg"
                           rows={3}
                           {...field}
                         />
                       </FormControl>
-                      <p className="text-xs text-gray-500 mt-1">
-                        <FileText className="inline w-3 h-3 mr-1" />
+                      <p className="text-xs text-gray-500 mt-1 flex items-center">
+                        <FileText className="w-3 h-3 mr-1" />
                         Help the AI understand the business impact by describing what these systems do
                       </p>
                       <FormMessage />
@@ -243,11 +249,11 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                   name="logData"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-300">Log Data</FormLabel>
+                      <FormLabel className="text-gray-300 font-medium">Log Data</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Paste your primary security logs here for analysis..."
-                          className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 focus:ring-cyber-blue focus:border-transparent resize-none font-mono text-sm"
+                          className="bg-slate-900/50 border-slate-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none font-mono text-sm rounded-lg"
                           rows={6}
                           {...field}
                         />
@@ -263,11 +269,11 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                   name="additionalLogs"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-300">Additional Logs (Optional)</FormLabel>
+                      <FormLabel className="text-gray-300 font-medium">Additional Logs (Optional)</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Logs for multi-stage incidents or from other sources..."
-                          className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 focus:ring-cyber-blue focus:border-transparent resize-none font-mono text-sm"
+                          className="bg-slate-900/50 border-slate-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 resize-none font-mono text-sm rounded-lg"
                           rows={4}
                           {...field}
                         />
@@ -278,11 +284,11 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                 />
 
                 {/* Action Buttons */}
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     type="submit"
                     disabled={analyzeIncidentMutation.isPending}
-                    className="flex-1 cyber-blue hover:bg-blue-600 text-white font-medium"
+                    className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium rounded-lg transition-all duration-300"
                   >
                     {analyzeIncidentMutation.isPending ? (
                       <>
@@ -298,9 +304,9 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                   </Button>
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="outline"
                     onClick={clearForm}
-                    className="cyber-slate-light hover:bg-gray-600 text-white font-medium"
+                    className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white font-medium rounded-lg transition-all duration-300"
                   >
                     <RotateCcw className="mr-2 h-4 w-4" />
                     Clear
@@ -312,35 +318,39 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
         </div>
 
         {/* Analysis Results & Recent Incidents Section */}
-        <div className="w-1/2 p-6 flex flex-col">
+        <div className="space-y-6">
           {/* Latest Analysis Result */}
           {analysisResult && (
-            <div className="cyber-slate rounded-xl p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <Shield className="text-cyber-blue" />
-                  <h3 className="text-lg font-semibold">Latest Analysis</h3>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedIncident(analysisResult.id)}
-                  className="text-cyber-blue hover:text-white hover:bg-cyber-blue"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Details
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Enhanced AI Investigation Progress */}
-                <div className="cyber-dark rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <Brain className="text-cyber-purple" />
-                      <h4 className="font-semibold">AI Investigation</h4>
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl"></div>
+              <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
+                      <Shield className="text-purple-400 w-5 h-5" />
                     </div>
-                    <span className="text-sm font-medium text-white">{analysisResult.aiInvestigation || 85}%</span>
+                    <h3 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Latest Analysis</h3>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedIncident(analysisResult.id)}
+                    className="border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 rounded-lg transition-all duration-300"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Details
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Enhanced AI Investigation Progress */}
+                  <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <Brain className="text-purple-400 w-4 h-4" />
+                        <h4 className="font-semibold text-white">AI Investigation</h4>
+                      </div>
+                      <span className="text-sm font-medium text-purple-400">{analysisResult.aiInvestigation || 85}%</span>
                   </div>
                   
                   {/* Multi-color gradient progress bar inspired by Microsoft Copilot */}
@@ -401,23 +411,28 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                   )}
                 </div>
               </div>
+              </div>
             </div>
           )}
 
           {/* Recent Incidents */}
-          <div className="cyber-slate rounded-xl p-6 flex-1">
-            <div className="flex items-center space-x-2 mb-4">
-              <Calendar className="text-green-500" />
-              <h3 className="text-lg font-semibold">Recent Analysis Results</h3>
-            </div>
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 rounded-2xl blur-xl"></div>
+            <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-gradient-to-br from-orange-500/20 to-yellow-500/20 rounded-xl border border-orange-500/30">
+                  <Calendar className="text-orange-400 w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">Recent Analysis Results</h3>
+              </div>
 
-            {recentIncidents && recentIncidents.length > 0 ? (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              {recentIncidents && recentIncidents.length > 0 ? (
+                <div className="space-y-3">
                 {recentIncidents
                   .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
                   .slice(0, 5)
                   .map((incident: Incident) => (
-                  <div key={incident.id} className="cyber-dark rounded-lg p-4 hover:bg-gray-700 transition-colors">
+                  <div key={incident.id} className="p-4 bg-slate-900/50 rounded-lg border border-slate-700/30 hover:border-orange-500/40 hover:bg-slate-800/50 transition-all duration-300">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium text-sm text-white truncate flex-1 mr-2">
                         {incident.title}
@@ -464,16 +479,17 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                     </div>
                   </div>
                 ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center text-center py-8">
-                <div className="w-16 h-16 cyber-dark rounded-full flex items-center justify-center mb-4">
-                  <Shield className="text-2xl text-gray-500" />
                 </div>
-                <h4 className="font-semibold mb-2">No Recent Analysis</h4>
-                <p className="text-gray-400 text-sm">Start by analyzing your first incident</p>
-              </div>
-            )}
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center py-8">
+                  <div className="w-16 h-16 bg-gradient-to-br from-orange-500/20 to-yellow-500/20 rounded-full flex items-center justify-center mb-4 border border-orange-500/30">
+                    <Shield className="text-xl text-orange-400" />
+                  </div>
+                  <h4 className="font-semibold mb-2 text-white">No Recent Analysis</h4>
+                  <p className="text-gray-400 text-sm">Start by analyzing your first incident</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

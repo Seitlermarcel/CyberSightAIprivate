@@ -55,10 +55,14 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-cyber-dark text-white">
-      <Sidebar currentView={currentView} onViewChange={(view) => setCurrentView(view as View)} />
-      <div className="flex-1 overflow-hidden">
-        {renderView()}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      <div className="flex flex-col lg:flex-row">
+        <Sidebar currentView={currentView} onViewChange={(view) => setCurrentView(view as View)} />
+        <div className="flex-1 min-h-screen lg:min-h-0">
+          <div className="p-4 lg:p-6 xl:p-8">
+            {renderView()}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -71,15 +75,18 @@ function ThreatPredictionView() {
   });
 
   return (
-    <div className="h-full p-6 overflow-auto">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-cyber-blue mb-2">
-            AI-Powered Threat Prediction
-          </h1>
-          <p className="text-muted-foreground">
-            Advanced machine learning algorithms analyze your security incidents to predict future threats and provide actionable intelligence.
-          </p>
+    <div className="w-full">
+      <div className="max-w-7xl mx-auto">
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-2xl blur-xl"></div>
+          <div className="relative p-6 bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50">
+            <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
+              AI-Powered Threat Prediction
+            </h1>
+            <p className="text-gray-400 text-sm lg:text-base">
+              Advanced machine learning algorithms analyze your security incidents to predict future threats and provide actionable intelligence.
+            </p>
+          </div>
         </div>
         
         <ThreatPredictionMeter 
