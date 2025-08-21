@@ -35,6 +35,12 @@ import {
   Clock,
   Info,
   ShoppingCart,
+  Shield,
+  Zap,
+  Globe,
+  Users,
+  Star,
+  Award,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -44,6 +50,17 @@ import { format } from "date-fns";
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY || "";
 const isValidPublishableKey = stripeKey.startsWith("pk_");
 const stripePromise = isValidPublishableKey ? loadStripe(stripeKey) : null;
+
+// Utility function to properly capitalize package names
+const formatPackageName = (packageName: string) => {
+  const packageNames: Record<string, string> = {
+    starter: 'Starter Package',
+    professional: 'Professional Package',
+    business: 'Business Package',
+    enterprise: 'Enterprise Package'
+  };
+  return packageNames[packageName] || 'Starter Package';
+};
 
 function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
   const stripe = useStripe();
@@ -277,7 +294,7 @@ export default function Billing() {
                 {(user as any)?.remainingIncidents || 0}
               </div>
               <p className="text-sm text-gray-400">
-                Remaining incident analyses • {(user as any)?.currentPackage || 'starter'} package
+                Remaining incident analyses • {formatPackageName((user as any)?.currentPackage || 'starter')}
               </p>
               <div className="text-xs text-gray-500 mt-1">
                 {(usage as any)?.incidentsAnalyzed || 0} incidents analyzed this month
@@ -308,7 +325,7 @@ export default function Billing() {
                   <span className="font-medium">{(usage as any)?.incidentsAnalyzed || 0}</span>
                 </div>
                 <div className="text-xs text-gray-400">
-                  From {(user as any)?.currentPackage || 'starter'} package
+                  From {formatPackageName((user as any)?.currentPackage || 'starter')}
                 </div>
               </div>
               <div>
@@ -369,14 +386,14 @@ export default function Billing() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Badge className="capitalize text-sm px-3 py-1">
-                  {(user as any)?.currentPackage || "starter"}
+                <Badge className="text-sm px-3 py-1 bg-cyber-blue text-white">
+                  {formatPackageName((user as any)?.currentPackage || "starter")}
                 </Badge>
                 <div className="text-right">
                   <div className="text-lg font-bold text-cyber-blue">
-                    {(user as any)?.currentPackage || 'starter'}
+                    Active
                   </div>
-                  <div className="text-xs text-gray-400">Current Package</div>
+                  <div className="text-xs text-gray-400">Status</div>
                 </div>
               </div>
               
@@ -395,9 +412,32 @@ export default function Billing() {
                 </div>
               </div>
               
-              <p className="text-xs text-gray-400">
-                Full access to all features
-              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center space-x-1 text-green-400">
+                  <Shield className="w-3 h-3" />
+                  <span>AI Analysis</span>
+                </div>
+                <div className="flex items-center space-x-1 text-blue-400">
+                  <Zap className="w-3 h-3" />
+                  <span>Real-time Processing</span>
+                </div>
+                <div className="flex items-center space-x-1 text-purple-400">
+                  <Globe className="w-3 h-3" />
+                  <span>SIEM Integration</span>
+                </div>
+                <div className="flex items-center space-x-1 text-orange-400">
+                  <Users className="w-3 h-3" />
+                  <span>Multi-tenant</span>
+                </div>
+                <div className="flex items-center space-x-1 text-yellow-400">
+                  <Star className="w-3 h-3" />
+                  <span>Threat Intelligence</span>
+                </div>
+                <div className="flex items-center space-x-1 text-cyan-400">
+                  <Award className="w-3 h-3" />
+                  <span>MITRE ATT&CK</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -496,7 +536,7 @@ export default function Billing() {
                 };
                 return packagePricing[currentPackage as keyof typeof packagePricing] || '25';
               })()}</p>
-              <p className="text-sm text-gray-400">per incident ({(user as any)?.currentPackage || 'starter'} plan)</p>
+              <p className="text-sm text-gray-400">per incident ({formatPackageName((user as any)?.currentPackage || 'starter')})</p>
             </div>
             <div className="p-4 cyber-dark rounded-lg">
               <div className="flex items-center space-x-2 mb-2">
@@ -591,7 +631,7 @@ export default function Billing() {
                   if (remainingAnalyses > 0 && isDifferentPackage) {
                     toast({
                       title: "Package Switch Restricted",
-                      description: `You have ${remainingAnalyses} remaining analyses from your ${currentPackage} package. Use all analyses before switching to ${pkg.name}.`,
+                      description: `You have ${remainingAnalyses} remaining analyses from your ${formatPackageName(currentPackage)} package. Use all analyses before switching to ${pkg.name}.`,
                       variant: "destructive",
                     });
                   }
