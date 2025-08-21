@@ -81,7 +81,7 @@ function ThreatPredictionView() {
           <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-2xl blur-xl"></div>
           <div className="relative p-6 bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50">
             <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
-              🔮 Predictive Threat Intelligence
+              Predictive Threat Intelligence
             </h1>
             <p className="text-slate-300 text-lg">Advanced AI models analyze patterns to predict and prevent future cyber attacks before they occur.</p>
             <p className="text-gray-400 text-sm lg:text-base">
