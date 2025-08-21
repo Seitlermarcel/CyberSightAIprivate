@@ -286,6 +286,75 @@ export default function ApiSettings() {
           </div>
         </div>
 
+        {/* User API Key Section */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-2xl blur-xl"></div>
+          <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="p-2 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl border border-yellow-500/30">
+                <Key className="text-yellow-400 w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">Your API Authentication Key</h2>
+                <p className="text-gray-300 text-sm">Use this unique key to authenticate your SIEM integrations with CyberSight AI</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900/50 rounded-lg border border-yellow-500/20 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-yellow-400">API Key</h3>
+                <Badge className="bg-green-600 text-white">
+                  Active
+                </Badge>
+              </div>
+              
+              <div className="flex items-center space-x-2 mb-4">
+                <code className="flex-1 p-3 bg-slate-800/50 rounded-lg text-green-400 text-sm font-mono border border-slate-700/30">
+                  {user ? `cybersight_${(user as any).id}_TOKEN` : 'cybersight_USER_ID_TOKEN'}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const apiKey = user ? `cybersight_${(user as any).id}_TOKEN` : 'cybersight_USER_ID_TOKEN';
+                    navigator.clipboard.writeText(apiKey);
+                    toast({ title: "Copied!", description: "API key copied to clipboard" });
+                  }}
+                  className="border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/20"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/20">
+                  <h4 className="font-medium text-blue-400 mb-2">Usage Instructions:</h4>
+                  <ul className="space-y-1 text-gray-300 text-xs">
+                    <li>• Include this key in the <code className="text-green-400">apiKey</code> field when sending data to CyberSight webhooks</li>
+                    <li>• Add as an HTTP header: <code className="text-green-400">Authorization: Bearer {user ? `cybersight_${(user as any).id}_TOKEN` : 'cybersight_USER_ID_TOKEN'}</code></li>
+                    <li>• Keep this key secure and do not share it publicly</li>
+                  </ul>
+                </div>
+                
+                <div className="p-3 bg-purple-900/20 rounded-lg border border-purple-500/20">
+                  <h4 className="font-medium text-purple-400 mb-2">Example Webhook Payload:</h4>
+                  <pre className="text-xs text-gray-300 overflow-x-auto">
+{`{
+  "apiKey": "${user ? `cybersight_${(user as any).id}_TOKEN` : 'cybersight_USER_ID_TOKEN'}",
+  "incidentData": {
+    "title": "Suspicious Login Activity",
+    "severity": "high",
+    "logData": "..."
+  },
+  "callbackUrl": "https://your-siem.com/callback"
+}`}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Current API Configurations */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl blur-xl"></div>
