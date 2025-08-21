@@ -1026,6 +1026,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // SIEM Response Management API
+  app.get("/api/incidents/:id/siem-responses", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const responses = await storage.getSiemResponses(req.params.id, userId);
+      res.json(responses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch SIEM responses" });
+    }
+  });
+  
   // Test webhook endpoint for SIEM integration testing
   app.post("/api/webhook/test", async (req, res) => {
     try {
@@ -1094,19 +1105,29 @@ async function processIncomingLogs({ logs, metadata, userId, source, callbackUrl
           aiAnalysis = generateFailsafeAnalysis(incidentData, userSettings, threatReport);
         }
         
-        // Create incident with AI analysis
+        // Create incident with AI analysis and SIEM tracking
         const fullIncidentData = {
           ...incidentData,
           userId,
           ...aiAnalysis,
-          threatIntelligence: JSON.stringify(threatReport)
+          threatIntelligence: JSON.stringify(threatReport),
+          source: 'siem-webhook',
+          siemIntegrationId: metadata?.originalIncidentId || metadata?.alertId,
+          siemSource: detectSiemSource(source),
+          automationEnabled: true,
+          siemResponseStatus: 'pending'
         };
         
         const incident = await storage.createIncident(fullIncidentData, userId);
         incidents.push(incident);
         processed.push({ logEntry, incidentId: incident.id, analysis: aiAnalysis });
         
-        // Send callback if URL provided
+        // Automated bidirectional SIEM response
+        if (incident.automationEnabled) {
+          await sendAutomatedSiemResponse(incident, aiAnalysis, threatReport, userId, source, callbackUrl);
+        }
+        
+        // Send callback if URL provided (legacy support)
         if (callbackUrl) {
           await sendAnalysisCallback(callbackUrl, incident, aiAnalysis, {
             originalId: metadata?.originalIncidentId,
@@ -1705,6 +1726,164 @@ Event ID: 4624 - Account Logon
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// SIEM Integration Helper Functions
+function detectSiemSource(source: string): string {
+  if (source.includes('sentinel')) return 'sentinel';
+  if (source.includes('splunk')) return 'splunk';
+  if (source.includes('elastic')) return 'elastic';
+  if (source.includes('crowdstrike')) return 'crowdstrike';
+  if (source.includes('syslog')) return 'syslog';
+  return source || 'unknown';
+}
+
+async function sendAutomatedSiemResponse(incident: any, analysis: any, threatReport: any, userId: string, source: string, callbackUrl?: string) {
+  try {
+    console.log(`🔄 Sending automated SIEM response for incident ${incident.id} to ${source}`);
+    
+    // Get user's SIEM configurations
+    const userConfigs = await storage.getUserApiConfigs(userId);
+    const siemSource = detectSiemSource(source);
+    const siemConfig = userConfigs.find(config => 
+      config.endpointType === siemSource || 
+      config.name.toLowerCase().includes(siemSource)
+    );
+    
+    // Prepare comprehensive analysis response
+    const responsePayload = {
+      incidentId: incident.siemIntegrationId || incident.id,
+      cyberSightAnalysisId: incident.id,
+      severity: incident.severity,
+      classification: incident.classification || 'unknown',
+      confidence: incident.confidence || 0,
+      aiInvestigation: incident.aiInvestigation || 0,
+      isTrue: incident.classification === 'true-positive',
+      isFalse: incident.classification === 'false-positive',
+      mitreTactics: incident.mitreAttack || [],
+      indicators: JSON.parse(incident.iocDetails || '[]'),
+      summary: incident.analysisExplanation || 'AI analysis completed',
+      recommendations: analysis?.recommendations || [],
+      threatIntelligence: threatReport?.summary || {},
+      entities: JSON.parse(incident.entityMapping || '{}'),
+      riskScore: calculateRiskScore(incident),
+      timestamp: new Date().toISOString(),
+      source: 'CyberSight AI',
+      automatedResponse: true
+    };
+    
+    let endpointUrl = callbackUrl;
+    let headers: any = { 'Content-Type': 'application/json' };
+    
+    // Use configured SIEM endpoint if available
+    if (siemConfig && siemConfig.endpointUrl) {
+      endpointUrl = siemConfig.endpointUrl;
+      if (siemConfig.apiKey) {
+        headers['Authorization'] = `Bearer ${siemConfig.apiKey}`;
+      }
+      if (siemConfig.headers) {
+        headers = { ...headers, ...siemConfig.headers };
+      }
+    }
+    
+    // Create SIEM response tracking record
+    const siemResponse = await storage.createSiemResponse({
+      incidentId: incident.id,
+      siemType: siemSource,
+      endpointUrl: endpointUrl || 'no-endpoint-configured',
+      responsePayload: responsePayload,
+      responseStatus: 'pending',
+      httpStatus: null,
+      errorMessage: null,
+      responseData: null,
+      retriedCount: 0
+    }, userId);
+    
+    // Send response if endpoint is configured
+    if (endpointUrl && endpointUrl !== 'no-endpoint-configured') {
+      try {
+        const response = await fetch(endpointUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(responsePayload)
+        });
+        
+        const responseData = await response.text();
+        
+        // Update response tracking
+        await storage.updateSiemResponseStatus(
+          siemResponse.id,
+          response.ok ? 'sent' : 'failed',
+          response.status,
+          response.ok ? undefined : `HTTP ${response.status}: ${responseData}`
+        );
+        
+        // Update incident SIEM response status
+        await storage.updateIncident(incident.id, userId, {
+          siemResponseStatus: response.ok ? 'sent' : 'failed',
+          siemResponseTime: new Date(),
+          siemResponseData: JSON.stringify({
+            status: response.status,
+            success: response.ok,
+            responseData: responseData.substring(0, 1000), // Truncate for storage
+            sentAt: new Date().toISOString()
+          })
+        });
+        
+        console.log(`✅ SIEM response sent successfully for incident ${incident.id} (HTTP ${response.status})`);
+      } catch (error: any) {
+        console.error(`❌ Failed to send SIEM response for incident ${incident.id}:`, error.message);
+        
+        await storage.updateSiemResponseStatus(
+          siemResponse.id,
+          'failed',
+          undefined,
+          error.message
+        );
+        
+        await storage.updateIncident(incident.id, userId, {
+          siemResponseStatus: 'failed',
+          siemResponseData: JSON.stringify({
+            error: error.message,
+            failedAt: new Date().toISOString()
+          })
+        });
+      }
+    } else {
+      console.log(`⚠️  No SIEM endpoint configured for ${siemSource}, response tracked but not sent`);
+      await storage.updateSiemResponseStatus(
+        siemResponse.id,
+        'not-configured',
+        undefined,
+        'No SIEM endpoint configured for automated response'
+      );
+    }
+    
+  } catch (error: any) {
+    console.error(`❌ Error in automated SIEM response for incident ${incident.id}:`, error.message);
+  }
+}
+
+function calculateRiskScore(incident: any): number {
+  let score = 0;
+  
+  // Base score from severity
+  const severityScores: any = { critical: 100, high: 80, medium: 60, low: 40, informational: 20 };
+  score += severityScores[incident.severity] || 50;
+  
+  // Adjust by confidence
+  if (incident.confidence) {
+    score = (score * incident.confidence) / 100;
+  }
+  
+  // Adjust by classification
+  if (incident.classification === 'true-positive') {
+    score += 20;
+  } else if (incident.classification === 'false-positive') {
+    score -= 30;
+  }
+  
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 // Real Gemini AI analysis that replaces the mock system with 8 specialized AI agents

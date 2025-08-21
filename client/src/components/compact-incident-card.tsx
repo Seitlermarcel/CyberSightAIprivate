@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Shield, TrendingUp, Clock, Brain } from "lucide-react";
+import { Shield, TrendingUp, Clock, Brain, Bot, Server, Link } from "lucide-react";
 import type { Incident } from "@shared/schema";
 
 interface CompactIncidentCardProps {
@@ -35,6 +35,33 @@ export function CompactIncidentCard({ incident, onClick }: CompactIncidentCardPr
     }
   };
 
+  const getSiemSourceIcon = (source: string) => {
+    switch (source) {
+      case 'siem-webhook':
+      case 'siem-api':
+        return <Bot className="w-3 h-3" />;
+      default:
+        return null;
+    }
+  };
+
+  const getSiemSourceColor = (source: string) => {
+    switch (source) {
+      case 'siem-webhook':
+      case 'siem-api':
+        return 'bg-cyber-purple hover:bg-purple-700 border-purple-500';
+      default:
+        return '';
+    }
+  };
+
+  const getSiemBadgeText = (incident: any) => {
+    if (incident.source === 'siem-webhook' || incident.source === 'siem-api') {
+      return incident.siemSource?.toUpperCase() || 'SIEM';
+    }
+    return null;
+  };
+
   return (
     <div 
       onClick={onClick}
@@ -46,6 +73,12 @@ export function CompactIncidentCard({ incident, onClick }: CompactIncidentCardPr
             {getSeverityIcon(incident.severity)}
             <span className="ml-1">{incident.severity?.toUpperCase()}</span>
           </Badge>
+          {getSiemBadgeText(incident as any) && (
+            <Badge className={`${getSiemSourceColor((incident as any).source)} text-white text-xs px-2 py-1 border`}>
+              {getSiemSourceIcon((incident as any).source)}
+              <span className="ml-1">{getSiemBadgeText(incident as any)}</span>
+            </Badge>
+          )}
           <span className="text-xs text-gray-400">
             {incident.classification === 'true-positive' ? 'TRUE+' : 'FALSE+'}
           </span>
