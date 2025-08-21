@@ -449,7 +449,7 @@ LIMIT 100`,
             </div>
 
             {/* Saved Queries */}
-            {savedQueries && savedQueries.length > 0 && (
+            {Array.isArray(savedQueries) && savedQueries.length > 0 && (
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-2xl blur-xl"></div>
                 <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
@@ -461,7 +461,7 @@ LIMIT 100`,
                   </div>
 
                   <div className="space-y-2">
-                    {savedQueries.slice(0, 5).map((savedQuery: any) => (
+                    {(savedQueries || []).slice(0, 5).map((savedQuery: any) => (
                       <div key={savedQuery.id} className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/30 hover:border-cyan-500/40 transition-colors">
                         <div className="flex items-center justify-between">
                           <div>
@@ -487,7 +487,7 @@ LIMIT 100`,
             )}
 
             {/* Query History */}
-            {queryHistory && queryHistory.length > 0 && (
+            {Array.isArray(queryHistory) && queryHistory.length > 0 && (
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-2xl blur-xl"></div>
                 <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
@@ -499,7 +499,7 @@ LIMIT 100`,
                   </div>
 
                   <div className="space-y-2">
-                    {queryHistory.slice(0, 5).map((historyItem: any, index: number) => (
+                    {(queryHistory || []).slice(0, 5).map((historyItem: any, index: number) => (
                       <div key={index} className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/30 hover:border-violet-500/40 transition-colors">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
