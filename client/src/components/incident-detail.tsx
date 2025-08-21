@@ -810,7 +810,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
               <TabsTrigger value="code" className="text-xs">Code</TabsTrigger>
               <TabsTrigger value="vectors" className="text-xs">Vectors</TabsTrigger>
               <TabsTrigger value="compliance" className="text-xs">Compliance</TabsTrigger>
-              <TabsTrigger value="similar" className="text-xs">Similar</TabsTrigger>
+              <TabsTrigger value="threat-prediction" className="text-xs">Prediction</TabsTrigger>
               <TabsTrigger value="siem-response" className="text-xs">SIEM Response</TabsTrigger>
             </TabsList>
           </Tabs>

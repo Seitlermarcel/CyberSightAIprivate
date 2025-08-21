@@ -1087,6 +1087,38 @@ async function processIncomingLogs({ logs, metadata, userId, source, callbackUrl
           systemContext: `Ingested via ${source} webhook`
         };
         
+        // Check if user has sufficient incident analyses in their package
+        const user = await storage.getUser(userId);
+        if (!user) {
+          throw new Error("User not found");
+        }
+        
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        
+        if (!isDevelopment) {
+          // Production mode: Check if user has remaining incident analyses in their package
+          const remainingIncidents = user.remainingIncidents || 0;
+          if (remainingIncidents < 1) {
+            throw new Error(`No incident analyses remaining. User ${user.currentPackage || 'current'} package has no remaining incident analyses.`);
+          }
+          
+          // Deduct one incident analysis from user's package for SIEM automated analysis
+          const success = await storage.deductIncident(userId);
+          if (!success) {
+            throw new Error("Failed to deduct incident analysis from user package");
+          }
+          
+          // Log the transaction for SIEM automated analysis
+          await storage.createBillingTransaction({
+            type: 'incident-analysis',
+            amount: '0', // No charge per incident, cost is in package
+            incidentsIncluded: 1,
+            packageName: user.currentPackage || 'free',
+            description: `SIEM automated analysis: ${incidentData.title}`,
+            status: 'completed'
+          }, userId);
+        }
+
         // Get user settings
         const userSettings = await storage.getUserSettings(userId);
         
@@ -1788,6 +1820,7 @@ async function sendAutomatedSiemResponse(incident: any, analysis: any, threatRep
     
     // Create SIEM response tracking record
     const siemResponse = await storage.createSiemResponse({
+      userId: userId,
       incidentId: incident.id,
       siemType: siemSource,
       endpointUrl: endpointUrl || 'no-endpoint-configured',
