@@ -377,15 +377,25 @@ export default function Billing() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-400">Storage Usage</span>
                     <span className="text-purple-400 font-medium">
-                      {((storageData as any)?.quota?.percentage || 0).toFixed(2)}%
+                      {((storageData as any)?.quota?.percentage || 0).toFixed(4)}%
                     </span>
                   </div>
                   <Progress 
                     value={Math.max(0.01, ((storageData as any)?.quota?.percentage || 0))} 
                     className="h-2 bg-slate-700/50" 
                   />
-                  <div className="text-xs text-gray-500">
-                    {((storageData as any)?.quota?.canCreateNew ? '✅ Space available' : '⚠️ Near limit')}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">
+                      {((storageData as any)?.quota?.percentage || 0) < 75 ? 'Optimal usage' : 
+                       ((storageData as any)?.quota?.percentage || 0) < 90 ? 'High usage' : 'Critical usage'}
+                    </span>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      ((storageData as any)?.quota?.canCreateNew) 
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
+                      {((storageData as any)?.quota?.canCreateNew ? 'Available' : 'Near Limit')}
+                    </div>
                   </div>
                 </div>
 
