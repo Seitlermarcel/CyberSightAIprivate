@@ -631,10 +631,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid package" });
       }
       
-      // Check if in development mode
+      // Check if in development mode and user is authorized for free packages
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
+      const allowedDevUserIds = ['46095879']; // Only allow specific developer user IDs to bypass payment in dev mode
+      const isAuthorizedDevUser = allowedDevUserIds.includes(userId);
       
-      if (isDevelopment || !process.env.STRIPE_SECRET_KEY) {
+      if ((isDevelopment && isAuthorizedDevUser) || (!process.env.STRIPE_SECRET_KEY && isAuthorizedDevUser)) {
         // Development mode: Set package without payment
         const user = await storage.getUser(userId);
         if (!user) {
@@ -659,11 +661,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           devMode: true,
           transaction,
           newBalance: selectedPackage.incidentsIncluded,
-          message: "Development mode: Plan purchased without payment"
+          message: "Development mode: Plan purchased without payment (authorized developer)"
         });
       }
       
-      // Production mode: Create Stripe payment intent
+      // Check if user tried to bypass payment but isn't authorized in dev mode
+      if (isDevelopment && !isAuthorizedDevUser && !process.env.STRIPE_SECRET_KEY) {
+        return res.status(403).json({ 
+          error: "Unauthorized: Development mode package purchases require Stripe configuration for security.",
+          requiresStripe: true
+        });
+      }
+      
+      // Ensure Stripe is configured for production and unauthorized dev users
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return res.status(400).json({ 
+          error: "Payment processing unavailable: Stripe not configured",
+          requiresStripe: true
+        });
+      }
+      
+      // Create Stripe payment intent
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
         apiVersion: "2025-07-30.basil" as any
       });
