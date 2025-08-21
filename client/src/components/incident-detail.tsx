@@ -46,6 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Incident } from "@shared/schema";
 import ThreatIntelligence from "@/components/threat-intelligence";
+import { SiemResponseTracking } from "@/components/siem-response-tracking";
 
 interface IncidentDetailProps {
   incidentId: string;
@@ -470,6 +471,12 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                 <span>{format(new Date(incident.createdAt!), "MMM d, yyyy 'at' h:mm a")}</span>
                 <span>•</span>
                 <span>Confidence: {incident.confidence}%</span>
+                {(incident as any).siemSource && (
+                  <>
+                    <span>•</span>
+                    <span>Source: {(incident as any).siemSource?.toUpperCase()} Integration</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -480,6 +487,11 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
             <Badge className={`${getClassificationColor(incident.classification || "")} text-white`}>
               {incident.classification === "true-positive" ? "TRUE POSITIVE" : "FALSE POSITIVE"}
             </Badge>
+            {((incident as any).source === 'siem-webhook' || (incident as any).source === 'siem-api') && (
+              <Badge className="bg-cyber-purple text-white border border-purple-500">
+                🔗 {(incident as any).siemSource?.toUpperCase() || 'SIEM'} AUTO
+              </Badge>
+            )}
             <Button 
               variant="ghost" 
               size="sm" 
@@ -799,7 +811,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
               <TabsTrigger value="vectors" className="text-xs">Vectors</TabsTrigger>
               <TabsTrigger value="compliance" className="text-xs">Compliance</TabsTrigger>
               <TabsTrigger value="similar" className="text-xs">Similar</TabsTrigger>
-              <TabsTrigger value="threat-prediction" className="text-xs">Prediction</TabsTrigger>
+              <TabsTrigger value="siem-response" className="text-xs">SIEM Response</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -2510,6 +2522,12 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                 )}
               </div>
             </TabsContent>
+
+            {/* SIEM Response Tab */}
+            <TabsContent value="siem-response" className="mt-0">
+              <SiemResponseTracking incident={incident} />
+            </TabsContent>
+
           </Tabs>
         </div>
       </div>

@@ -6,6 +6,7 @@ import {
   billingTransactions,
   usageTracking,
   queryHistory,
+  siemResponses,
   type User,
   type UpsertUser,
   type Incident,
@@ -18,7 +19,9 @@ import {
   type InsertBillingTransaction,
   type UsageTracking,
   type QueryHistory,
-  type InsertQueryHistory
+  type InsertQueryHistory,
+  type SiemResponse,
+  type InsertSiemResponse
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, gte, or, asc, lt } from "drizzle-orm";
@@ -76,6 +79,11 @@ export interface IStorage {
   saveQuery(query: InsertQueryHistory, userId: string): Promise<QueryHistory>;
   getUserQueries(userId: string, limit?: number): Promise<QueryHistory[]>;
   getSavedQueries(userId: string): Promise<QueryHistory[]>;
+  
+  // SIEM Response Tracking for bidirectional integration
+  createSiemResponse(response: InsertSiemResponse, userId: string): Promise<SiemResponse>;
+  getSiemResponses(incidentId: string, userId: string): Promise<SiemResponse[]>;
+  updateSiemResponseStatus(responseId: string, status: string, httpStatus?: number, errorMessage?: string): Promise<SiemResponse | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -736,6 +744,40 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(incidents.createdAt))
       .limit(100);
+  }
+  
+  // SIEM Response Tracking Implementation
+  async createSiemResponse(response: InsertSiemResponse, userId: string): Promise<SiemResponse> {
+    const [siemResponse] = await db
+      .insert(siemResponses)
+      .values({ ...response, userId })
+      .returning();
+    return siemResponse;
+  }
+
+  async getSiemResponses(incidentId: string, userId: string): Promise<SiemResponse[]> {
+    return await db
+      .select()
+      .from(siemResponses)
+      .where(and(
+        eq(siemResponses.incidentId, incidentId),
+        eq(siemResponses.userId, userId)
+      ))
+      .orderBy(desc(siemResponses.sentAt));
+  }
+
+  async updateSiemResponseStatus(responseId: string, status: string, httpStatus?: number, errorMessage?: string): Promise<SiemResponse | undefined> {
+    const [response] = await db
+      .update(siemResponses)
+      .set({ 
+        responseStatus: status, 
+        httpStatus,
+        errorMessage,
+        retriedCount: sql`${siemResponses.retriedCount} + 1`
+      })
+      .where(eq(siemResponses.id, responseId))
+      .returning();
+    return response;
   }
 }
 

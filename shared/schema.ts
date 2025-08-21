@@ -65,6 +65,13 @@ export const incidents = pgTable("incidents", {
   riskTrend: text("risk_trend"), // increasing, stable, decreasing
   threatIntelligence: text("threat_intelligence"), // JSON string with AlienVault OTX threat intelligence data
   comments: text("comments").array().default([]), // Array of comment strings
+  source: text("source").default("manual"), // manual, siem-webhook, siem-api, automation
+  siemIntegrationId: varchar("siem_integration_id"), // Original SIEM incident/alert ID
+  siemSource: text("siem_source"), // sentinel, splunk, elastic, crowdstrike, etc.
+  siemResponseStatus: text("siem_response_status").default("pending"), // pending, sent, failed, not-configured
+  siemResponseData: text("siem_response_data"), // JSON of data sent back to SIEM
+  siemResponseTime: timestamp("siem_response_time"),
+  automationEnabled: boolean("automation_enabled").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -151,6 +158,27 @@ export const queryHistory = pgTable("query_history", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// SIEM response tracking for bidirectional integration
+export const siemResponses = pgTable("siem_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").references(() => incidents.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  siemType: text("siem_type").notNull(), // sentinel, splunk, elastic, crowdstrike
+  endpointUrl: text("endpoint_url").notNull(),
+  responsePayload: jsonb("response_payload").notNull(),
+  responseStatus: text("response_status").notNull(), // sent, failed, pending
+  httpStatus: integer("http_status"),
+  errorMessage: text("error_message"),
+  responseData: jsonb("response_data"), // SIEM's response
+  sentAt: timestamp("sent_at").defaultNow(),
+  retriedCount: integer("retried_count").default(0),
+});
+
+export const insertSiemResponseSchema = createInsertSchema(siemResponses).omit({
+  id: true,
+  sentAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -202,6 +230,8 @@ export type InsertBillingTransaction = z.infer<typeof insertBillingTransactionSc
 export type UsageTracking = typeof usageTracking.$inferSelect;
 export type QueryHistory = typeof queryHistory.$inferSelect;
 export type InsertQueryHistory = z.infer<typeof insertQueryHistorySchema>;
+export type SiemResponse = typeof siemResponses.$inferSelect;
+export type InsertSiemResponse = z.infer<typeof insertSiemResponseSchema>;
 
 // Package definitions
 export const PACKAGES = {
