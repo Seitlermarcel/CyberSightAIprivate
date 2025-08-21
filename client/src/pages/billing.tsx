@@ -506,57 +506,85 @@ export default function Billing() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-300">Storage Overview</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between p-3 cyber-dark rounded-lg">
-                  <span className="text-sm text-gray-400">Total Storage Used:</span>
-                  <span className="font-medium text-cyber-blue">
-                    {((storageData as any)?.usage?.details?.totalMB || 0).toFixed(2)} MB
-                  </span>
-                </div>
-                <div className="flex justify-between p-3 cyber-dark rounded-lg">
-                  <span className="text-sm text-gray-400">Storage Limit:</span>
-                  <span className="font-medium text-green-400">{((storageData as any)?.limit || 0)} GB</span>
-                </div>
-                <div className="flex justify-between p-3 cyber-dark rounded-lg">
-                  <span className="text-sm text-gray-400">Incidents Stored:</span>
-                  <span className="font-medium">{((storageData as any)?.usage?.incidentCount || 0)}</span>
-                </div>
-                <div className="flex justify-between p-3 cyber-dark rounded-lg">
-                  <span className="text-sm text-gray-400">Average per Incident:</span>
-                  <span className="font-medium">{((storageData as any)?.usage?.details?.averageIncidentSizeMB || 0).toFixed(2)} MB</span>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-300">Storage Breakdown</h4>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {(storageData as any)?.usage?.details?.breakdownMB && Object.entries((storageData as any).usage.details.breakdownMB).map(([key, value]: [string, any]) => (
-                  <div key={key} className="flex justify-between p-2 cyber-dark rounded text-xs">
-                    <span className="text-gray-400 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                    <span className="text-cyber-blue">{(value || 0).toFixed(2)} MB</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <h4 className="text-lg font-semibold bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent">Storage Overview</h4>
+                <div className="space-y-4">
+                  <div className="p-4 bg-gradient-to-r from-slate-800/50 to-slate-700/50 rounded-xl border border-slate-600/30">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">Total Usage</span>
+                      <span className="text-xl font-bold text-teal-400">
+                        {((storageData as any)?.usage?.details?.totalMB || 0).toFixed(2)} MB
+                      </span>
+                    </div>
                   </div>
-                ))}
+                  <div className="p-4 bg-gradient-to-r from-slate-800/50 to-slate-700/50 rounded-xl border border-slate-600/30">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">Storage Limit</span>
+                      <span className="text-xl font-bold text-green-400">{((storageData as any)?.limit || 0)} GB</span>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-gradient-to-r from-slate-800/50 to-slate-700/50 rounded-xl border border-slate-600/30">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">Incidents Stored</span>
+                      <span className="text-xl font-bold text-blue-400">{((storageData as any)?.usage?.incidentCount || 0)}</span>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-gradient-to-r from-slate-800/50 to-slate-700/50 rounded-xl border border-slate-600/30">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-300">Avg per Incident</span>
+                      <span className="text-xl font-bold text-purple-400">{((storageData as any)?.usage?.details?.averageIncidentSizeMB || 0).toFixed(2)} MB</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="mt-6 p-4 bg-gradient-to-r from-cyber-dark to-cyber-slate-dark rounded-lg border border-cyber-slate-light">
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-cyber-blue flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-cyber-blue">Auto-Cleanup Policy</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  All incidents are automatically deleted after 30 days across all plans to optimize storage usage and ensure data freshness.
-                </p>
-                <div className="mt-2 p-2 bg-cyber-slate-dark rounded border-l-2 border-yellow-500">
-                  <p className="text-xs text-yellow-400">
-                    <strong>Next Cleanup:</strong> {((cleanupData as any)?.incidentsToBeDeleted || 0)} incidents will be deleted tomorrow
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Incidents older than 30 days are automatically removed to optimize storage
-                  </p>
+              <div className="space-y-6">
+                <h4 className="text-lg font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Data Breakdown</h4>
+                <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/30 max-h-80 overflow-y-auto">
+                  <div className="space-y-3">
+                    {(storageData as any)?.usage?.details?.breakdownMB && Object.entries((storageData as any).usage.details.breakdownMB).map(([key, value]: [string, any]) => (
+                      <div key={key} className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg border border-slate-600/20">
+                        <span className="text-gray-300 capitalize text-sm font-medium">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                        <span className="text-purple-400 font-bold">{(value || 0).toFixed(2)} MB</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            
+            <div className="lg:col-span-2 mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-xl blur-sm"></div>
+                <div className="relative p-6 bg-slate-800/70 backdrop-blur-sm rounded-xl border border-orange-500/30">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-xl">
+                      <Clock className="w-6 h-6 text-orange-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h5 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent mb-3">
+                        Auto-Cleanup System
+                      </h5>
+                      <p className="text-gray-300 mb-4 leading-relaxed">
+                        Advanced automated data retention policy ensures optimal performance and compliance across all subscription tiers.
+                      </p>
+                      <div className="p-4 bg-gradient-to-r from-slate-900/60 to-slate-800/60 rounded-lg border border-orange-500/30 backdrop-blur-sm">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-1.5 bg-yellow-500/20 rounded-lg">
+                            <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                          </div>
+                          <span className="font-semibold text-yellow-400">Scheduled Cleanup</span>
+                        </div>
+                        <p className="text-sm text-gray-300 mb-2">
+                          <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-md font-bold">
+                            {((cleanupData as any)?.incidentsToBeDeleted || 0)} incidents
+                          </span> will be automatically removed in the next cleanup cycle
+                        </p>
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          Data older than 30 days is automatically purged to maintain system performance and storage efficiency
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
