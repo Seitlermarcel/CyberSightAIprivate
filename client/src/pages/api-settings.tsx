@@ -66,114 +66,24 @@ const SIEM_TEMPLATES = [
       "4. Add 'HTTP Response' action to receive analysis results",
       "5. Connect Logic App to Sentinel Automation Rules",
       "6. Test the entire flow with a sample incident"
-    ],
-    callbackSteps: [
-      "1. In your Logic App, add an HTTP trigger for callbacks",
-      "2. Set the callback URL in your webhook request to CyberSight",
-      "3. Process the analysis results in your Logic App",
-      "4. Update the incident in Sentinel with AI analysis results",
-      "5. Optionally create work items or send notifications"
-    ],
-    samplePayload: {
-      "WorkspaceId": "your-workspace-id",
-      "AlertType": "SecurityAlert",
-      "alertContext": "Suspicious activity detected",
-      "entities": ["entity1", "entity2"],
-      "callbackUrl": "https://your-logic-app.azurewebsites.net/api/callback",
-      "apiKey": "cybersight_USER_ID_TOKEN"
-    },
-    logicAppSchema: {
-      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-      "contentVersion": "1.0.0.0",
-      "triggers": {
-        "manual": {
-          "type": "Request",
-          "kind": "Http",
-          "inputs": {
-            "method": "POST",
-            "schema": {
-              "properties": {
-                "incidentId": { "type": "string" },
-                "classification": { "type": "string" },
-                "confidence": { "type": "integer" },
-                "mitreAttack": { "type": "array" },
-                "summary": { "type": "string" }
-              }
-            }
-          }
-        }
-      },
-      "actions": {
-        "Update_incident": {
-          "type": "ApiConnection",
-          "inputs": {
-            "host": {
-              "connection": {
-                "name": "@parameters('$connections')['azuresentinel']['connectionId']"
-              }
-            },
-            "method": "put",
-            "path": "/Incidents/@{encodeURIComponent(triggerBody()?['incidentId'])}",
-            "body": {
-              "properties": {
-                "description": "@{triggerBody()?['summary']}",
-                "labels": [
-                  {
-                    "labelName": "@{triggerBody()?['classification']}",
-                    "labelType": "User"
-                  }
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
+    ]
   },
   {
     id: "splunk",
-    name: "Splunk",
-    icon: Database,
+    name: "Splunk Enterprise Security",
+    icon: Server,
     color: "text-green-500",
-    description: "Enterprise security information and event management",
+    description: "Premium security information and event management platform",
     webhook: "/api/webhook/splunk",
-    requiresCustomScript: true,
+    requiresHttpEventCollector: true,
     steps: [
-      "1. Install 'REST API Modular Input' app from Splunkbase",
-      "2. Create a webhook alert action in Settings > Alert actions",
-      "3. Configure the webhook URL and authentication",
-      "4. Set up a scripted input to receive callbacks",
-      "5. Create a custom search to process analysis results",
-      "6. Test the bidirectional flow"
-    ],
-    callbackSteps: [
-      "1. Create an HTTP Event Collector (HEC) token",
-      "2. Use HEC endpoint as your callback URL",
-      "3. Configure index for analysis results",
-      "4. Create searches to correlate original alerts with AI results",
-      "5. Set up dashboards to visualize analysis outcomes"
-    ],
-    samplePayload: {
-      "search_name": "Security Alert",
-      "result": { "field1": "value1", "field2": "value2" },
-      "callbackUrl": "https://your-splunk.com:8088/services/collector/event",
-      "callbackToken": "your-hec-token",
-      "apiKey": "cybersight_USER_ID_TOKEN"
-    },
-    hecConfig: {
-      "url": "https://your-splunk.com:8088/services/collector/event",
-      "headers": {
-        "Authorization": "Splunk your-hec-token",
-        "Content-Type": "application/json"
-      },
-      "body": {
-        "time": "@timestamp",
-        "source": "cybersight-ai",
-        "sourcetype": "cybersight:analysis",
-        "index": "security",
-        "event": "@analysis_results"
-      }
-    }
+      "1. Enable HTTP Event Collector in Splunk Settings",
+      "2. Create a new token for CyberSight integration",
+      "3. Configure webhook to forward events to CyberSight",
+      "4. Set up alert actions in Enterprise Security",
+      "5. Configure index for storing analysis results",
+      "6. Test the integration with sample security events"
+    ]
   },
   {
     id: "elastic",
@@ -190,35 +100,7 @@ const SIEM_TEMPLATES = [
       "4. Create detection rules that use the webhook connector",
       "5. Configure index for storing analysis results",
       "6. Test the rule with sample security events"
-    ],
-    callbackSteps: [
-      "1. Create an index template for analysis results",
-      "2. Set up index lifecycle management policies",
-      "3. Use Elasticsearch ingest API as callback URL",
-      "4. Configure field mappings for analysis data",
-      "5. Create visualizations for analysis results in Kibana"
-    ],
-    samplePayload: {
-      "alert": { "id": "alert-id", "name": "Security Alert" },
-      "rule": { "name": "Detection Rule", "id": "rule-id" },
-      "callbackUrl": "https://your-elastic.com:9200/cybersight-analysis/_doc",
-      "callbackAuth": "ApiKey your-api-key",
-      "apiKey": "cybersight_USER_ID_TOKEN"
-    },
-    indexTemplate: {
-      "index_patterns": ["cybersight-analysis-*"],
-      "mappings": {
-        "properties": {
-          "@timestamp": { "type": "date" },
-          "incidentId": { "type": "keyword" },
-          "classification": { "type": "keyword" },
-          "confidence": { "type": "integer" },
-          "mitreAttack": { "type": "keyword" },
-          "iocs": { "type": "keyword" },
-          "summary": { "type": "text" }
-        }
-      }
-    }
+    ]
   },
   {
     id: "crowdstrike",
@@ -235,102 +117,42 @@ const SIEM_TEMPLATES = [
       "4. Configure the middleware to forward to CyberSight",
       "5. Use CrowdStrike API to update incidents with analysis",
       "6. Test the integration with sample detection events"
-    ],
-    callbackSteps: [
-      "1. Use CrowdStrike Incidents API as callback mechanism",
-      "2. Configure API client with 'incidents:write' scope",
-      "3. Map CyberSight analysis to CrowdStrike incident fields",
-      "4. Update incident status and add analysis as comments",
-      "5. Optionally trigger custom IOC management"
-    ],
-    samplePayload: {
-      "event": { "type": "SecurityEvent", "data": "event-data" },
-      "metadata": { "customer": "customer-id", "timestamp": "2025-01-20T10:00:00Z" },
-      "callbackConfig": {
-        "type": "crowdstrike-api",
-        "clientId": "your-client-id",
-        "baseUrl": "https://api.crowdstrike.com"
-      },
-      "apiKey": "cybersight_USER_ID_TOKEN"
-    },
-    apiIntegration: {
-      "endpoint": "https://api.crowdstrike.com/incidents/entities/incidents/v1",
-      "method": "PATCH",
-      "headers": {
-        "Authorization": "Bearer YOUR_ACCESS_TOKEN",
-        "Content-Type": "application/json"
-      },
-      "body": {
-        "resources": [{
-          "incident_id": "@incident_id",
-          "status": "@analysis_status",
-          "description": "@analysis_summary"
-        }]
-      }
-    }
+    ]
   },
   {
     id: "generic",
     name: "Generic SIEM/SOC Tool",
-    icon: Server,
-    color: "text-purple-500",
-    description: "Works with any SIEM tool that supports HTTP webhooks",
-    webhook: "/api/webhook/ingest",
+    icon: Webhook,
+    color: "text-gray-500",
+    description: "Universal webhook integration for any SIEM platform",
+    webhook: "/api/webhook/generic",
+    requiresCustomConfig: true,
     steps: [
-      "1. Find the webhook/HTTP notification settings in your SIEM",
-      "2. Add a new webhook endpoint using the URL below",
-      "3. Configure authentication with your API key",
-      "4. Set up a callback endpoint to receive results",
-      "5. Test both outgoing and incoming flows",
-      "6. Monitor the integration logs"
-    ],
-    callbackSteps: [
-      "1. Create an HTTP endpoint in your SIEM to receive callbacks",
-      "2. Configure authentication for the callback endpoint",
-      "3. Process the analysis results in your SIEM",
-      "4. Update incident records with AI analysis data",
-      "5. Set up alerting based on analysis confidence scores"
-    ],
-    samplePayload: {
-      "logs": ["security log 1", "security log 2"],
-      "metadata": { "source": "SIEM-Tool", "severity": "high" },
-      "callbackUrl": "https://your-siem.com/api/callback",
-      "callbackAuth": "Bearer your-callback-token",
-      "apiKey": "cybersight_USER_ID_TOKEN"
-    },
-    callbackFormat: {
-      "incidentId": "uuid-string",
-      "originalId": "your-siem-incident-id",
-      "classification": "true-positive|false-positive",
-      "confidence": "0-100",
-      "severity": "critical|high|medium|low|informational",
-      "mitreAttack": ["T1055", "T1059"],
-      "iocs": ["malicious-ip", "suspicious-domain"],
-      "summary": "Detailed AI analysis results",
-      "timestamp": "ISO-8601 datetime",
-      "source": "CyberSight AI Analysis"
-    }
+      "1. Identify your SIEM's webhook or API capabilities",
+      "2. Configure your SIEM to send events to CyberSight webhook",
+      "3. Set up authentication using your CyberSight API key",
+      "4. Map your event fields to CyberSight's expected format",
+      "5. Configure callback URL for receiving analysis results",
+      "6. Test the integration with sample security events"
+    ]
   }
 ];
 
 export default function ApiSettings() {
   const { toast } = useToast();
-  const [selectedSiem, setSelectedSiem] = useState<any>(null);
   const [showIntegrationGuide, setShowIntegrationGuide] = useState(false);
+  const [selectedSiem, setSelectedSiem] = useState<any>(null);
   const [isTestingWebhook, setIsTestingWebhook] = useState<string | null>(null);
 
-  // Fetch user data for API keys
+  // Get user information
   const { data: user } = useQuery({
     queryKey: ["/api/auth/user"],
   });
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied to clipboard",
-      description: "The text has been copied successfully.",
-    });
-  };
+  // Get existing API configurations
+  const { data: apiConfigs } = useQuery({
+    queryKey: ["/api/api-configurations"],
+  });
 
   const testWebhookMutation = useMutation({
     mutationFn: async (webhook: string) => {
@@ -364,356 +186,239 @@ export default function ApiSettings() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold cyber-gradient">SIEM Integration Hub</h1>
-          <p className="text-gray-400 mt-2">
-            Connect your security tools to CyberSight AI for automated incident analysis
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4 lg:p-6 xl:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl blur-xl"></div>
+          <div className="relative p-4 lg:p-6 bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
+                  <Webhook className="text-blue-400 w-5 h-5 lg:w-6 lg:h-6" />
+                </div>
+                <div>
+                  <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">SIEM Integration Hub</h1>
+                  <p className="text-gray-300 text-sm lg:text-base mt-1">
+                    Connect your security tools to CyberSight AI for automated incident analysis and real-time threat response
+                  </p>
+                </div>
+              </div>
+              <Dialog open={showIntegrationGuide} onOpenChange={setShowIntegrationGuide}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium px-6 py-2 rounded-lg transition-all duration-300">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Quick Setup Guide
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-slate-800/95 backdrop-blur-sm border border-slate-700/50">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">SIEM Integration Guide</DialogTitle>
+                    <DialogDescription className="text-gray-300">
+                      Choose your SIEM platform and follow the step-by-step integration guide
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    {SIEM_TEMPLATES.map((siem) => {
+                      const Icon = siem.icon;
+                      return (
+                        <Card 
+                          key={siem.id}
+                          className={`cursor-pointer transition-all hover:border-blue-500/40 ${
+                            selectedSiem?.id === siem.id ? 'border-blue-500/60 bg-blue-500/10' : 'bg-slate-900/50 border-slate-700/50'
+                          }`}
+                          onClick={() => setSelectedSiem(siem)}
+                        >
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center space-x-3">
+                              <Icon className={`w-5 h-5 ${siem.color}`} />
+                              <span className="text-lg text-white">{siem.name}</span>
+                            </CardTitle>
+                            <CardDescription className="text-gray-300">{siem.description}</CardDescription>
+                          </CardHeader>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
+                  {selectedSiem && (
+                    <Card className="mt-6 bg-slate-900/50 border-blue-500/40">
+                      <CardHeader>
+                        <CardTitle className="text-white">Integration Steps for {selectedSiem.name}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {selectedSiem.steps.map((step: string, index: number) => (
+                            <div key={index} className="flex items-start space-x-3">
+                              <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
+                                {index + 1}
+                              </div>
+                              <p className="text-gray-300">{step}</p>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="mt-4 p-4 bg-slate-800/50 rounded-lg">
+                          <h4 className="font-semibold text-white mb-2">Webhook URL</h4>
+                          <div className="flex items-center space-x-2">
+                            <code className="flex-1 p-2 bg-slate-700/50 rounded text-green-400 text-sm">
+                              {window.location.origin}{selectedSiem.webhook}
+                            </code>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                navigator.clipboard.writeText(window.location.origin + selectedSiem.webhook);
+                                toast({ title: "Copied!", description: "Webhook URL copied to clipboard" });
+                              }}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
         </div>
-        <Dialog open={showIntegrationGuide} onOpenChange={setShowIntegrationGuide}>
-          <DialogTrigger asChild>
-            <Button className="cyber-blue hover:bg-blue-600">
-              <Zap className="w-4 h-4 mr-2" />
-              Quick Setup Guide
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-2xl cyber-gradient">SIEM Integration Guide</DialogTitle>
-              <DialogDescription>
-                Choose your SIEM platform and follow the step-by-step integration guide
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+
+        {/* Current API Configurations */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl blur-xl"></div>
+          <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="p-2 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl border border-green-500/30">
+                <Database className="text-green-400 w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">Active API Configurations</h2>
+                <p className="text-gray-300 text-sm">Manage your log streaming endpoints and webhook integrations</p>
+              </div>
+            </div>
+
+            {apiConfigs && apiConfigs.length > 0 ? (
+              <div className="space-y-4">
+                {apiConfigs.map((config: any) => (
+                  <div
+                    key={config.id}
+                    className="p-4 rounded-lg bg-slate-900/50 border border-slate-700/30 hover:border-green-500/40 hover:bg-slate-800/50 transition-all duration-300"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                        <div>
+                          <h3 className="font-semibold text-white">{config.name}</h3>
+                          <p className="text-sm text-gray-400">{config.endpointType} • {config.endpointUrl}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={config.isActive ? "bg-green-600 text-white" : "bg-gray-600 text-white"}>
+                          {config.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isTestingWebhook === config.endpointUrl}
+                          onClick={() => handleTestWebhook(config.endpointUrl)}
+                          className="border-slate-600 text-gray-300 hover:bg-slate-700"
+                        >
+                          {isTestingWebhook === config.endpointUrl ? (
+                            <div className="animate-spin">
+                              <TestTube className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <TestTube className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-400">No API configurations found</p>
+                <p className="text-gray-500 text-sm">Create your first integration below</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* SIEM Platform Cards */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-2xl blur-xl"></div>
+          <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
+                <Shield className="text-purple-400 w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Supported SIEM Platforms</h2>
+                <p className="text-gray-300 text-sm">Quick setup guides for popular security platforms</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {SIEM_TEMPLATES.map((siem) => {
                 const Icon = siem.icon;
                 return (
-                  <Card 
+                  <div
                     key={siem.id}
-                    className={`cursor-pointer transition-all hover:border-cyber-blue ${
-                      selectedSiem?.id === siem.id ? 'border-cyber-blue bg-cyber-blue/10' : 'cyber-slate border-cyber-slate-light'
-                    }`}
-                    onClick={() => setSelectedSiem(siem)}
+                    className="p-4 rounded-lg bg-slate-900/50 border border-slate-700/30 hover:border-purple-500/40 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedSiem(siem);
+                      setShowIntegrationGuide(true);
+                    }}
                   >
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center space-x-3">
-                        <Icon className={`w-5 h-5 ${siem.color}`} />
-                        <span className="text-lg">{siem.name}</span>
-                      </CardTitle>
-                      <CardDescription>{siem.description}</CardDescription>
-                    </CardHeader>
-                  </Card>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <Icon className={`w-6 h-6 ${siem.color}`} />
+                      <h3 className="font-semibold text-white">{siem.name}</h3>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-3">{siem.description}</p>
+                    <Button size="sm" variant="outline" className="w-full border-slate-600 text-gray-300 hover:bg-slate-700">
+                      <PlayCircle className="w-4 h-4 mr-2" />
+                      Setup Guide
+                    </Button>
+                  </div>
                 );
               })}
             </div>
-
-            {selectedSiem && (
-              <Card className="mt-6 cyber-slate border-cyber-blue">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-3 text-cyber-blue">
-                    <selectedSiem.icon className="w-5 h-5" />
-                    <span>{selectedSiem.name} Integration</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Integration Steps */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center">
-                      <Settings className="w-5 h-5 mr-2 text-cyber-blue" />
-                      Setup Instructions
-                    </h3>
-                    <div className="space-y-2">
-                      {selectedSiem.steps.map((step: string, index: number) => (
-                        <div key={index} className="flex items-start space-x-3">
-                          <div className="w-6 h-6 rounded-full bg-cyber-blue text-xs flex items-center justify-center text-white font-medium">
-                            {index + 1}
-                          </div>
-                          <p className="text-gray-300 flex-1">{step}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Webhook URL */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center">
-                      <Webhook className="w-5 h-5 mr-2 text-cyber-blue" />
-                      Webhook Endpoint
-                    </h3>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        value={`${window.location.origin}${selectedSiem.webhook}`}
-                        readOnly
-                        className="font-mono text-sm cyber-slate"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyToClipboard(`${window.location.origin}${selectedSiem.webhook}`)}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTestWebhook(selectedSiem.webhook)}
-                        disabled={isTestingWebhook === selectedSiem.webhook}
-                      >
-                        <TestTube className="w-4 h-4 mr-1" />
-                        {isTestingWebhook === selectedSiem.webhook ? "Testing..." : "Test"}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* API Key */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center">
-                      <Key className="w-5 h-5 mr-2 text-cyber-blue" />
-                      API Key (Include in Request Body)
-                    </h3>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        value={`cybersight_${(user as any)?.id || 'USER_ID'}_TOKEN`}
-                        readOnly
-                        className="font-mono text-sm cyber-slate"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyToClipboard(`cybersight_${(user as any)?.id || 'USER_ID'}_TOKEN`)}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Replace USER_ID with your actual user ID: {(user as any)?.id}
-                    </p>
-                  </div>
-
-                  {/* Sample Payload */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center">
-                      <Database className="w-5 h-5 mr-2 text-cyber-blue" />
-                      Sample Request Payload
-                    </h3>
-                    <div className="relative">
-                      <pre className="cyber-dark p-4 rounded-lg text-sm overflow-x-auto">
-                        <code className="text-green-400">
-                          {JSON.stringify(selectedSiem.samplePayload, null, 2)}
-                        </code>
-                      </pre>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="absolute top-2 right-2"
-                        onClick={() => copyToClipboard(JSON.stringify(selectedSiem.samplePayload, null, 2))}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Features */}
-                  <div className="bg-cyber-blue/10 p-4 rounded-lg">
-                    <h4 className="font-semibold text-cyber-blue mb-2 flex items-center">
-                      <Zap className="w-4 h-4 mr-2" />
-                      What Happens Next?
-                    </h4>
-                    <ul className="space-y-1 text-sm text-gray-300">
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Logs automatically analyzed by 12 AI agents</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Incidents classified and confidence scored</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>MITRE ATT&CK mapping and IOC enrichment</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span>Results sent back to your SIEM (if callback URL provided)</span>
-                      </li>
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Quick Access Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Generic Webhook */}
-        <Card className="cyber-slate border-cyber-slate-light">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Webhook className="text-cyber-blue" />
-              <span>Universal Webhook</span>
-            </CardTitle>
-            <CardDescription>
-              Works with any SIEM that supports HTTP webhooks
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Input
-                  value={`${window.location.origin}/api/webhook/ingest`}
-                  readOnly
-                  className="font-mono text-sm"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => copyToClipboard(`${window.location.origin}/api/webhook/ingest`)}
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="p-3 cyber-dark rounded-lg text-xs">
-                <p className="text-gray-400 mb-1">Include in request body:</p>
-                <code className="text-cyber-blue">{"{ \"apiKey\": \"cybersight_" + ((user as any)?.id || 'USER_ID') + "_TOKEN\" }"}</code>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Personal Endpoint */}
-        <Card className="cyber-slate border-cyber-slate-light">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Key className="text-green-500" />
-              <span>Personal Endpoint</span>
-            </CardTitle>
-            <CardDescription>
-              Your unique webhook URL (no API key required)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Input
-                  value={`${window.location.origin}/api/webhook/ingest/${(user as any)?.id || 'USER_ID'}/TOKEN`}
-                  readOnly
-                  className="font-mono text-sm"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => copyToClipboard(`${window.location.origin}/api/webhook/ingest/${(user as any)?.id || 'USER_ID'}/TOKEN`)}
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="p-3 cyber-dark rounded-lg text-xs">
-                <p className="text-gray-400 mb-1">Replace TOKEN with your secure token</p>
-                <p className="text-green-400">✓ No API key needed in request body</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Bidirectional Flow */}
-        <Card className="cyber-slate border-cyber-slate-light">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <ArrowRight className="text-purple-500" />
-              <span>Bidirectional Flow</span>
-            </CardTitle>
-            <CardDescription>
-              Get AI analysis results back in your SIEM
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Your SIEM</span>
-                <ArrowRight className="w-4 h-4 text-cyber-blue" />
-                <span className="text-sm text-cyber-blue">CyberSight AI</span>
-                <ArrowRight className="w-4 h-4 text-green-500" />
-                <span className="text-sm text-green-400">Results Back</span>
-              </div>
-              <div className="p-3 cyber-dark rounded-lg text-xs">
-                <p className="text-gray-400 mb-1">Include in request:</p>
-                <code className="text-purple-400">{"\"callbackUrl\": \"https://your-siem.com/api/callback\""}</code>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Popular SIEM Integrations */}
-      <Card className="cyber-slate border-cyber-slate-light">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-xl">
-            <Shield className="text-cyber-blue" />
-            <span>Popular SIEM Integrations</span>
-          </CardTitle>
-          <CardDescription>
-            Quick setup guides for the most popular security platforms
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {SIEM_TEMPLATES.slice(0, -1).map((siem) => {
-              const Icon = siem.icon;
-              return (
-                <div
-                  key={siem.id}
-                  className="p-4 rounded-lg cyber-dark border border-cyber-slate-light hover:border-cyber-blue transition-colors cursor-pointer"
-                  onClick={() => {
-                    setSelectedSiem(siem);
-                    setShowIntegrationGuide(true);
-                  }}
-                >
-                  <div className="flex items-center space-x-3 mb-2">
-                    <Icon className={`w-6 h-6 ${siem.color}`} />
-                    <h3 className="font-semibold">{siem.name}</h3>
-                  </div>
-                  <p className="text-sm text-gray-400 mb-3">{siem.description}</p>
-                  <Button size="sm" variant="outline" className="w-full">
-                    <PlayCircle className="w-4 h-4 mr-2" />
-                    Setup Guide
-                  </Button>
-                </div>
-              );
-            })}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Integration Status */}
-      <Card className="cyber-slate border-cyber-slate-light">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Info className="text-yellow-500" />
-            <span>Integration Status</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="text-sm">Webhooks Ready</span>
+        {/* Integration Status */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 rounded-2xl blur-xl"></div>
+          <div className="relative bg-slate-800/70 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4 lg:p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-gradient-to-br from-orange-500/20 to-yellow-500/20 rounded-xl border border-orange-500/30">
+                <Info className="text-orange-400 w-5 h-5" />
+              </div>
+              <h2 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">Integration Status</h2>
             </div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="text-sm">AI Analysis Active</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="text-sm">Callbacks Enabled</span>
+            
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <span className="text-sm text-gray-300">Webhooks Ready</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <span className="text-sm text-gray-300">AI Analysis Active</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <span className="text-sm text-gray-300">Callbacks Enabled</span>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
