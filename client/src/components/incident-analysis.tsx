@@ -143,14 +143,14 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
               <Search className="text-blue-400 w-5 h-5 lg:w-6 lg:h-6" />
             </div>
             <div>
-              <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">CyberSight AI Security Incident Analysis</h2>
-              <p className="text-gray-400 text-sm lg:text-base">AI-powered threat detection and MITRE ATT&CK mapping</p>
+              <h2 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">🛡️ CyberSight AI Security Command Center</h2>
+              <p className="text-gray-300 text-sm lg:text-base">Advanced AI-powered threat hunting with real-time MITRE ATT&CK framework mapping and automated response workflows</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Input Form Section */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl blur-xl"></div>
@@ -160,7 +160,7 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                 <div className="p-2 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl border border-green-500/30">
                   <FileText className="text-green-400 w-5 h-5" />
                 </div>
-                <h3 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">Incident Input</h3>
+                <h3 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">🔍 Security Event Analysis</h3>
               </div>
               <div className="text-right">
                 <div className="text-sm font-medium text-cyan-400">
@@ -329,7 +329,7 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                     <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
                       <Shield className="text-purple-400 w-5 h-5" />
                     </div>
-                    <h3 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Latest Analysis</h3>
+                    <h3 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">🛡️ Latest Analysis Result</h3>
                   </div>
                   <Button
                     variant="outline"
@@ -423,7 +423,7 @@ export default function IncidentAnalysis({ compactView = false, requireComments 
                 <div className="p-2 bg-gradient-to-br from-orange-500/20 to-yellow-500/20 rounded-xl border border-orange-500/30">
                   <Calendar className="text-orange-400 w-5 h-5" />
                 </div>
-                <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">Recent Analysis Results</h3>
+                <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent">📊 Recent Analysis Results</h3>
               </div>
 
               {recentIncidents && recentIncidents.length > 0 ? (
