@@ -273,188 +273,229 @@ export default function Billing() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Billing & Subscription</h1>
-        <p className="text-gray-500">Manage your subscription plan and view usage statistics</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 p-6 space-y-8">
+      {/* Header Section */}
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-cyber-blue/20 to-purple-600/20 rounded-2xl blur-xl"></div>
+        <div className="relative bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-gradient-to-br from-cyber-blue to-purple-600 rounded-xl">
+              <CreditCard className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                Billing & Subscription
+              </h1>
+              <p className="text-gray-400 mt-1">Manage your cybersecurity analysis platform</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Current Balance & Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="cyber-slate border-cyber-slate-light">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center justify-between">
-              <span>Remaining Analyses</span>
-              <CreditCard className="text-cyber-blue" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="text-3xl font-bold">
-                {(user as any)?.remainingIncidents || 0}
-              </div>
-              <p className="text-sm text-gray-400">
-                Remaining incident analyses • {formatPackageName((user as any)?.currentPackage || 'starter')}
-              </p>
-              <div className="text-xs text-gray-500 mt-1">
-                {(usage as any)?.incidentsAnalyzed || 0} incidents analyzed this month
-              </div>
-              <Button 
-                className="w-full cyber-blue hover:bg-blue-600"
-                onClick={() => setShowPurchaseDialog(true)}
-              >
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Upgrade Plan
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="cyber-slate border-cyber-slate-light">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center justify-between">
-              <span>This Month's Usage</span>
-              <TrendingUp className="text-green-500" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Incidents Analyzed</span>
-                  <span className="font-medium">{(usage as any)?.incidentsAnalyzed || 0}</span>
+      {/* Dashboard Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Remaining Analyses Card */}
+        <div className="relative group">
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+          <Card className="relative bg-slate-800/70 backdrop-blur-sm border border-slate-700/50 hover:border-emerald-500/30 transition-all duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                  Analysis Credits
+                </span>
+                <div className="p-2 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-xl">
+                  <Activity className="w-5 h-5 text-emerald-400" />
                 </div>
-                <div className="text-xs text-gray-400">
-                  From {formatPackageName((user as any)?.currentPackage || 'starter')}
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Storage Used</span>
-                  <span className="font-medium">
-                    {((storageData as any)?.usage?.details?.totalMB || 0).toFixed(2)} MB
-                  </span>
-                </div>
-                <div className="text-xs text-gray-400 mb-2">
-                  {((storageData as any)?.limit || 0)} GB limit • {((storageData as any)?.usage?.incidentCount || 0)} incidents
-                </div>
-                <Progress 
-                  value={Math.max(0.01, ((storageData as any)?.quota?.percentage || 0))} 
-                  className={`h-2 ${
-                    ((storageData as any)?.quota?.percentage || 0) > 90 ? 'bg-red-100 [&>div]:bg-red-500' : 
-                    ((storageData as any)?.quota?.percentage || 0) > 75 ? 'bg-yellow-100 [&>div]:bg-yellow-500' : 'bg-green-100 [&>div]:bg-green-500'
-                  }`}
-                />
-                <div className="text-xs text-gray-400 mt-1">
-                  {(() => {
-                    const percentage = ((storageData as any)?.quota?.percentage || 0);
-                    const currentPackage = (user as any)?.currentPackage || 'starter';
-                    
-                    // Dynamic precision based on plan storage size
-                    const decimalPlaces = {
-                      'starter': 2,      // 1GB - show 0.01%
-                      'professional': 3, // 2.5GB - show 0.001%
-                      'business': 3,     // 10GB - show 0.001%
-                      'enterprise': 4    // 50GB - show 0.0001%
-                    };
-                    
-                    return percentage.toFixed(decimalPlaces[currentPackage as keyof typeof decimalPlaces] || 2);
-                  })()}% used • 
-                  {((storageData as any)?.quota?.canCreateNew ? ' Space available' : ' Near limit')}
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-semibold">Total Cost</span>
-                  <span className="font-bold">€0.00</span>
-                </div>
-                <div className="text-xs text-gray-400">
-                  Package quota system • No additional charges
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="cyber-slate border-cyber-slate-light">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center justify-between">
-              <span>Subscription</span>
-              <Package className="text-purple-500" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Badge className="text-sm px-3 py-1 bg-cyber-blue text-white">
-                  {formatPackageName((user as any)?.currentPackage || "starter")}
-                </Badge>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-cyber-blue">
-                    Active
-                  </div>
-                  <div className="text-xs text-gray-400">Status</div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-2 cyber-dark rounded">
-                  <div className="text-cyan-400 font-medium">
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-baseline space-x-2">
+                  <div className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
                     {(user as any)?.remainingIncidents || 0}
                   </div>
-                  <div className="text-gray-400">Remaining</div>
+                  <div className="text-sm text-gray-400">remaining</div>
                 </div>
-                <div className="p-2 cyber-dark rounded">
-                  <div className="text-green-400 font-medium">
-                    {((storageData as any)?.limit || 0)} GB
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Package</span>
+                    <span className="text-emerald-400 font-medium">
+                      {formatPackageName((user as any)?.currentPackage || 'starter')}
+                    </span>
                   </div>
-                  <div className="text-gray-400">Storage</div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Used this month</span>
+                    <span className="text-cyan-400 font-medium">
+                      {(usage as any)?.incidentsAnalyzed || 0}
+                    </span>
+                  </div>
+                </div>
+                <Button 
+                  className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white border-0 font-medium transition-all duration-300"
+                  onClick={() => setShowPurchaseDialog(true)}
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Upgrade Plan
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Usage Analytics Card */}
+        <div className="relative group">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+          <Card className="relative bg-slate-800/70 backdrop-blur-sm border border-slate-700/50 hover:border-purple-500/30 transition-all duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  Usage Analytics
+                </span>
+                <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-700/30">
+                    <div className="text-2xl font-bold text-purple-400">
+                      {(usage as any)?.incidentsAnalyzed || 0}
+                    </div>
+                    <div className="text-xs text-gray-400">Incidents</div>
+                  </div>
+                  <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-700/30">
+                    <div className="text-2xl font-bold text-pink-400">
+                      {((storageData as any)?.usage?.details?.totalMB || 0).toFixed(1)}
+                    </div>
+                    <div className="text-xs text-gray-400">MB Used</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Storage Usage</span>
+                    <span className="text-purple-400 font-medium">
+                      {((storageData as any)?.quota?.percentage || 0).toFixed(2)}%
+                    </span>
+                  </div>
+                  <Progress 
+                    value={Math.max(0.01, ((storageData as any)?.quota?.percentage || 0))} 
+                    className="h-2 bg-slate-700/50" 
+                  />
+                  <div className="text-xs text-gray-500">
+                    {((storageData as any)?.quota?.canCreateNew ? '✅ Space available' : '⚠️ Near limit')}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gradient-to-r from-slate-800/60 to-slate-700/60 rounded-xl border border-slate-600/30">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-300">Package Type</span>
+                    <span className="text-sm font-medium bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                      {formatPackageName((user as any)?.currentPackage || 'starter')}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Quota-based system • No overage fees
+                  </div>
                 </div>
               </div>
-              
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center space-x-1 text-green-400">
-                  <Shield className="w-3 h-3" />
-                  <span>AI Analysis</span>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Subscription Package Card */}
+        <div className="relative group">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
+          <Card className="relative bg-slate-800/70 backdrop-blur-sm border border-slate-700/50 hover:border-blue-500/30 transition-all duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                  Active Package
+                </span>
+                <div className="p-2 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl">
+                  <Package className="w-5 h-5 text-blue-400" />
                 </div>
-                <div className="flex items-center space-x-1 text-blue-400">
-                  <Zap className="w-3 h-3" />
-                  <span>Real-time Processing</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Badge className="text-sm px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0">
+                    {formatPackageName((user as any)?.currentPackage || "starter")}
+                  </Badge>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium text-green-400">Active</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-1 text-purple-400">
-                  <Globe className="w-3 h-3" />
-                  <span>SIEM Integration</span>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-700/30">
+                    <div className="text-2xl font-bold text-blue-400">
+                      {(user as any)?.remainingIncidents || 0}
+                    </div>
+                    <div className="text-xs text-gray-400">Credits Left</div>
+                  </div>
+                  <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-700/30">
+                    <div className="text-2xl font-bold text-indigo-400">
+                      {((storageData as any)?.limit || 0)}
+                    </div>
+                    <div className="text-xs text-gray-400">GB Storage</div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-1 text-orange-400">
-                  <Users className="w-3 h-3" />
-                  <span>Multi-tenant</span>
-                </div>
-                <div className="flex items-center space-x-1 text-yellow-400">
-                  <Star className="w-3 h-3" />
-                  <span>Threat Intelligence</span>
-                </div>
-                <div className="flex items-center space-x-1 text-cyan-400">
-                  <Award className="w-3 h-3" />
-                  <span>MITRE ATT&CK</span>
+                
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="flex flex-col items-center space-y-1 p-2 bg-slate-900/30 rounded-lg">
+                    <Shield className="w-4 h-4 text-green-400" />
+                    <span className="text-gray-400">AI Analysis</span>
+                  </div>
+                  <div className="flex flex-col items-center space-y-1 p-2 bg-slate-900/30 rounded-lg">
+                    <Zap className="w-4 h-4 text-blue-400" />
+                    <span className="text-gray-400">Real-time</span>
+                  </div>
+                  <div className="flex flex-col items-center space-y-1 p-2 bg-slate-900/30 rounded-lg">
+                    <Globe className="w-4 h-4 text-purple-400" />
+                    <span className="text-gray-400">SIEM API</span>
+                  </div>
+                  <div className="flex flex-col items-center space-y-1 p-2 bg-slate-900/30 rounded-lg">
+                    <Users className="w-4 h-4 text-orange-400" />
+                    <span className="text-gray-400">Multi-tenant</span>
+                  </div>
+                  <div className="flex flex-col items-center space-y-1 p-2 bg-slate-900/30 rounded-lg">
+                    <Star className="w-4 h-4 text-yellow-400" />
+                    <span className="text-gray-400">Threat Intel</span>
+                  </div>
+                  <div className="flex flex-col items-center space-y-1 p-2 bg-slate-900/30 rounded-lg">
+                    <Award className="w-4 h-4 text-cyan-400" />
+                    <span className="text-gray-400">MITRE</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Storage Usage Details */}
-      <Card className="cyber-slate border-cyber-slate-light">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="w-5 h-5 text-cyber-blue" />
-            Storage Usage Details
-          </CardTitle>
-          <CardDescription>
-            Detailed breakdown of your database storage usage
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 to-blue-500/10 rounded-2xl blur-xl"></div>
+        <Card className="relative bg-slate-800/70 backdrop-blur-sm border border-slate-700/50">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-teal-500/20 to-blue-500/20 rounded-xl">
+                <Database className="w-6 h-6 text-teal-400" />
+              </div>
+              <span className="bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent">
+                Storage Analytics
+              </span>
+            </CardTitle>
+            <CardDescription className="text-gray-400 ml-11">
+              Real-time database storage monitoring and insights
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4">
               <h4 className="text-sm font-medium text-gray-300">Storage Overview</h4>
@@ -510,8 +551,9 @@ export default function Billing() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Pricing Information */}
       <Card className="cyber-slate border-cyber-slate-light">
@@ -551,12 +593,23 @@ export default function Billing() {
       </Card>
 
       {/* Transaction History */}
-      <Card className="cyber-slate border-cyber-slate-light">
-        <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-          <CardDescription>Recent billing transactions</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-2xl blur-xl"></div>
+        <Card className="relative bg-slate-800/70 backdrop-blur-sm border border-slate-700/50">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-xl">
+                <Calendar className="w-6 h-6 text-indigo-400" />
+              </div>
+              <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                Transaction History
+              </span>
+            </CardTitle>
+            <CardDescription className="text-gray-400 ml-11">
+              Complete financial activity log
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
           {transactionsLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin w-8 h-8 border-4 border-cyber-blue border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -592,8 +645,9 @@ export default function Billing() {
               <p className="text-gray-400">No transactions yet</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Purchase Credits Dialog */}
       <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
