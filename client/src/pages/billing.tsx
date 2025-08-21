@@ -738,178 +738,264 @@ export default function Billing() {
 
       {/* Purchase Credits Dialog */}
       <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Choose Subscription Plan</DialogTitle>
-            <DialogDescription>
-              Select a subscription plan that suits your analysis needs
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="text-center pb-6">
+            <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-cyber-blue to-purple-400 bg-clip-text text-transparent">
+              Choose Your Cybersecurity Plan
+            </DialogTitle>
+            <DialogDescription className="text-lg text-gray-300 mt-2">
+              Select the perfect plan for your incident analysis needs
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            {subscriptionPackages.map((pkg) => (
-              <Card 
-                key={pkg.id} 
-                className={`cursor-pointer transition-all ${
-                  selectedPackage?.id === pkg.id 
-                    ? "border-cyber-blue" 
-                    : "border-cyber-slate-light hover:border-gray-600"
-                } ${
-                  // Visually indicate if package switch is not allowed
-                  (() => {
-                    const remainingAnalyses = (user as any)?.remainingIncidents || 0;
-                    const currentPackage = (user as any)?.currentPackage;
-                    const isDifferentPackage = currentPackage && currentPackage !== pkg.id;
-                    return remainingAnalyses > 0 && isDifferentPackage ? "opacity-50" : "";
-                  })()
-                }`}
-                onClick={() => {
-                  setSelectedPackage(pkg);
-                  // Check if this is a different package and user has remaining analyses
-                  const remainingAnalyses = (user as any)?.remainingIncidents || 0;
-                  const currentPackage = (user as any)?.currentPackage;
-                  const isDifferentPackage = currentPackage && currentPackage !== pkg.id;
-                  
-                  if (remainingAnalyses > 0 && isDifferentPackage) {
-                    toast({
-                      title: "Package Switch Restricted",
-                      description: `You have ${remainingAnalyses} remaining analyses from your ${formatPackageName(currentPackage)} package. Use all analyses before switching to ${pkg.name}.`,
-                      variant: "destructive",
-                    });
-                  }
-                }}
-              >
-                <CardHeader>
-                  <CardTitle className="text-lg">{pkg.name}</CardTitle>
-                  {pkg.discount > 0 && (
-                    <Badge className="bg-green-600 text-white">
-                      {pkg.discount}% Discount
-                    </Badge>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mt-8">
+            {subscriptionPackages.map((pkg, index) => {
+              const remainingAnalyses = (user as any)?.remainingIncidents || 0;
+              const currentPackage = (user as any)?.currentPackage;
+              const isSamePackage = currentPackage === pkg.id;
+              const isDifferentPackage = currentPackage && currentPackage !== pkg.id;
+              const isRestricted = remainingAnalyses > 0 && isDifferentPackage;
+              const isRecommended = pkg.id === 'business'; // Business package is recommended
+              
+              return (
+                <div key={pkg.id} className="relative">
+                  {/* Recommended Badge */}
+                  {isRecommended && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                      <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold px-4 py-1">
+                        ⭐ MOST POPULAR
+                      </Badge>
+                    </div>
                   )}
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold mb-2">€{pkg.price}</div>
-                  <p className="text-sm text-gray-400">
-                    {pkg.incidentsIncluded} incidents • {pkg.storageIncluded}GB storage
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    €{pkg.pricePerIncident} per incident
-                  </p>
                   
-                  {/* Package availability status */}
-                  {(() => {
-                    const remainingAnalyses = (user as any)?.remainingIncidents || 0;
-                    const currentPackage = (user as any)?.currentPackage;
-                    const isSamePackage = currentPackage === pkg.id;
-                    const isDifferentPackage = currentPackage && currentPackage !== pkg.id;
+                  <Card 
+                    className={`relative cursor-pointer transition-all duration-300 h-full ${
+                      selectedPackage?.id === pkg.id 
+                        ? "border-2 border-cyber-blue shadow-lg shadow-cyber-blue/25 scale-105" 
+                        : "border border-slate-600 hover:border-cyber-blue/50 hover:shadow-md"
+                    } ${
+                      isRestricted ? "opacity-60" : ""
+                    } ${
+                      isRecommended ? "border-2 border-yellow-500/50 shadow-lg shadow-yellow-500/10" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedPackage(pkg);
+                      if (isRestricted) {
+                        toast({
+                          title: "Package Switch Restricted",
+                          description: `You have ${remainingAnalyses} remaining analyses from your ${formatPackageName(currentPackage)} package. Use all analyses before switching to ${pkg.name}.`,
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    {/* Gradient Background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-lg"></div>
                     
-                    if (remainingAnalyses > 0 && isDifferentPackage) {
-                      return (
-                        <div className="mt-2 px-2 py-1 bg-red-900/30 border border-red-700 rounded text-xs text-red-400">
-                          ⚠️ Use all {remainingAnalyses} remaining analyses first
+                    <CardHeader className="relative text-center pb-4">
+                      <CardTitle className="text-xl font-bold text-white mb-2">{pkg.name}</CardTitle>
+                      
+                      {/* Price Display */}
+                      <div className="mb-4">
+                        <div className="text-4xl font-bold bg-gradient-to-r from-cyber-blue to-purple-400 bg-clip-text text-transparent">
+                          €{pkg.price}
                         </div>
-                      );
-                    } else if (isSamePackage) {
-                      return (
-                        <div className="mt-2 px-2 py-1 bg-green-900/30 border border-green-700 rounded text-xs text-green-400">
-                          ✅ Add {pkg.incidentsIncluded} more analyses
+                        <div className="text-sm text-gray-400">
+                          €{pkg.pricePerIncident} per incident
                         </div>
-                      );
-                    } else {
-                      return (
-                        <div className="mt-2 px-2 py-1 bg-blue-900/30 border border-blue-700 rounded text-xs text-blue-400">
-                          🎯 Switch to this package
+                      </div>
+                      
+                      {/* Discount Badge */}
+                      {pkg.discount > 0 && (
+                        <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white mb-2">
+                          Save {pkg.discount}%
+                        </Badge>
+                      )}
+                    </CardHeader>
+                    
+                    <CardContent className="relative space-y-4">
+                      {/* Key Stats */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="text-center p-3 bg-slate-700/30 rounded-lg">
+                          <div className="text-2xl font-bold text-cyber-blue">{pkg.incidentsIncluded}</div>
+                          <div className="text-xs text-gray-400">Incidents</div>
                         </div>
-                      );
-                    }
-                  })()}
-                  
-                  <ul className="text-xs text-gray-400 mt-2 space-y-1">
-                    {pkg.features.slice(0, 3).map((feature, index) => (
-                      <li key={index}>• {feature}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ))}
+                        <div className="text-center p-3 bg-slate-700/30 rounded-lg">
+                          <div className="text-2xl font-bold text-purple-400">{pkg.storageIncluded}GB</div>
+                          <div className="text-xs text-gray-400">Storage</div>
+                        </div>
+                      </div>
+                      
+                      {/* Package Status */}
+                      {(() => {
+                        if (isRestricted) {
+                          return (
+                            <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-lg text-center">
+                              <div className="text-sm font-medium text-red-400 mb-1">⚠️ Restricted</div>
+                              <div className="text-xs text-red-300">Use {remainingAnalyses} remaining analyses first</div>
+                            </div>
+                          );
+                        } else if (isSamePackage) {
+                          return (
+                            <div className="p-3 bg-green-900/20 border border-green-700/50 rounded-lg text-center">
+                              <div className="text-sm font-medium text-green-400 mb-1">✅ Current Plan</div>
+                              <div className="text-xs text-green-300">Add {pkg.incidentsIncluded} more analyses</div>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg text-center">
+                              <div className="text-sm font-medium text-blue-400 mb-1">🎯 Available</div>
+                              <div className="text-xs text-blue-300">Switch to this package</div>
+                            </div>
+                          );
+                        }
+                      })()}
+                      
+                      {/* Features List */}
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-300 border-b border-slate-600 pb-1">Included Features</h4>
+                        <ul className="text-xs text-gray-400 space-y-1">
+                          {pkg.features.map((feature, featureIndex) => (
+                            <li key={featureIndex} className="flex items-start space-x-2">
+                              <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      {/* Selection Indicator */}
+                      {selectedPackage?.id === pkg.id && (
+                        <div className="absolute inset-0 border-2 border-cyber-blue rounded-lg pointer-events-none">
+                          <div className="absolute top-2 right-2 p-1 bg-cyber-blue rounded-full">
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })}
           </div>
-          <div className="flex justify-end space-x-2 mt-4">
-            <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
-              Cancel
-            </Button>
-            {stripePromise && isValidPublishableKey ? (
-              <Elements stripe={stripePromise}>
-                <CheckoutForm 
-                  selectedPackage={selectedPackage}
-                  onSuccess={handlePurchaseSuccess}
-                  onCancel={() => setShowPurchaseDialog(false)}
-                />
-              </Elements>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-red-400">
-                  {stripeKey.startsWith("sk_") 
-                    ? "Error: Secret key detected. Please configure VITE_STRIPE_PUBLIC_KEY with a publishable key (starts with pk_)" 
-                    : "Stripe is not configured. Please set VITE_STRIPE_PUBLIC_KEY environment variable."}
-                </p>
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
-                    Cancel
-                  </Button>
-                  {/* Only show development mode purchase option to authorized developer */}
-                  {(user as any)?.id === '46095879' && (
-                    <Button 
-                      className="cyber-blue hover:bg-blue-600"
-                      disabled={!selectedPackage}
-                      onClick={async () => {
-                        if (selectedPackage) {
-                          try {
-                            const result = await apiRequest("POST", "/api/billing/create-payment-intent", { packageId: selectedPackage.id });
-                            const data = await result.json();
-                            if (data.devMode && (user as any)?.id === '46095879') {
-                              handlePurchaseSuccess();
+          
+          {/* Selected Package Summary */}
+          {selectedPackage && (
+            <div className="mt-8 p-6 bg-gradient-to-r from-slate-800/50 to-slate-700/50 rounded-xl border border-slate-600">
+              <h3 className="text-lg font-semibold text-white mb-2">Selected Plan: {selectedPackage.name}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-300">
+                <div>
+                  <span className="text-gray-400">Total Cost:</span>
+                  <span className="ml-2 font-semibold text-cyber-blue">€{selectedPackage.price}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Incidents Included:</span>
+                  <span className="ml-2 font-semibold text-purple-400">{selectedPackage.incidentsIncluded}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Storage Included:</span>
+                  <span className="ml-2 font-semibold text-green-400">{selectedPackage.storageIncluded}GB</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Checkout Section */}
+          <div className="mt-8 border-t border-slate-600 pt-6">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-400">
+                {selectedPackage ? (
+                  <>Ready to upgrade to <span className="text-white font-medium">{selectedPackage.name}</span>? Complete your purchase below.</>
+                ) : (
+                  "Please select a plan above to continue with checkout."
+                )}
+              </div>
+              
+              <div className="flex space-x-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPurchaseDialog(false)}
+                  className="px-6"
+                >
+                  Cancel
+                </Button>
+                
+                {stripePromise && isValidPublishableKey ? (
+                  <Elements stripe={stripePromise}>
+                    <CheckoutForm 
+                      selectedPackage={selectedPackage}
+                      onSuccess={handlePurchaseSuccess}
+                      onCancel={() => setShowPurchaseDialog(false)}
+                    />
+                  </Elements>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-red-900/20 border border-red-700/50 rounded-lg">
+                      <p className="text-sm text-red-400 mb-2">
+                        {stripeKey.startsWith("sk_") 
+                          ? "⚠️ Configuration Error: Secret key detected. Please configure VITE_STRIPE_PUBLIC_KEY with a publishable key (starts with pk_)" 
+                          : "⚠️ Payment Gateway Unavailable: Stripe is not configured. Please contact support."}
+                      </p>
+                    </div>
+                    
+                    {/* Only show development mode purchase option to authorized developer */}
+                    {(user as any)?.id === '46095879' && (
+                      <Button 
+                        className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white px-8 py-2 font-medium"
+                        disabled={!selectedPackage}
+                        onClick={async () => {
+                          if (selectedPackage) {
+                            try {
+                              const result = await apiRequest("POST", "/api/billing/create-payment-intent", { packageId: selectedPackage.id });
+                              const data = await result.json();
+                              if (data.devMode && (user as any)?.id === '46095879') {
+                                handlePurchaseSuccess();
+                                toast({
+                                  title: "Development Mode",
+                                  description: data.message,
+                                });
+                              } else if (data.devMode && (user as any)?.id !== '46095879') {
+                                // Unauthorized user trying to access dev mode - show error
+                                toast({
+                                  title: "Payment Required",
+                                  description: "Please complete payment through Stripe to purchase this package.",
+                                  variant: "destructive",
+                                });
+                              }
+                            } catch (error: any) {
+                              // Handle backend validation errors for package switching
+                              let errorTitle = "Purchase Failed";
+                              let errorMessage = "Unable to complete the purchase.";
+                              
+                              try {
+                                const response = await fetch(error.url, error.options);
+                                const errorData = await response.json();
+                                if (errorData?.error === "Package switch not allowed") {
+                                  errorTitle = "Package Switch Restricted";
+                                  errorMessage = errorData.message;
+                                }
+                              } catch (parseError) {
+                                // Use default error message if JSON parsing fails
+                              }
+                              
                               toast({
-                                title: "Development Mode",
-                                description: data.message,
-                              });
-                            } else if (data.devMode && (user as any)?.id !== '46095879') {
-                              // Unauthorized user trying to access dev mode - show error
-                              toast({
-                                title: "Payment Required",
-                                description: "Please complete payment through Stripe to purchase this package.",
+                                title: errorTitle,
+                                description: errorMessage,
                                 variant: "destructive",
                               });
                             }
-                          } catch (error: any) {
-                            // Handle backend validation errors for package switching
-                            let errorTitle = "Purchase Failed";
-                            let errorMessage = "Unable to complete the purchase.";
-                            
-                            try {
-                              const response = await fetch(error.url, error.options);
-                              const errorData = await response.json();
-                              if (errorData?.error === "Package switch not allowed") {
-                                errorTitle = "Package Switch Restricted";
-                                errorMessage = errorData.message;
-                              }
-                            } catch (parseError) {
-                              // Use default error message if JSON parsing fails
-                            }
-                            
-                            toast({
-                              title: errorTitle,
-                              description: errorMessage,
-                              variant: "destructive",
-                            });
                           }
-                        }
-                      }}
-                    >
-                      Purchase {selectedPackage?.name} (Dev Mode)
-                    </Button>
-                  )}
-                </div>
+                        }}
+                      >
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Purchase {selectedPackage?.name} (Dev Mode)
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
