@@ -739,12 +739,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add credits to user account
         const user = await storage.getUser(userId);
         if (user) {
-          // Get package details to set incident allowance
+          // Get package details to set incident allowance (must match frontend package definitions)
           const packages: Record<string, any> = {
-            starter: { incidentsIncluded: 10 },
-            professional: { incidentsIncluded: 25 },
-            business: { incidentsIncluded: 100 },
-            enterprise: { incidentsIncluded: 250 }
+            starter: { 
+              incidentsIncluded: 10,
+              name: 'Starter Package',
+              pricePerIncident: 25,
+              price: 250
+            },
+            professional: { 
+              incidentsIncluded: 50,
+              name: 'Professional Package', 
+              pricePerIncident: 23.75,
+              price: 1187.50
+            },
+            business: { 
+              incidentsIncluded: 100,
+              name: 'Business Package',
+              pricePerIncident: 22.50,
+              price: 2250
+            },
+            enterprise: { 
+              incidentsIncluded: 250,
+              name: 'Enterprise Package',
+              pricePerIncident: 20,
+              price: 5000
+            }
           };
           
           const packageDetails = packages[packageId];
@@ -755,14 +775,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateUser(userId, { remainingIncidents: currentIncidents + packageDetails.incidentsIncluded });
             await storage.updateUser(userId, { currentPackage: packageId });
             
-            // Create billing transaction
+            // Create billing transaction with proper package name
             await storage.createBillingTransaction({
               type: 'subscription-purchase',
               amount: (paymentIntent.amount / 100).toString(),
               incidentsIncluded: packageDetails.incidentsIncluded,
-              description: `${packageId} subscription plan via Stripe`,
+              packageName: packageId,
+              description: `${packageDetails.name} purchased via Stripe`,
               status: 'completed'
             }, userId);
+            
+            console.log(`✅ Stripe payment confirmed: User ${userId} purchased ${packageDetails.name} with ${packageDetails.incidentsIncluded} incident analyses`);
           }
         }
       }
