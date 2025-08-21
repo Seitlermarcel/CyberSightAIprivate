@@ -457,11 +457,12 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   })();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="cyber-dark rounded-xl w-full h-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="cyber-slate border-b border-cyber-slate-light p-6 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-auto">
+      <div className="min-h-full flex items-start justify-center p-4 lg:p-6">
+        <div className="relative bg-slate-800/95 backdrop-blur-sm rounded-xl w-full max-w-7xl my-8 flex flex-col border border-slate-700/50 shadow-2xl">
+          {/* Header */}
+          <div className="sticky top-0 z-10 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/50 p-4 lg:p-6 flex items-center justify-between rounded-t-xl">
+            <div className="flex items-center space-x-3">
             <div className="w-8 h-8 cyber-dark rounded-lg flex items-center justify-center">
               <Shield className="text-severity-high text-lg" />
             </div>
@@ -796,9 +797,9 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
           )}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="border-b border-cyber-slate-light">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          {/* Tab Navigation */}
+          <div className="border-b border-slate-700/50 bg-slate-800/95 backdrop-blur-sm sticky top-[100px] z-10">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-12 bg-transparent">
               <TabsTrigger value="workflow" className="text-xs">Workflow</TabsTrigger>
               <TabsTrigger value="threat-intel" className="text-xs">Threat Intel</TabsTrigger>
@@ -813,12 +814,12 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
               <TabsTrigger value="threat-prediction" className="text-xs">Prediction</TabsTrigger>
               <TabsTrigger value="siem-response" className="text-xs">SIEM Response</TabsTrigger>
             </TabsList>
-          </Tabs>
-        </div>
+            </Tabs>
+          </div>
 
-        {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          {/* Tab Content */}
+          <div className="flex-1 min-h-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
             {/* Workflow Tab */}
             <TabsContent value="workflow" className="p-6 space-y-6">
               <div className="cyber-slate rounded-xl p-6">
@@ -2528,7 +2529,8 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
               <SiemResponseTracking incident={incident} />
             </TabsContent>
 
-          </Tabs>
+            </Tabs>
+          </div>
         </div>
       </div>
     </div>
