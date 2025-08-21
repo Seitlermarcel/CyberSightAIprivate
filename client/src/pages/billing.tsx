@@ -593,42 +593,91 @@ export default function Billing() {
         </Card>
       </div>
 
-      {/* Pricing Information */}
-      <Card className="cyber-slate border-cyber-slate-light">
-        <CardHeader>
-          <CardTitle>Pricing Information</CardTitle>
-          <CardDescription>Transparent pricing for all services</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 cyber-dark rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <Activity className="text-blue-500" />
-                <h4 className="font-semibold">Incident Analysis</h4>
+      {/* Pricing & Features Information */}
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-2xl blur-xl"></div>
+        <Card className="relative bg-slate-800/70 backdrop-blur-sm border border-slate-700/50">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-xl">
+                <Info className="w-6 h-6 text-orange-400" />
               </div>
-              <p className="text-2xl font-bold">€{(() => {
-                const currentPackage = (user as any)?.currentPackage || 'starter';
-                const packagePricing = {
-                  starter: '25',
-                  professional: '23.75',
-                  business: '22.50',
-                  enterprise: '20'
-                };
-                return packagePricing[currentPackage as keyof typeof packagePricing] || '25';
-              })()}</p>
-              <p className="text-sm text-gray-400">per incident ({formatPackageName((user as any)?.currentPackage || 'starter')})</p>
-            </div>
-            <div className="p-4 cyber-dark rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <Clock className="text-red-500" />
-                <h4 className="font-semibold">Data Retention</h4>
+              <span className="bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">
+                Pricing & Features
+              </span>
+            </CardTitle>
+            <CardDescription className="text-gray-400 ml-11">
+              Transparent cybersecurity analysis pricing
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl border border-blue-500/20">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <Activity className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <h4 className="font-semibold text-white">Analysis Cost</h4>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                    €{(() => {
+                      const currentPackage = (user as any)?.currentPackage || 'starter';
+                      const packagePricing = {
+                        starter: '25.00',
+                        professional: '23.75',
+                        business: '22.50',
+                        enterprise: '20.00'
+                      };
+                      return packagePricing[currentPackage as keyof typeof packagePricing] || '25.00';
+                    })()}
+                  </p>
+                  <p className="text-sm text-gray-400">per incident analysis</p>
+                  <p className="text-xs text-blue-400 font-medium">
+                    {formatPackageName((user as any)?.currentPackage || 'starter')}
+                  </p>
+                </div>
               </div>
-              <p className="text-2xl font-bold">30 days</p>
-              <p className="text-sm text-gray-400">automatic deletion after</p>
+
+              <div className="p-6 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <Clock className="w-6 h-6 text-green-400" />
+                  </div>
+                  <h4 className="font-semibold text-white">Data Retention</h4>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+                    30 Days
+                  </p>
+                  <p className="text-sm text-gray-400">automatic retention</p>
+                  <p className="text-xs text-green-400 font-medium">
+                    Auto-cleanup system
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-6 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <Database className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <h4 className="font-semibold text-white">Storage Model</h4>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    Quota
+                  </p>
+                  <p className="text-sm text-gray-400">based system</p>
+                  <p className="text-xs text-purple-400 font-medium">
+                    No overage fees
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Transaction History */}
       <div className="relative">
