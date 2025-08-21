@@ -75,12 +75,19 @@ export default function AdvancedQuery() {
       return await response.json();
     },
     onSuccess: (data) => {
-      setQueryResults(data);
+      // Map the backend response to expected format
+      const mappedData = {
+        data: data.results || [],
+        resultCount: data.results?.length || 0,
+        executionTime: data.executionTime || 0,
+        error: data.error
+      };
+      setQueryResults(mappedData);
       // Only invalidate if needed to reduce API calls
       setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/queries/history"] }), 1000);
       toast({
         title: "Query Executed",
-        description: `Found ${data.resultCount || 0} results in ${data.executionTime || 0}ms`,
+        description: `Found ${mappedData.resultCount} results in ${mappedData.executionTime}ms`,
       });
     },
     onError: (error) => {
