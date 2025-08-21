@@ -97,10 +97,26 @@ function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
         });
         onSuccess();
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Handle backend validation errors for package switching
+      let errorTitle = "Purchase Failed";
+      let errorMessage = "Unable to complete the purchase. Please try again.";
+      
+      try {
+        if (error.response) {
+          const errorData = await error.response.json();
+          if (errorData?.error === "Package switch not allowed") {
+            errorTitle = "Package Switch Restricted";
+            errorMessage = errorData.message;
+          }
+        }
+      } catch (parseError) {
+        // Use default error message if JSON parsing fails
+      }
+      
       toast({
-        title: "Purchase Failed",
-        description: "Unable to complete the purchase. Please try again.",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -556,8 +572,30 @@ export default function Billing() {
                   selectedPackage?.id === pkg.id 
                     ? "border-cyber-blue" 
                     : "border-cyber-slate-light hover:border-gray-600"
+                } ${
+                  // Visually indicate if package switch is not allowed
+                  (() => {
+                    const remainingAnalyses = (user as any)?.remainingIncidents || 0;
+                    const currentPackage = (user as any)?.currentPackage;
+                    const isDifferentPackage = currentPackage && currentPackage !== pkg.id;
+                    return remainingAnalyses > 0 && isDifferentPackage ? "opacity-50" : "";
+                  })()
                 }`}
-                onClick={() => setSelectedPackage(pkg)}
+                onClick={() => {
+                  setSelectedPackage(pkg);
+                  // Check if this is a different package and user has remaining analyses
+                  const remainingAnalyses = (user as any)?.remainingIncidents || 0;
+                  const currentPackage = (user as any)?.currentPackage;
+                  const isDifferentPackage = currentPackage && currentPackage !== pkg.id;
+                  
+                  if (remainingAnalyses > 0 && isDifferentPackage) {
+                    toast({
+                      title: "Package Switch Restricted",
+                      description: `You have ${remainingAnalyses} remaining analyses from your ${currentPackage} package. Use all analyses before switching to ${pkg.name}.`,
+                      variant: "destructive",
+                    });
+                  }
+                }}
               >
                 <CardHeader>
                   <CardTitle className="text-lg">{pkg.name}</CardTitle>
@@ -575,6 +613,35 @@ export default function Billing() {
                   <p className="text-xs text-gray-500 mt-2">
                     €{pkg.pricePerIncident} per incident
                   </p>
+                  
+                  {/* Package availability status */}
+                  {(() => {
+                    const remainingAnalyses = (user as any)?.remainingIncidents || 0;
+                    const currentPackage = (user as any)?.currentPackage;
+                    const isSamePackage = currentPackage === pkg.id;
+                    const isDifferentPackage = currentPackage && currentPackage !== pkg.id;
+                    
+                    if (remainingAnalyses > 0 && isDifferentPackage) {
+                      return (
+                        <div className="mt-2 px-2 py-1 bg-red-900/30 border border-red-700 rounded text-xs text-red-400">
+                          ⚠️ Use all {remainingAnalyses} remaining analyses first
+                        </div>
+                      );
+                    } else if (isSamePackage) {
+                      return (
+                        <div className="mt-2 px-2 py-1 bg-green-900/30 border border-green-700 rounded text-xs text-green-400">
+                          ✅ Add {pkg.incidentsIncluded} more analyses
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="mt-2 px-2 py-1 bg-blue-900/30 border border-blue-700 rounded text-xs text-blue-400">
+                          🎯 Switch to this package
+                        </div>
+                      );
+                    }
+                  })()}
+                  
                   <ul className="text-xs text-gray-400 mt-2 space-y-1">
                     {pkg.features.slice(0, 3).map((feature, index) => (
                       <li key={index}>• {feature}</li>
@@ -631,10 +698,25 @@ export default function Billing() {
                                 variant: "destructive",
                               });
                             }
-                          } catch (error) {
+                          } catch (error: any) {
+                            // Handle backend validation errors for package switching
+                            let errorTitle = "Purchase Failed";
+                            let errorMessage = "Unable to complete the purchase.";
+                            
+                            try {
+                              const response = await fetch(error.url, error.options);
+                              const errorData = await response.json();
+                              if (errorData?.error === "Package switch not allowed") {
+                                errorTitle = "Package Switch Restricted";
+                                errorMessage = errorData.message;
+                              }
+                            } catch (parseError) {
+                              // Use default error message if JSON parsing fails
+                            }
+                            
                             toast({
-                              title: "Purchase Failed",
-                              description: "Unable to complete the purchase.",
+                              title: errorTitle,
+                              description: errorMessage,
                               variant: "destructive",
                             });
                           }

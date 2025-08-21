@@ -630,6 +630,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!selectedPackage) {
         return res.status(400).json({ error: "Invalid package" });
       }
+
+      // Get current user to check for package switching restrictions
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const remainingAnalyses = (currentUser as any)?.remainingIncidents || 0;
+      const currentPackage = (currentUser as any)?.currentPackage;
+      
+      // Prevent switching to different package if user has remaining analyses
+      if (remainingAnalyses > 0 && currentPackage && currentPackage !== packageId) {
+        return res.status(400).json({ 
+          error: "Package switch not allowed",
+          message: `You have ${remainingAnalyses} remaining analyses from your ${currentPackage} package. Please use all analyses before switching to a different package tier.`,
+          remainingAnalyses,
+          currentPackage,
+          suggestedAction: `You can purchase more ${currentPackage} analyses, or wait until your remaining analyses reach 0 to switch packages.`
+        });
+      }
       
       // Check if in development mode and user is authorized for free packages
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
