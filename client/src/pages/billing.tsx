@@ -935,21 +935,30 @@ export default function Billing() {
                         if (isRestricted) {
                           return (
                             <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-lg text-center">
-                              <div className="text-sm font-medium text-red-400 mb-1">⚠️ Restricted</div>
+                              <div className="flex items-center justify-center space-x-2 text-sm font-medium text-red-400 mb-1">
+                                <AlertTriangle className="w-4 h-4" />
+                                <span>Restricted</span>
+                              </div>
                               <div className="text-xs text-red-300">Use {remainingAnalyses} remaining analyses first</div>
                             </div>
                           );
                         } else if (isSamePackage) {
                           return (
                             <div className="p-3 bg-green-900/20 border border-green-700/50 rounded-lg text-center">
-                              <div className="text-sm font-medium text-green-400 mb-1">✅ Current Plan</div>
+                              <div className="flex items-center justify-center space-x-2 text-sm font-medium text-green-400 mb-1">
+                                <CheckCircle className="w-4 h-4" />
+                                <span>Current Plan</span>
+                              </div>
                               <div className="text-xs text-green-300">Add {pkg.incidentsIncluded} more analyses</div>
                             </div>
                           );
                         } else {
                           return (
                             <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg text-center">
-                              <div className="text-sm font-medium text-blue-400 mb-1">🎯 Available</div>
+                              <div className="flex items-center justify-center space-x-2 text-sm font-medium text-blue-400 mb-1">
+                                <Star className="w-4 h-4" />
+                                <span>Available</span>
+                              </div>
                               <div className="text-xs text-blue-300">Switch to this package</div>
                             </div>
                           );
