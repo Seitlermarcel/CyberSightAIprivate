@@ -159,10 +159,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Log the transaction
+      // Calculate per-incident cost based on package
+      const getIncidentCost = (packageName: string) => {
+        switch (packageName) {
+          case 'starter': return '25.00';
+          case 'professional': return '23.75';
+          case 'business': return '22.50';
+          case 'enterprise': return '20.00';
+          default: return '25.00';
+        }
+      };
+
+      // Log the transaction with actual cost
       await storage.createBillingTransaction({
         type: 'incident-analysis',
-        amount: '0', // No charge per incident, cost is in package
+        amount: getIncidentCost(user.currentPackage || 'starter'),
         incidentsIncluded: 1,
         packageName: user.currentPackage || 'free',
         description: `Manual incident analysis: ${validatedData.title}`,
@@ -1101,10 +1112,21 @@ async function processIncomingLogs({ logs, metadata, userId, source, callbackUrl
           throw new Error("Failed to deduct incident analysis from user package");
         }
         
-        // Log the transaction for SIEM automated analysis
+        // Calculate per-incident cost based on package for SIEM analysis
+        const getIncidentCost = (packageName: string) => {
+          switch (packageName) {
+            case 'starter': return '25.00';
+            case 'professional': return '23.75';
+            case 'business': return '22.50';
+            case 'enterprise': return '20.00';
+            default: return '25.00';
+          }
+        };
+
+        // Log the transaction for SIEM automated analysis with actual cost
         await storage.createBillingTransaction({
           type: 'incident-analysis',
-          amount: '0', // No charge per incident, cost is in package
+          amount: getIncidentCost(user.currentPackage || 'starter'),
           incidentsIncluded: 1,
           packageName: user.currentPackage || 'free',
           description: `SIEM automated analysis: ${incidentData.title}`,

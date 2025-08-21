@@ -222,7 +222,7 @@ export default function Billing() {
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case "credit-purchase": return <CreditCard className="text-green-500" />;
-      case "incident-analysis": return <Activity className="text-blue-500" />;
+      case "incident-analysis": return <Activity className="text-red-500" />;
       case "storage-fee": return <Database className="text-orange-500" />;
       case "refund": return <DollarSign className="text-purple-500" />;
       default: return <DollarSign className="text-gray-500" />;
@@ -232,7 +232,7 @@ export default function Billing() {
   const getTransactionColor = (type: string) => {
     switch (type) {
       case "credit-purchase": return "text-green-500";
-      case "incident-analysis": return "text-blue-500";
+      case "incident-analysis": return "text-red-500";
       case "storage-fee": return "text-orange-500";
       case "refund": return "text-purple-500";
       default: return "text-gray-500";
