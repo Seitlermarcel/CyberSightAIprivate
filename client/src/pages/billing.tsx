@@ -41,7 +41,10 @@ import {
   Users,
   Star,
   Award,
+  Lock,
+  CreditCard as CreditCardIcon,
 } from "lucide-react";
+import { SiStripe } from "react-icons/si";
 import { format } from "date-fns";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
@@ -142,35 +145,136 @@ function CheckoutForm({ selectedPackage, onSuccess, onCancel }: any) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="p-4 cyber-dark rounded-lg">
-        <CardElement
-          options={{
-            style: {
-              base: {
-                fontSize: '16px',
-                color: '#ffffff',
-                '::placeholder': {
-                  color: '#9ca3af',
-                },
-              },
-              invalid: {
-                color: '#ef4444',
-              },
-            },
-          }}
-        />
+    <div className="space-y-6">
+      {/* Stripe Branding Header */}
+      <div className="text-center pb-4 border-b border-slate-600">
+        <div className="flex items-center justify-center space-x-3 mb-2">
+          <div className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 rounded-lg border border-indigo-500/30">
+            <Shield className="w-5 h-5 text-green-400" />
+            <span className="text-sm font-medium text-gray-300">Secured by</span>
+            <SiStripe className="w-12 h-6 text-indigo-400" />
+          </div>
+        </div>
+        <p className="text-xs text-gray-400">Your payment information is encrypted and secure</p>
       </div>
-      <div className="flex justify-end space-x-2">
-        <Button 
-          type="submit" 
-          className="cyber-blue hover:bg-blue-600"
-          disabled={!stripe || isProcessing}
-        >
-          {isProcessing ? "Processing..." : `Purchase ${selectedPackage?.name}`}
-        </Button>
-      </div>
-    </form>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Payment Details Section */}
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2 mb-3">
+            <CreditCardIcon className="w-5 h-5 text-cyber-blue" />
+            <h3 className="text-lg font-semibold text-white">Payment Details</h3>
+          </div>
+          
+          {/* Enhanced Card Input */}
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-cyber-blue/10 to-purple-600/10 rounded-xl blur-sm"></div>
+            <div className="relative p-6 bg-slate-800/70 backdrop-blur-sm border border-slate-600/50 rounded-xl hover:border-cyber-blue/40 transition-all duration-300">
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Card Information
+                </label>
+              </div>
+              <CardElement
+                options={{
+                  style: {
+                    base: {
+                      fontSize: '16px',
+                      color: '#ffffff',
+                      fontFamily: '"Inter", system-ui, sans-serif',
+                      fontSmoothing: 'antialiased',
+                      backgroundColor: 'transparent',
+                      '::placeholder': {
+                        color: '#9ca3af',
+                      },
+                      ':-webkit-autofill': {
+                        color: '#ffffff',
+                      },
+                    },
+                    invalid: {
+                      color: '#ef4444',
+                      iconColor: '#ef4444',
+                    },
+                    complete: {
+                      color: '#10b981',
+                      iconColor: '#10b981',
+                    },
+                  },
+                  hidePostalCode: false,
+                  iconStyle: 'solid',
+                }}
+              />
+              
+              {/* Security Indicators */}
+              <div className="mt-4 flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-1 text-green-400">
+                    <Lock className="w-3 h-3" />
+                    <span>SSL Encrypted</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-green-400">
+                    <Shield className="w-3 h-3" />
+                    <span>PCI Compliant</span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 text-gray-400">
+                  <span>Powered by</span>
+                  <SiStripe className="w-8 h-4 text-indigo-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Order Summary */}
+          {selectedPackage && (
+            <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/30">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-300">Package</span>
+                <span className="font-medium text-white">{selectedPackage.name}</span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-300">Incidents Included</span>
+                <span className="font-medium text-cyber-blue">{selectedPackage.incidentsIncluded}</span>
+              </div>
+              <div className="flex justify-between items-center mb-3 pb-3 border-b border-slate-600">
+                <span className="text-sm text-gray-300">Storage Included</span>
+                <span className="font-medium text-purple-400">{selectedPackage.storageIncluded}GB</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-semibold text-white">Total</span>
+                <span className="text-xl font-bold text-green-400">€{selectedPackage.price}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Submit Button */}
+        <div className="flex flex-col space-y-3">
+          <Button 
+            type="submit" 
+            className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold text-lg transition-all duration-300 disabled:opacity-50"
+            disabled={!stripe || isProcessing || !selectedPackage}
+          >
+            {isProcessing ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Processing Payment...</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Lock className="w-5 h-5" />
+                <span>Complete Purchase - €{selectedPackage?.price || 0}</span>
+              </div>
+            )}
+          </Button>
+          
+          <p className="text-center text-xs text-gray-400">
+            By completing this purchase, you agree to our Terms of Service and Privacy Policy.
+            Your payment is processed securely by Stripe.
+          </p>
+        </div>
+      </form>
+    </div>
   );
 }
 
