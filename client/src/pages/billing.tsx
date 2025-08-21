@@ -608,7 +608,7 @@ export default function Billing() {
                     Cancel
                   </Button>
                   {/* Only show development mode purchase option to authorized developer */}
-                  {user?.id === '46095879' && (
+                  {(user as any)?.id === '46095879' && (
                     <Button 
                       className="cyber-blue hover:bg-blue-600"
                       disabled={!selectedPackage}
@@ -617,13 +617,13 @@ export default function Billing() {
                           try {
                             const result = await apiRequest("POST", "/api/billing/create-payment-intent", { packageId: selectedPackage.id });
                             const data = await result.json();
-                            if (data.devMode && user?.id === '46095879') {
+                            if (data.devMode && (user as any)?.id === '46095879') {
                               handlePurchaseSuccess();
                               toast({
                                 title: "Development Mode",
                                 description: data.message,
                               });
-                            } else if (data.devMode && user?.id !== '46095879') {
+                            } else if (data.devMode && (user as any)?.id !== '46095879') {
                               // Unauthorized user trying to access dev mode - show error
                               toast({
                                 title: "Payment Required",
