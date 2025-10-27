@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Settings as SettingsIcon, Save, Brain, Monitor, Shield, Info, Palette, Clock, Bell, Shield as SecurityShield } from "lucide-react";
+import { Settings as SettingsIcon, Save, Brain, Palette, Shield, Info, Clock, Bell, Shield as SecurityShield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,11 +18,11 @@ export default function Settings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<{ id: string; email: string; username?: string }>({
     queryKey: ["/api/user"],
   });
 
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading } = useQuery<{ theme?: string; requireComments?: boolean; emailNotifications?: boolean; emailAddress?: string }>({
     queryKey: ["/api/settings", user?.id],
     enabled: !!user?.id,
   });
@@ -88,19 +88,10 @@ export default function Settings() {
 
     // Always allow save - create a complete settings object from current values
     const dataToSave = {
-      analysisDepth: getCurrentValue("analysisDepth") || "comprehensive",
-      confidenceThreshold: getCurrentValue("confidenceThreshold") || 80,
-      enableDualAI: getCurrentValue("enableDualAI") || true,
-      autoSeverityAdjustment: getCurrentValue("autoSeverityAdjustment") || false,
-      customInstructions: getCurrentValue("customInstructions") || "", // This can be empty!
       theme: getCurrentValue("theme") || "dark",
-      sessionTimeout: getCurrentValue("sessionTimeout") || 480,
-      compactView: getCurrentValue("compactView") || false,
-      autoRefresh: getCurrentValue("autoRefresh") || false,
       requireComments: getCurrentValue("requireComments") || false,
       emailNotifications: emailNotifications,
       emailAddress: emailAddress.trim(),
-      highSeverityAlerts: getCurrentValue("highSeverityAlerts") || false,
     };
     
     updateSettingsMutation.mutate(dataToSave, {
@@ -127,14 +118,14 @@ export default function Settings() {
     });
   };
 
-  const getCurrentValue = (key: keyof InsertSettings) => {
+  const getCurrentValue = (key: string) => {
     // Use formData if it has the key, otherwise use settings with safe defaults
     if (formData.hasOwnProperty(key)) {
-      return formData[key];
+      return (formData as any)[key];
     }
-    const settingsValue = settings?.[key];
+    const settingsValue = (settings as any)?.[key];
     // Handle null/undefined for text fields
-    if ((key === 'customInstructions' || key === 'emailAddress') && (settingsValue === null || settingsValue === undefined)) {
+    if (key === 'emailAddress' && (settingsValue === null || settingsValue === undefined)) {
       return "";
     }
     return settingsValue;
@@ -175,82 +166,43 @@ export default function Settings() {
         </Button>
       </div>
 
-      {/* AI Analysis Configuration */}
+      {/* AI Analysis Overview */}
       <Card className="cyber-slate border-cyber-slate-light">
         <CardHeader>
           <div className="flex items-center space-x-2">
             <Brain className="text-cyber-purple" />
-            <CardTitle>AI Analysis Configuration</CardTitle>
+            <CardTitle>AI Analysis System</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="analysisDepth">Analysis Depth</Label>
-            <Select 
-              value={getCurrentValue("analysisDepth") || "comprehensive"} 
-              onValueChange={(value) => handleSettingChange("analysisDepth", value)}
-            >
-              <SelectTrigger className="cyber-dark border-cyber-slate-light">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="cyber-dark border-cyber-slate-light">
-                <SelectItem value="basic">Basic - Quick analysis</SelectItem>
-                <SelectItem value="standard">Standard - Balanced analysis</SelectItem>
-                <SelectItem value="comprehensive">Comprehensive - Deep analysis</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <div className="flex items-center space-x-2">
-                  <Label htmlFor="enableDualAI">Enable Dual AI Analysis</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-gray-500 hover:text-gray-300 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <div className="space-y-2">
-                          <p className="font-medium">Dual-AI Analysis:</p>
-                          <p className="text-xs">Enables Tactical Analyst (technical evidence), Strategic Analyst (patterns & hypotheticals), and Chief Analyst (final synthesis) for comprehensive incident analysis.</p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+        <CardContent className="space-y-4">
+          <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/20">
+            <h4 className="font-medium text-purple-400 mb-3">🧠 What CyberSight AI Does for Incident Analysis</h4>
+            <div className="space-y-3 text-sm text-gray-300">
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2"></div>
+                <div>
+                  <span className="font-medium text-cyan-400">Multi-Agent Analysis:</span> Employs 8 specialized AI agents including Pattern Recognition, Threat Intelligence, MITRE ATT&CK mapping, and IOC Enrichment for comprehensive incident evaluation.
                 </div>
-                <div className="text-sm text-gray-400">Use Tactical, Strategic & Chief analysts for enhanced accuracy</div>
               </div>
-              <Switch
-                id="enableDualAI"
-                checked={getCurrentValue("enableDualAI") || false}
-                onCheckedChange={(checked) => handleSettingChange("enableDualAI", checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="autoSeverityAdjustment">Auto Severity Adjustment</Label>
-                <div className="text-sm text-gray-400">Allow AI to automatically adjust severity based on analysis</div>
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full mt-2"></div>
+                <div>
+                  <span className="font-medium text-green-400">Dual-AI Workflow:</span> Features Tactical Analyst (technical evidence), Strategic Analyst (threat patterns), and Chief Analyst (final synthesis) for enhanced accuracy and decision-making.
+                </div>
               </div>
-              <Switch
-                id="autoSeverityAdjustment"
-                checked={getCurrentValue("autoSeverityAdjustment") || false}
-                onCheckedChange={(checked) => handleSettingChange("autoSeverityAdjustment", checked)}
-              />
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2"></div>
+                <div>
+                  <span className="font-medium text-yellow-400">Real-time Processing:</span> Automatically classifies incidents as True/False Positives, maps to MITRE ATT&CK techniques, extracts IOCs, and provides confidence scoring with detailed explanations.
+                </div>
+              </div>
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-red-400 rounded-full mt-2"></div>
+                <div>
+                  <span className="font-medium text-red-400">Threat Intelligence:</span> Integrates with AlienVault OTX and other sources to correlate detected indicators with known threats and provide geo-location context.
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="customInstructions">Custom Analysis Instructions</Label>
-            <Textarea
-              id="customInstructions"
-              placeholder="Enter any specific instructions for the AI analysis (e.g., focus on specific attack vectors, compliance requirements, etc.)"
-              value={getCurrentValue("customInstructions") || ""}
-              onChange={(e) => handleSettingChange("customInstructions", e.target.value)}
-              className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 min-h-[100px]"
-            />
           </div>
         </CardContent>
       </Card>
@@ -259,66 +211,26 @@ export default function Settings() {
       <Card className="cyber-slate border-cyber-slate-light">
         <CardHeader>
           <div className="flex items-center space-x-2">
-            <Monitor className="text-cyber-cyan" />
+            <Palette className="text-cyber-cyan" />
             <CardTitle>User Interface</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="theme">Theme</Label>
-              <Select 
-                value={getCurrentValue("theme") || "dark"} 
-                onValueChange={(value) => handleSettingChange("theme", value)}
-              >
-                <SelectTrigger className="cyber-dark border-cyber-slate-light">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="cyber-dark border-cyber-slate-light">
-                  <SelectItem value="dark">🌙 Dark Theme</SelectItem>
-                  <SelectItem value="light">☀️ Light Theme</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sessionTimeout">Session Timeout (minutes)</Label>
-              <Input
-                id="sessionTimeout"
-                type="number"
-                min="30"
-                max="1440"
-                value={getCurrentValue("sessionTimeout") || 480}
-                onChange={(e) => handleSettingChange("sessionTimeout", parseInt(e.target.value))}
-                className="cyber-dark border-cyber-slate-light text-white"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="compactView">Compact View</Label>
-                <div className="text-sm text-gray-400">Show more information in less space</div>
-              </div>
-              <Switch
-                id="compactView"
-                checked={getCurrentValue("compactView") || false}
-                onCheckedChange={(checked) => handleSettingChange("compactView", checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="autoRefresh">Auto-refresh Incidents</Label>
-                <div className="text-sm text-gray-400">Automatically refresh incident list every 30 seconds</div>
-              </div>
-              <Switch
-                id="autoRefresh"
-                checked={getCurrentValue("autoRefresh") || false}
-                onCheckedChange={(checked) => handleSettingChange("autoRefresh", checked)}
-              />
-            </div>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="theme">Application Theme</Label>
+            <Select 
+              value={getCurrentValue("theme") || "dark"} 
+              onValueChange={(value) => handleSettingChange("theme", value)}
+            >
+              <SelectTrigger className="cyber-dark border-cyber-slate-light">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="cyber-dark border-cyber-slate-light">
+                <SelectItem value="dark">🌙 Dark Theme (Recommended)</SelectItem>
+                <SelectItem value="light">☀️ Light Theme</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-400">Choose your preferred visual theme. Dark theme is optimized for extended cybersecurity analysis sessions.</p>
           </div>
         </CardContent>
       </Card>
@@ -374,17 +286,6 @@ export default function Settings() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="highSeverityAlerts">High Severity Alerts</Label>
-              <div className="text-sm text-gray-400">Immediate notifications for critical and high severity incidents</div>
-            </div>
-            <Switch
-              id="highSeverityAlerts"
-              checked={getCurrentValue("highSeverityAlerts") || false}
-              onCheckedChange={(checked) => handleSettingChange("highSeverityAlerts", checked)}
-            />
-          </div>
         </CardContent>
       </Card>
 

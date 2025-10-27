@@ -153,8 +153,8 @@ export function generateIncidentPDF(incident: Incident, user: any) {
         <div class="metadata">
             <div>
                 <div class="metadata-item">
-                    <div class="metadata-label">Incident ID</div>
-                    <div>${incident.id}</div>
+                    <div class="metadata-label">Entity ID</div>
+                    <div>${getEntityIdFromIncident(incident)}</div>
                 </div>
                 <div class="metadata-item">
                     <div class="metadata-label">Status</div>
@@ -203,12 +203,12 @@ export function generateIncidentPDF(incident: Incident, user: any) {
                     <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                         <div style="display: flex; align-items: center; margin-bottom: 10px;">
                             <span style="font-weight: bold; font-size: 18px;">${incident.confidence}%</span>
-                            <span style="margin-left: 10px; ${getConfidenceColor(incident.confidence)}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${getConfidenceLevel(incident.confidence)}</span>
+                            <span style="margin-left: 10px; ${getConfidenceColor(incident.confidence || 50)}; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${getConfidenceLevel(incident.confidence || 50)}</span>
                         </div>
                         <div style="width: 100%; background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="width: ${incident.confidence}%; height: 100%; background: ${getConfidenceBarColor(incident.confidence)};"></div>
+                            <div style="width: ${incident.confidence || 50}%; height: 100%; background: ${getConfidenceBarColor(incident.confidence || 50)};"></div>
                         </div>
-                        <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">${getConfidenceDescription(incident.confidence)}</p>
+                        <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">${getConfidenceDescription(incident.confidence || 50)}</p>
                     </div>
                 </div>
                 <div>
@@ -243,9 +243,74 @@ export function generateIncidentPDF(incident: Incident, user: any) {
                 </p>
             </div>
         </div>
+        
+        <!-- Threat Prediction Section -->
+        ${incident.threatPrediction ? `
+        <div class="section">
+            <div class="section-title">🎯 Threat Prediction Analysis</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 15px;">
+                    <h4 style="color: #92400e; margin-bottom: 8px;">Overall Threat Level</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: #92400e;">${incident.predictionConfidence || 75}%</div>
+                    <div style="width: 100%; background: #fed7aa; height: 6px; border-radius: 3px; margin-top: 8px;">
+                        <div style="width: ${incident.predictionConfidence || 75}%; height: 100%; background: linear-gradient(to right, #fbbf24, #dc2626); border-radius: 3px;"></div>
+                    </div>
+                </div>
+                <div style="background: #dbeafe; border: 1px solid #3b82f6; border-radius: 8px; padding: 15px;">
+                    <h4 style="color: #1e40af; margin-bottom: 8px;">Risk Trend</h4>
+                    <div style="font-size: 18px; font-weight: bold; color: #1e40af; text-transform: capitalize;">${incident.riskTrend || 'Stable'}</div>
+                    <div style="margin-top: 8px; font-size: 12px; color: #475569;">
+                        ${incident.riskTrend === 'increasing' ? '⚠️ Escalating' : 
+                          incident.riskTrend === 'decreasing' ? '✅ Improving' : '📊 Consistent'}
+                    </div>
+                </div>
+                <div style="background: #f3e8ff; border: 1px solid #8b5cf6; border-radius: 8px; padding: 15px;">
+                    <h4 style="color: #6b21a8; margin-bottom: 8px;">Confidence</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: #6b21a8;">${incident.confidence || 82}%</div>
+                    <div style="width: 100%; background: #c7d2fe; height: 6px; border-radius: 3px; margin-top: 8px;">
+                        <div style="width: ${incident.confidence || 82}%; height: 100%; background: linear-gradient(to right, #8b5cf6, #3b82f6); border-radius: 3px;"></div>
+                    </div>
+                </div>
+            </div>
+            ${renderThreatScenarios(JSON.parse(incident.threatPrediction))}
+            ${renderEnvironmentalImpact(JSON.parse(incident.threatPrediction))}
+        </div>
+        ` : ''}
+        </div>
 
-        <div class="metadata">
-            <div>
+        <!-- Business Impact Assessment Section -->
+        <div class="section">
+            <div class="section-title">💼 Business Impact Assessment</div>
+            <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #dc2626;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dc2626;">
+                        <div style="font-size: 18px; font-weight: bold; color: #dc2626; margin-bottom: 8px;">
+                            ${incident.severity === 'critical' ? 'EXTREME' : incident.severity === 'high' ? 'HIGH' : 'MODERATE'}
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Risk Level</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dc2626;">
+                        <div style="font-size: 14px; font-weight: bold; color: #dc2626; margin-bottom: 8px;">
+                            ${incident.severity === 'critical' ? '$50K-500K+' : incident.severity === 'high' ? '$10K-50K' : '$1K-10K'}
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Potential Loss</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dc2626;">
+                        <div style="font-size: 14px; font-weight: bold; color: #dc2626; margin-bottom: 8px;">
+                            ${incident.severity === 'critical' ? 'Mandatory' : 'Required'}
+                        </div>
+                        <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Compliance Review</div>
+                    </div>
+                </div>
+                <div style="padding: 15px; background: white; border-radius: 8px; border: 1px solid #dc2626;">
+                    <strong style="color: #dc2626;">Impact Summary:</strong>
+                    <ul style="margin: 10px 0; color: #374151;">
+                        <li><strong>Financial:</strong> ${incident.severity === 'critical' ? 'Major downtime costs, potential compliance fines' : incident.severity === 'high' ? 'Significant productivity loss' : 'Investigation and remediation costs'}</li>
+                        <li><strong>Regulatory:</strong> ${incident.severity === 'critical' ? 'GDPR/SOX/HIPAA violations likely' : 'Regulatory review required'}</li>
+                        <li><strong>Reputation:</strong> ${incident.severity === 'critical' ? 'Major brand damage risk' : 'Minor reputation impact'}</li>
+                        <li><strong>Operations:</strong> ${incident.severity === 'critical' ? 'Critical system disruption' : incident.severity === 'high' ? 'Service degradation' : 'Minimal operational impact'}</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -283,6 +348,7 @@ export function generateIncidentPDF(incident: Incident, user: any) {
         ${incident.purpleTeam ? generatePurpleTeamSection(incident.purpleTeam) : ''}
         ${incident.entityMapping ? generateEntitySection(incident.entityMapping) : ''}
         ${incident.codeAnalysis ? generateCodeSection(incident.codeAnalysis) : ''}
+        ${(incident as any).patternAnalysis ? generateSandboxSection((incident as any).patternAnalysis) : ''}
         ${incident.attackVectors ? generateAttackVectorSection(incident.attackVectors) : ''}
         ${incident.complianceImpact ? generateComplianceSection(incident.complianceImpact) : ''}
         ${incident.similarIncidents ? generateSimilarIncidentsSection(incident.similarIncidents) : ''}
@@ -524,6 +590,52 @@ function generateCodeSection(codeAnalysisJson: string): string {
   }
 }
 
+function generateSandboxSection(patternAnalysisJson: string): string {
+  try {
+    const patternAnalysis = JSON.parse(patternAnalysisJson);
+    if (!patternAnalysis.sandboxOutput && !patternAnalysis.codeGeneration) return '';
+
+    return `
+      <div class="section">
+        <div class="section-title">🔬 Gemini AI Pattern Recognition & Code Analysis</div>
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 25px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px;">
+          ${patternAnalysis.codeGeneration ? `
+            <div style="margin-bottom: 25px;">
+              <h4 style="color: #fbbf24; margin-bottom: 15px; font-size: 16px; display: flex; align-items: center;">
+                <span style="margin-right: 8px;">🛠️</span> Generated Investigation Scripts
+              </h4>
+              <div style="background: #1a1a1a; color: #00ff00; padding: 20px; border-radius: 10px; font-family: 'Courier New', monospace; overflow-x: auto; border: 1px solid #334155; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${patternAnalysis.codeGeneration}</pre>
+              </div>
+            </div>
+          ` : ''}
+          ${patternAnalysis.sandboxOutput ? `
+            <div>
+              <h4 style="color: #22d3ee; margin-bottom: 15px; font-size: 16px; display: flex; align-items: center;">
+                <span style="margin-right: 8px;">⚡</span> Sandbox Execution Results
+              </h4>
+              <div style="background: #0a0a0a; color: #00ff00; padding: 20px; border-radius: 10px; font-family: 'Courier New', monospace; overflow-x: auto; border: 1px solid #16a34a; box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);">
+                <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${patternAnalysis.sandboxOutput}</pre>
+              </div>
+              <div style="margin-top: 15px; padding: 15px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #3b82f6; border-radius: 8px; font-size: 13px;">
+                <div style="display: flex; align-items: center; color: #1e40af;">
+                  <span style="margin-right: 8px; font-size: 16px;">ℹ️</span>
+                  <strong>AI-Generated Analysis:</strong>
+                </div>
+                <div style="color: #1e40af; margin-top: 5px; line-height: 1.5;">
+                  This sandbox output was generated by Gemini AI's Pattern Recognition agent for investigative purposes. The results show simulated command execution and analysis patterns derived from the incident data.
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  } catch {
+    return '';
+  }
+}
+
 function generateAttackVectorSection(attackVectorsJson: string): string {
   try {
     const attackVectors = JSON.parse(attackVectorsJson);
@@ -653,4 +765,89 @@ function getInvestigationDescription(investigation: number): string {
   if (investigation >= 70) return "Minor data gaps but good coverage. Most analysis vectors completed successfully.";
   if (investigation >= 50) return "Some unclear data with incomplete picture. Additional investigation may be beneficial.";
   return "Insufficient data clarity. Needs more comprehensive data collection and analysis.";
+}
+
+function renderThreatScenarios(threatPrediction: any): string {
+  if (!threatPrediction.threatScenarios || threatPrediction.threatScenarios.length === 0) {
+    return '';
+  }
+  
+  return `
+    <div style="margin-top: 20px;">
+      <h4 style="color: #1e40af; margin-bottom: 10px;">🚨 Threat Scenarios</h4>
+      ${threatPrediction.threatScenarios.map((scenario: any, index: number) => `
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <h5 style="color: #0ea5e9; margin: 0;">${scenario.timeframe}</h5>
+            <div>
+              <span style="background: ${scenario.likelihood === 'High' ? '#dc2626' : scenario.likelihood === 'Medium' ? '#d97706' : '#16a34a'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px;">${scenario.likelihood}</span>
+              <span style="background: ${scenario.impact === 'Critical' ? '#dc2626' : scenario.impact === 'High' ? '#ea580c' : scenario.impact === 'Medium' ? '#d97706' : '#0891b2'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${scenario.impact} Impact</span>
+            </div>
+          </div>
+          ${scenario.threats && scenario.threats.length > 0 ? `
+            <div style="margin-bottom: 10px;">
+              <strong style="color: #374151;">Potential Threats:</strong>
+              <ul style="margin: 5px 0; padding-left: 20px;">
+                ${scenario.threats.map((threat: string) => `<li style="color: #6b7280; margin-bottom: 3px;">${threat}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          ${scenario.recommendations && scenario.recommendations.length > 0 ? `
+            <div>
+              <strong style="color: #374151;">Recommendations:</strong>
+              <ul style="margin: 5px 0; padding-left: 20px;">
+                ${scenario.recommendations.map((rec: string) => `<li style="color: #6b7280; margin-bottom: 3px;">${rec}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderEnvironmentalImpact(threatPrediction: any): string {
+  if (!threatPrediction.environmentalImpact || Object.keys(threatPrediction.environmentalImpact).length === 0) {
+    return '';
+  }
+  
+  return `
+    <div style="margin-top: 20px;">
+      <h4 style="color: #16a34a; margin-bottom: 10px;">🛡️ Environmental Impact Assessment</h4>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+        ${Object.entries(threatPrediction.environmentalImpact).map(([key, impact]: [string, any]) => `
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
+            <h5 style="color: #166534; margin-bottom: 8px; text-transform: capitalize;">${key.replace(/([A-Z])/g, ' $1').trim()}</h5>
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: ${
+                impact.riskLevel === 'High' ? '#dc2626' :
+                impact.riskLevel === 'Medium' ? '#d97706' :
+                '#16a34a'
+              }; margin-right: 8px;"></div>
+              <span style="color: ${
+                impact.riskLevel === 'High' ? '#dc2626' :
+                impact.riskLevel === 'Medium' ? '#d97706' :
+                '#16a34a'
+              }; font-weight: bold; font-size: 14px;">${impact.riskLevel} Risk</span>
+            </div>
+            <p style="color: #6b7280; font-size: 13px; margin-bottom: 10px;">${impact.description}</p>
+            ${impact.mitigationPriority ? `
+              <span style="background: ${
+                impact.mitigationPriority === 'Critical' ? '#dc2626' :
+                impact.mitigationPriority === 'High' ? '#ea580c' :
+                impact.mitigationPriority === 'Medium' ? '#d97706' :
+                '#0891b2'
+              }; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${impact.mitigationPriority} Priority</span>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// Helper function to extract EntityID from incident analysis data
+function getEntityIdFromIncident(incident: Incident): string {
+  // Always return the real incident ID instead of generating fake Entity IDs
+  return incident.id;
 }

@@ -6,6 +6,7 @@ import {
   billingTransactions,
   usageTracking,
   queryHistory,
+  siemResponses,
   type User,
   type UpsertUser,
   type Incident,
@@ -18,10 +19,12 @@ import {
   type InsertBillingTransaction,
   type UsageTracking,
   type QueryHistory,
-  type InsertQueryHistory
+  type InsertQueryHistory,
+  type SiemResponse,
+  type InsertSiemResponse
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte, or, asc } from "drizzle-orm";
+import { eq, and, desc, sql, gte, or, asc, lt } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -30,12 +33,13 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(userId: string, updates: Partial<User>): Promise<User | undefined>;
-  updateUserCredits(userId: string, credits: number): Promise<User | undefined>;
-  addCredits(userId: string, amount: number): Promise<User | undefined>;
-  deductCredits(userId: string, amount: number): Promise<boolean>;
+  updateUserPackage(userId: string, packageType: string, incidents: number, expiry?: Date): Promise<User | undefined>;
+  deductIncident(userId: string): Promise<boolean>;
+  getRemainingIncidents(userId: string): Promise<number>;
   
   // Incidents - now user-scoped
   getUserIncidents(userId: string): Promise<Incident[]>;
+  getIncidentsByUserId(userId: string, options?: { limit?: number }): Promise<Incident[]>;
   getIncident(id: string, userId: string): Promise<Incident | undefined>;
   createIncident(incident: InsertIncident, userId: string): Promise<Incident>;
   updateIncident(id: string, userId: string, incident: Partial<Incident>): Promise<Incident | undefined>;
@@ -63,10 +67,23 @@ export interface IStorage {
   getUserUsage(userId: string, month: string): Promise<UsageTracking | undefined>;
   calculateStorageUsage(userId: string): Promise<number>;
   
+  // Enhanced storage management
+  calculateDetailedStorageUsage(userId: string): Promise<{ usageGB: number, incidentCount: number, details: any }>;
+  getUserStorageLimit(userId: string): Promise<number>;
+  deleteExpiredIncidents(): Promise<number>;
+  checkStorageQuota(userId: string): Promise<{ used: number, limit: number, percentage: number, canCreateNew: boolean }>;
+  getIncidentsToBeDeleted(): Promise<number>;
+  calculateIncidentStorageSize(incidentId: string, userId: string): Promise<number>;
+  
   // Query History
   saveQuery(query: InsertQueryHistory, userId: string): Promise<QueryHistory>;
   getUserQueries(userId: string, limit?: number): Promise<QueryHistory[]>;
   getSavedQueries(userId: string): Promise<QueryHistory[]>;
+  
+  // SIEM Response Tracking for bidirectional integration
+  createSiemResponse(response: InsertSiemResponse, userId: string): Promise<SiemResponse>;
+  getSiemResponses(incidentId: string, userId: string): Promise<SiemResponse[]>;
+  updateSiemResponseStatus(responseId: string, status: string, httpStatus?: number, errorMessage?: string): Promise<SiemResponse | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -99,8 +116,8 @@ export class DatabaseStorage implements IStorage {
         .insert(users)
         .values({
           ...userData,
-          credits: 10, // Give new users 10 credits to start (4 incident analyses)
-          subscriptionPlan: 'free',
+          currentPackage: 'free',
+          remainingIncidents: 3, // Give new users 3 incident analyses on free plan
         })
         .returning();
       return user;
@@ -116,31 +133,43 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserCredits(userId: string, credits: number): Promise<User | undefined> {
+  async updateUserPackage(userId: string, packageType: string, incidents: number, expiry?: Date): Promise<User | undefined> {
+    // Get current user to add incidents to existing balance
+    const currentUser = await this.getUser(userId);
+    const currentIncidents = (currentUser as any)?.remainingIncidents || 0;
+    
     const [user] = await db
       .update(users)
-      .set({ credits: credits.toString(), updatedAt: new Date() })
+      .set({ 
+        currentPackage: packageType, 
+        remainingIncidents: currentIncidents + incidents, // Add to existing balance
+        packageExpiry: expiry || null,
+        updatedAt: new Date() 
+      })
       .where(eq(users.id, userId))
       .returning();
     return user;
   }
 
-  async addCredits(userId: string, amount: number): Promise<User | undefined> {
+  async deductIncident(userId: string): Promise<boolean> {
     const user = await this.getUser(userId);
-    if (!user) return undefined;
+    if (!user || (user.remainingIncidents || 0) < 1) return false;
     
-    const currentCredits = parseFloat(user.credits);
-    const newCredits = currentCredits + amount;
-    return this.updateUserCredits(userId, newCredits);
+    const [updatedUser] = await db
+      .update(users)
+      .set({ 
+        remainingIncidents: (user.remainingIncidents || 0) - 1,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    return !!updatedUser;
   }
 
-  async deductCredits(userId: string, amount: number): Promise<boolean> {
+  async getRemainingIncidents(userId: string): Promise<number> {
     const user = await this.getUser(userId);
-    if (!user || parseFloat(user.credits) < amount) return false;
-    
-    const newCredits = parseFloat(user.credits) - amount;
-    await this.updateUserCredits(userId, newCredits);
-    return true;
+    return user?.remainingIncidents || 0;
   }
 
   async getUserIncidents(userId: string): Promise<Incident[]> {
@@ -149,6 +178,20 @@ export class DatabaseStorage implements IStorage {
       .from(incidents)
       .where(eq(incidents.userId, userId))
       .orderBy(desc(incidents.createdAt));
+  }
+
+  async getIncidentsByUserId(userId: string, options?: { limit?: number }): Promise<Incident[]> {
+    const query = db
+      .select()
+      .from(incidents)
+      .where(eq(incidents.userId, userId))
+      .orderBy(desc(incidents.createdAt));
+    
+    if (options?.limit) {
+      return await query.limit(options.limit);
+    }
+    
+    return await query;
   }
 
   async getIncident(id: string, userId: string): Promise<Incident | undefined> {
@@ -191,7 +234,7 @@ export class DatabaseStorage implements IStorage {
       .delete(incidents)
       .where(and(
         eq(incidents.userId, userId),
-        gte(cutoffDate, incidents.createdAt!)
+        sql`${incidents.createdAt} < ${cutoffDate.toISOString()}`
       ));
     return result.rowCount || 0;
   }
@@ -296,15 +339,25 @@ export class DatabaseStorage implements IStorage {
 
   // Usage Tracking
   async updateUsageTracking(userId: string, month: string, updates: Partial<UsageTracking>): Promise<UsageTracking> {
-    const [usage] = await db
-      .insert(usageTracking)
-      .values({ userId, month, ...updates })
-      .onConflictDoUpdate({
-        target: [usageTracking.userId, usageTracking.month],
-        set: { ...updates, updatedAt: new Date() },
-      })
-      .returning();
-    return usage;
+    // Try to find existing record first
+    const existing = await this.getUserUsage(userId, month);
+    
+    if (existing) {
+      // Update existing record
+      const [updated] = await db
+        .update(usageTracking)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(and(eq(usageTracking.userId, userId), eq(usageTracking.month, month)))
+        .returning();
+      return updated;
+    } else {
+      // Create new record
+      const [created] = await db
+        .insert(usageTracking)
+        .values({ userId, month, ...updates })
+        .returning();
+      return created;
+    }
   }
 
   async getUserUsage(userId: string, month: string): Promise<UsageTracking | undefined> {
@@ -325,6 +378,210 @@ export class DatabaseStorage implements IStorage {
     
     const totalBytes = result[0]?.totalSize || 0;
     return totalBytes / (1024 * 1024 * 1024); // Convert to GB
+  }
+
+  async calculateDetailedStorageUsage(userId: string): Promise<{ usageGB: number, incidentCount: number, details: any }> {
+    const userIncidents = await db.select().from(incidents).where(eq(incidents.userId, userId));
+    
+    let totalSizeBytes = 0;
+    let breakdown = {
+      logData: 0,
+      additionalLogs: 0,
+      aiAnalysis: 0,
+      analysisExplanation: 0,
+      mitreDetails: 0,
+      iocDetails: 0,
+      entityMapping: 0,
+      threatPrediction: 0,
+      attackVectors: 0,
+      complianceImpact: 0,
+      purpleTeam: 0,
+      codeAnalysis: 0,
+      patternAnalysis: 0,
+      comments: 0,
+      metadata: 0
+    };
+    
+    for (const incident of userIncidents) {
+      // Calculate storage for each field
+      const logDataSize = (incident.logData || '').length;
+      const additionalLogsSize = (incident.additionalLogs || '').length;
+      const aiAnalysisSize = (incident.aiAnalysis || '').length;
+      const analysisExplanationSize = (incident.analysisExplanation || '').length;
+      const mitreDetailsSize = (incident.mitreDetails || '').length;
+      const iocDetailsSize = (incident.iocDetails || '').length;
+      const entityMappingSize = (incident.entityMapping || '').length;
+      const threatPredictionSize = (incident.threatPrediction || '').length;
+      const attackVectorsSize = (incident.attackVectors || '').length;
+      const complianceImpactSize = (incident.complianceImpact || '').length;
+      const purpleTeamSize = (incident.purpleTeam || '').length;
+      const codeAnalysisSize = (incident.codeAnalysis || '').length;
+      const patternAnalysisSize = (incident.patternAnalysis || '').length;
+      const commentsSize = JSON.stringify(incident.comments || []).length;
+      
+      // Add base metadata size (IDs, dates, etc.)
+      const metadataSize = JSON.stringify({
+        id: incident.id,
+        title: incident.title,
+        severity: incident.severity,
+        status: incident.status,
+        classification: incident.classification,
+        systemContext: incident.systemContext,
+        createdAt: incident.createdAt,
+        updatedAt: incident.updatedAt
+      }).length;
+      
+      // Update breakdown
+      breakdown.logData += logDataSize;
+      breakdown.additionalLogs += additionalLogsSize;
+      breakdown.aiAnalysis += aiAnalysisSize;
+      breakdown.analysisExplanation += analysisExplanationSize;
+      breakdown.mitreDetails += mitreDetailsSize;
+      breakdown.iocDetails += iocDetailsSize;
+      breakdown.entityMapping += entityMappingSize;
+      breakdown.threatPrediction += threatPredictionSize;
+      breakdown.attackVectors += attackVectorsSize;
+      breakdown.complianceImpact += complianceImpactSize;
+      breakdown.purpleTeam += purpleTeamSize;
+      breakdown.codeAnalysis += codeAnalysisSize;
+      breakdown.patternAnalysis += patternAnalysisSize;
+      breakdown.comments += commentsSize;
+      breakdown.metadata += metadataSize;
+      
+      totalSizeBytes += logDataSize + additionalLogsSize + aiAnalysisSize + 
+                      analysisExplanationSize + mitreDetailsSize + iocDetailsSize + 
+                      entityMappingSize + threatPredictionSize + attackVectorsSize + 
+                      complianceImpactSize + purpleTeamSize + codeAnalysisSize + 
+                      patternAnalysisSize + commentsSize + metadataSize;
+    }
+    
+    // Convert bytes to GB and MB for breakdown
+    const usageGB = totalSizeBytes / (1024 * 1024 * 1024);
+    
+    const breakdownMB = Object.fromEntries(
+      Object.entries(breakdown).map(([key, bytes]) => [
+        key, 
+        Math.round((bytes / (1024 * 1024)) * 100) / 100
+      ])
+    );
+    
+    return {
+      usageGB: Math.round(usageGB * 100000) / 100000, // Round to 5 decimal places for better precision
+      incidentCount: userIncidents.length,
+      details: {
+        breakdownMB,
+        totalMB: Math.round((totalSizeBytes / (1024 * 1024)) * 100) / 100,
+        averageIncidentSizeMB: userIncidents.length > 0 ? 
+          Math.round(((totalSizeBytes / userIncidents.length) / (1024 * 1024)) * 100) / 100 : 0
+      }
+    };
+  }
+
+  async getUserStorageLimit(userId: string): Promise<number> {
+    const user = await this.getUser(userId);
+    if (!user) return 1; // 1GB for unknown users (starter default)
+    
+    const plan = (user as any).currentPackage || 'starter';
+    switch (plan) {
+      case 'starter': return 1; // 1GB
+      case 'professional': return 2.5; // 2.5GB
+      case 'business': return 10; // 10GB
+      case 'enterprise': return 50; // 50GB
+      default: return 1; // 1GB for starter plan
+    }
+  }
+
+  async deleteExpiredIncidents(): Promise<number> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const expiredIncidents = await db.select().from(incidents).where(
+      lt(incidents.createdAt, thirtyDaysAgo)
+    );
+    
+    if (expiredIncidents.length > 0) {
+      await db.delete(incidents).where(
+        lt(incidents.createdAt, thirtyDaysAgo)
+      );
+    }
+    
+    return expiredIncidents.length;
+  }
+
+  async checkStorageQuota(userId: string): Promise<{ used: number, limit: number, percentage: number, canCreateNew: boolean }> {
+    const [storageUsage, storageLimit] = await Promise.all([
+      this.calculateDetailedStorageUsage(userId),
+      this.getUserStorageLimit(userId)
+    ]);
+    
+    const usedGB = storageUsage.usageGB;
+    const limitGB = storageLimit;
+    
+    // Dynamic precision based on storage limit size
+    let multiplier = 10000; // Default for 0.01% precision
+    if (limitGB >= 50) multiplier = 1000000;      // 0.0001% for enterprise (50GB+)
+    else if (limitGB >= 10) multiplier = 100000;  // 0.001% for business (10GB+)
+    else if (limitGB >= 2) multiplier = 100000;   // 0.001% for professional (2.5GB+)
+    
+    const percentage = limitGB > 0 ? Math.round((usedGB / limitGB) * multiplier) / (multiplier / 100) : 0;
+    const canCreateNew = percentage < 95; // Allow up to 95% usage
+    
+    return {
+      used: usedGB,
+      limit: limitGB,
+      percentage,
+      canCreateNew
+    };
+  }
+
+  async getIncidentsToBeDeleted(): Promise<number> {
+    const twentyNineDaysAgo = new Date();
+    twentyNineDaysAgo.setDate(twentyNineDaysAgo.getDate() - 29);
+    
+    const incidentsToDelete = await db.select().from(incidents).where(
+      lt(incidents.createdAt, twentyNineDaysAgo)
+    );
+    
+    return incidentsToDelete.length;
+  }
+
+  async calculateIncidentStorageSize(incidentId: string, userId: string): Promise<number> {
+    const incident = await this.getIncident(incidentId, userId);
+    if (!incident) return 0;
+    
+    const logDataSize = (incident.logData || '').length;
+    const additionalLogsSize = (incident.additionalLogs || '').length;
+    const aiAnalysisSize = (incident.aiAnalysis || '').length;
+    const analysisExplanationSize = (incident.analysisExplanation || '').length;
+    const mitreDetailsSize = (incident.mitreDetails || '').length;
+    const iocDetailsSize = (incident.iocDetails || '').length;
+    const entityMappingSize = (incident.entityMapping || '').length;
+    const threatPredictionSize = (incident.threatPrediction || '').length;
+    const attackVectorsSize = (incident.attackVectors || '').length;
+    const complianceImpactSize = (incident.complianceImpact || '').length;
+    const purpleTeamSize = (incident.purpleTeam || '').length;
+    const codeAnalysisSize = (incident.codeAnalysis || '').length;
+    const patternAnalysisSize = (incident.patternAnalysis || '').length;
+    const commentsSize = JSON.stringify(incident.comments || []).length;
+    
+    const metadataSize = JSON.stringify({
+      id: incident.id,
+      title: incident.title,
+      severity: incident.severity,
+      status: incident.status,
+      classification: incident.classification,
+      systemContext: incident.systemContext,
+      createdAt: incident.createdAt,
+      updatedAt: incident.updatedAt
+    }).length;
+    
+    const totalBytes = logDataSize + additionalLogsSize + aiAnalysisSize + 
+                     analysisExplanationSize + mitreDetailsSize + iocDetailsSize + 
+                     entityMappingSize + threatPredictionSize + attackVectorsSize + 
+                     complianceImpactSize + purpleTeamSize + codeAnalysisSize + 
+                     patternAnalysisSize + commentsSize + metadataSize;
+    
+    return totalBytes / (1024 * 1024); // Return size in MB
   }
 
   // Query History
@@ -438,32 +695,32 @@ export class DatabaseStorage implements IStorage {
       // Parse structured query (JSON format)
       const queryObj = JSON.parse(query);
       
-      let dbQuery = db.select().from(incidents).where(eq(incidents.userId, userId));
+      // Apply filters using and() to combine conditions
+      const conditions = [eq(incidents.userId, userId)];
       
-      // Apply filters
       if (queryObj.severity) {
-        dbQuery = dbQuery.where(eq(incidents.severity, queryObj.severity));
+        conditions.push(eq(incidents.severity, queryObj.severity));
       }
       if (queryObj.status) {
-        dbQuery = dbQuery.where(eq(incidents.status, queryObj.status));
+        conditions.push(eq(incidents.status, queryObj.status));
       }
       if (queryObj.classification) {
-        dbQuery = dbQuery.where(eq(incidents.classification, queryObj.classification));
+        conditions.push(eq(incidents.classification, queryObj.classification));
       }
       
-      // Apply ordering
-      if (queryObj.orderBy) {
-        const field = incidents[queryObj.orderBy as keyof typeof incidents];
-        dbQuery = queryObj.order === 'asc' ? dbQuery.orderBy(asc(field)) : dbQuery.orderBy(desc(field));
-      } else {
-        dbQuery = dbQuery.orderBy(desc(incidents.createdAt));
-      }
+      // Execute the query with filters
+      const results = await db
+        .select()
+        .from(incidents)
+        .where(and(...conditions))
+        .orderBy(queryObj.orderBy === 'updatedAt' ? 
+          (queryObj.order === 'asc' ? asc(incidents.updatedAt) : desc(incidents.updatedAt)) :
+          (queryObj.order === 'asc' ? asc(incidents.createdAt) : desc(incidents.createdAt))
+        )
+        .limit(queryObj.limit || 100);
       
-      // Apply limit
-      const limit = queryObj.limit || 100;
-      dbQuery = dbQuery.limit(limit);
-      
-      return await dbQuery;
+      return results;
+
     } catch (error: any) {
       throw new Error(`Structured query failed: ${error.message}`);
     }
@@ -487,6 +744,40 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(incidents.createdAt))
       .limit(100);
+  }
+  
+  // SIEM Response Tracking Implementation
+  async createSiemResponse(response: InsertSiemResponse, userId: string): Promise<SiemResponse> {
+    const [siemResponse] = await db
+      .insert(siemResponses)
+      .values({ ...response, userId })
+      .returning();
+    return siemResponse;
+  }
+
+  async getSiemResponses(incidentId: string, userId: string): Promise<SiemResponse[]> {
+    return await db
+      .select()
+      .from(siemResponses)
+      .where(and(
+        eq(siemResponses.incidentId, incidentId),
+        eq(siemResponses.userId, userId)
+      ))
+      .orderBy(desc(siemResponses.sentAt));
+  }
+
+  async updateSiemResponseStatus(responseId: string, status: string, httpStatus?: number, errorMessage?: string): Promise<SiemResponse | undefined> {
+    const [response] = await db
+      .update(siemResponses)
+      .set({ 
+        responseStatus: status, 
+        httpStatus,
+        errorMessage,
+        retriedCount: sql`${siemResponses.retriedCount} + 1`
+      })
+      .where(eq(siemResponses.id, responseId))
+      .returning();
+    return response;
   }
 }
 

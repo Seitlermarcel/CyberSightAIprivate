@@ -151,89 +151,38 @@ export default function Settings() {
             <div className="cyber-slate rounded-xl p-6">
               <div className="flex items-center space-x-2 mb-6">
                 <Brain className="text-cyber-blue" />
-                <h3 className="text-lg font-semibold">AI Analysis Configuration</h3>
+                <h3 className="text-lg font-semibold">AI Analysis System</h3>
               </div>
 
-              <div className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="analysisDepth"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-300">Analysis Depth</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="cyber-dark border-cyber-slate-light text-white focus:ring-cyber-blue">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="cyber-dark border-cyber-slate-light">
-                          <SelectItem value="comprehensive">Comprehensive - Deep analysis</SelectItem>
-                          <SelectItem value="standard">Standard - Balanced analysis</SelectItem>
-                          <SelectItem value="quick">Quick - Fast analysis</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
+              <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-500/20">
+                <h4 className="font-medium text-purple-400 mb-3">🧠 What CyberSight AI Does for Incident Analysis</h4>
+                <div className="space-y-3 text-sm text-gray-300">
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2"></div>
+                    <div>
+                      <span className="font-medium text-cyan-400">Multi-Agent Analysis:</span> Employs 8 specialized AI agents including Pattern Recognition, Threat Intelligence, MITRE ATT&CK mapping, and IOC Enrichment for comprehensive incident evaluation.
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mt-2"></div>
+                    <div>
+                      <span className="font-medium text-green-400">Dual-AI Workflow:</span> Features Tactical Analyst (technical evidence), Strategic Analyst (threat patterns), and Chief Analyst (final synthesis) for enhanced accuracy and decision-making.
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2"></div>
+                    <div>
+                      <span className="font-medium text-yellow-400">Real-time Processing:</span> Automatically classifies incidents as True/False Positives, maps to MITRE ATT&CK techniques, extracts IOCs, and provides confidence scoring with detailed explanations.
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-red-400 rounded-full mt-2"></div>
+                    <div>
+                      <span className="font-medium text-red-400">Threat Intelligence:</span> Integrates with AlienVault OTX and other sources to correlate detected indicators with known threats and provide geo-location context.
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              <div className="mt-6 space-y-4">
-                <FormField
-                  control={form.control}
-                  name="enableDualAI"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-cyber-slate-light p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base font-medium">Enable Dual AI Analysis</FormLabel>
-                        <FormDescription className="text-gray-400">
-                          Use two different AI analysts for enhanced accuracy
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="autoSeverityAdjustment"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-cyber-slate-light p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base font-medium">Auto Severity Adjustment</FormLabel>
-                        <FormDescription className="text-gray-400">
-                          Allow AI to automatically adjust severity based on analysis
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="customInstructions"
-                render={({ field }) => (
-                  <FormItem className="mt-6">
-                    <FormLabel className="text-gray-300">Custom Analysis Instructions</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter any specific instructions for the AI analysis (e.g., focus on specific attack vectors, compliance requirements, etc.)"
-                        className="cyber-dark border-cyber-slate-light text-white placeholder-gray-500 focus:ring-cyber-blue resize-none"
-                        rows={3}
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
             </div>
 
             {/* User Interface */}
@@ -243,7 +192,7 @@ export default function Settings() {
                 <h3 className="text-lg font-semibold">User Interface</h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-4">
                 <FormField
                   control={form.control}
                   name="theme"
@@ -257,72 +206,11 @@ export default function Settings() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent className="cyber-dark border-cyber-slate-light">
-                          <SelectItem value="dark">Dark Theme</SelectItem>
-                          <SelectItem value="light">Light Theme</SelectItem>
-                          <SelectItem value="auto">Auto (System)</SelectItem>
+                          <SelectItem value="dark">🌙 Dark Theme</SelectItem>
+                          <SelectItem value="light">☀️ Light Theme</SelectItem>
                         </SelectContent>
                       </Select>
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="sessionTimeout"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-gray-300">Session Timeout (minutes)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="30"
-                          max="1440"
-                          className="cyber-dark border-cyber-slate-light text-white focus:ring-cyber-cyan"
-                          {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value) || 480)}
-                        />
-                      </FormControl>
-                      <FormDescription className="text-gray-400">
-                        Time before requiring re-authentication (30-1440 minutes)
-                      </FormDescription>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="mt-6 space-y-4">
-                <FormField
-                  control={form.control}
-                  name="compactView"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-cyber-slate-light p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base font-medium">Compact View</FormLabel>
-                        <FormDescription className="text-gray-400">
-                          Show more information in less space
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="autoRefresh"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-cyber-slate-light p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base font-medium">Auto-refresh Incidents</FormLabel>
-                        <FormDescription className="text-gray-400">
-                          Automatically refresh incident list every 30 seconds
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
+                      <p className="text-xs text-gray-400">Choose your preferred visual theme. Dark theme is optimized for extended cybersecurity analysis sessions.</p>
                     </FormItem>
                   )}
                 />
@@ -396,24 +284,6 @@ export default function Settings() {
                     )}
                   />
                 )}
-                
-                <FormField
-                  control={form.control}
-                  name="highSeverityAlerts"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-cyber-slate-light p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base font-medium">High Severity Alerts</FormLabel>
-                        <FormDescription className="text-gray-400">
-                          Immediate notifications for critical and high severity incidents
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
               </div>
             </div>
 

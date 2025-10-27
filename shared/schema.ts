@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, index, decimal, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, index, decimal, real, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,10 +23,11 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  credits: decimal("credits", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  currentPackage: text("current_package").default("free"), // free, starter, professional, business, enterprise
+  remainingIncidents: integer("remaining_incidents").default(3).notNull(), // Default 3 incidents for free plan
+  packageExpiry: timestamp("package_expiry"),
   storageUsedGB: real("storage_used_gb").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
-  subscriptionPlan: text("subscription_plan").default("free"), // free, starter, professional, enterprise
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -64,6 +65,13 @@ export const incidents = pgTable("incidents", {
   riskTrend: text("risk_trend"), // increasing, stable, decreasing
   threatIntelligence: text("threat_intelligence"), // JSON string with AlienVault OTX threat intelligence data
   comments: text("comments").array().default([]), // Array of comment strings
+  source: text("source").default("manual"), // manual, siem-webhook, siem-api, automation
+  siemIntegrationId: varchar("siem_integration_id"), // Original SIEM incident/alert ID
+  siemSource: text("siem_source"), // sentinel, splunk, elastic, crowdstrike, etc.
+  siemResponseStatus: text("siem_response_status").default("pending"), // pending, sent, failed, not-configured
+  siemResponseData: text("siem_response_data"), // JSON of data sent back to SIEM
+  siemResponseTime: timestamp("siem_response_time"),
+  automationEnabled: boolean("automation_enabled").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -109,9 +117,10 @@ export const apiConfigurations = pgTable("api_configurations", {
 export const billingTransactions = pgTable("billing_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  type: text("type").notNull(), // credit-purchase, incident-analysis, storage-fee, refund
+  type: text("type").notNull(), // package-purchase, incident-analysis, storage-fee, refund
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  credits: decimal("credits", { precision: 10, scale: 2 }),
+  incidentsIncluded: integer("incidents_included"),
+  packageName: text("package_name"),
   description: text("description"),
   stripePaymentId: text("stripe_payment_id"),
   status: text("status").default("pending"), // pending, completed, failed, refunded
@@ -131,7 +140,9 @@ export const usageTracking = pgTable("usage_tracking", {
   totalCost: decimal("total_cost", { precision: 10, scale: 2 }).default("0.00"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  userIdMonthUnique: unique().on(table.userId, table.month),
+}));
 
 // Advanced query history (like Microsoft Advanced Hunting)
 export const queryHistory = pgTable("query_history", {
@@ -145,6 +156,27 @@ export const queryHistory = pgTable("query_history", {
   executionTime: integer("execution_time"), // milliseconds
   isSaved: boolean("is_saved").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// SIEM response tracking for bidirectional integration
+export const siemResponses = pgTable("siem_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").references(() => incidents.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  siemType: text("siem_type").notNull(), // sentinel, splunk, elastic, crowdstrike
+  endpointUrl: text("endpoint_url").notNull(),
+  responsePayload: jsonb("response_payload").notNull(),
+  responseStatus: text("response_status").notNull(), // sent, failed, pending
+  httpStatus: integer("http_status"),
+  errorMessage: text("error_message"),
+  responseData: jsonb("response_data"), // SIEM's response
+  sentAt: timestamp("sent_at").defaultNow(),
+  retriedCount: integer("retried_count").default(0),
+});
+
+export const insertSiemResponseSchema = createInsertSchema(siemResponses).omit({
+  id: true,
+  sentAt: true,
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -198,3 +230,15 @@ export type InsertBillingTransaction = z.infer<typeof insertBillingTransactionSc
 export type UsageTracking = typeof usageTracking.$inferSelect;
 export type QueryHistory = typeof queryHistory.$inferSelect;
 export type InsertQueryHistory = z.infer<typeof insertQueryHistorySchema>;
+export type SiemResponse = typeof siemResponses.$inferSelect;
+export type InsertSiemResponse = z.infer<typeof insertSiemResponseSchema>;
+
+// Package definitions
+export const PACKAGES = {
+  starter: { name: "Starter", incidents: 10, price: 250, storageGB: 1, pricePerIncident: 25, discount: 0 },
+  professional: { name: "Professional", incidents: 50, price: 1187.50, storageGB: 2.5, pricePerIncident: 23.75, discount: 5 },
+  business: { name: "Business", incidents: 100, price: 2250, storageGB: 10, pricePerIncident: 22.50, discount: 10 },
+  enterprise: { name: "Enterprise", incidents: 250, price: 5000, storageGB: 50, pricePerIncident: 20, discount: 20 }
+} as const;
+
+export type PackageType = keyof typeof PACKAGES;

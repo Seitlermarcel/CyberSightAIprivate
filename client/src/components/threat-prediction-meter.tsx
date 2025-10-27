@@ -201,7 +201,7 @@ export function ThreatPredictionMeter({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {data.predictions.map((prediction, index) => (
+            {(data.predictions || []).map((prediction, index) => (
               <div key={index} className="border border-border/50 rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-sm">{prediction.category}</span>
@@ -231,7 +231,7 @@ export function ThreatPredictionMeter({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {data.factors.map((factor, index) => (
+            {(data.factors || []).map((factor, index) => (
               <div key={index} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2">
@@ -259,7 +259,7 @@ export function ThreatPredictionMeter({
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {data.recommendations.map((recommendation, index) => (
+            {(data.recommendations || []).map((recommendation, index) => (
               <div key={index} className="flex items-start gap-2 text-sm">
                 <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
                 <span className="text-muted-foreground">{recommendation}</span>

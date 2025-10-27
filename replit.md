@@ -76,6 +76,55 @@ Preferred communication style: Simple, everyday language.
 
 ### Recent Changes
 
+#### Critical Bug Fixes and Enhanced IOC Classification (August 19, 2025)
+- **Fixed Core Display Issues**:
+  - Resolved ThreatPredictionMeter component null check errors preventing proper display
+  - Enhanced IOC classification to properly distinguish between External IP, Internal IP, Domain, MD5 Hash, SHA1 Hash, SHA256 Hash, CVE, and Process types
+  - Fixed entity relationships extraction to use real entity names from AI analysis instead of generic "Entity1 to Entity2" placeholders
+  - Removed problematic server-side PDF generation code causing TypeScript compilation errors
+  - Fixed multiple TypeScript array iteration errors and error handling type issues
+- **Improved Data Accuracy**:
+  - IOC indicators now display correct types and categories instead of showing everything as "domains"
+  - Entity relationship mapping now extracts real process, user, file, and network entity names using comprehensive regex patterns
+  - Enhanced threat intelligence display with proper classification and filtering of internal vs external indicators
+
+#### Enhanced AlienVault OTX Threat Intelligence Integration (August 19, 2025)
+- **Refined IOC Validation and Filtering**:
+  - Added strict filtering to exclude user accounts from threat intelligence searches (user accounts remain in entity mapping only)
+  - Implemented time data filtering to exclude timestamps, dates, and time-related strings from IOC detection
+  - Enhanced IP address validation to only process valid public IPs, excluding private ranges and invalid formats
+  - Improved domain validation to filter out malformed or suspicious domain-like strings
+  - Maintained read-only access to AlienVault OTX API with no data upload capabilities
+- **Threat Intelligence Integration with Gemini AI**:
+  - Threat intelligence data now feeds directly into Gemini AI analysis through the IOC enrichment agent
+  - Enhanced overall confidence calculation by incorporating AlienVault OTX reputation scores
+  - Real-time correlation between detected IOCs and known threat intelligence indicators
+  - Improved incident classification accuracy through threat intelligence context
+- **Fixed Threat Prediction Functionality**:
+  - Resolved storage method error preventing threat prediction analysis
+  - Added `getIncidentsByUserId` method to support historical incident analysis for predictions
+  - Enhanced PDF export to include comprehensive threat prediction data and metrics
+
+#### Real Gemini AI Integration (January 19, 2025)
+- **Replaced Mock AI System with Real Gemini AI**:
+  - Integrated Google Gemini 2.5 Flash model for authentic cybersecurity analysis
+  - Maintained all 8 specialized AI agents with real intelligence instead of mock responses
+  - Implemented pattern recognition, threat intelligence, MITRE ATT&CK mapping, IOC enrichment with actual AI analysis
+  - Preserved Dual-AI workflow (Tactical, Strategic, Chief Analysts) with real Gemini processing
+  - Added failsafe analysis system for high availability when Gemini API is unavailable
+- **Enhanced Analysis Quality**:
+  - Real AI-powered incident classification (True Positive/False Positive) with detailed reasoning
+  - Authentic MITRE technique mapping based on actual log analysis
+  - Genuine IOC enrichment with risk assessment and geo-location context
+  - Real-time entity relationship mapping with process, user, file, and network analysis
+  - Purple team analysis combining offensive and defensive perspectives
+- **Technical Implementation**:
+  - Created GeminiCyberAnalyst service with parallel AI agent execution for efficiency
+  - Implemented comprehensive error handling and fallback mechanisms
+  - Maintained backward compatibility with existing incident analysis workflow
+  - Added structured AI response parsing and legacy format transformation
+  - Integrated with existing threat intelligence and settings systems
+
 #### Multi-tenant SaaS Transformation (January 8, 2025)
 - **Implemented Complete Multi-tenant Architecture**:
   - Added user credits system with usage-based billing (€2.50/incident, €1/GB/month)

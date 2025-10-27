@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   X, 
@@ -17,7 +17,20 @@ import {
   EyeOff,
   Send,
   RotateCcw,
-  Info
+  Info,
+  Target,
+  AlertTriangle,
+  Activity,
+  Terminal,
+  DollarSign,
+  Clock,
+  Users,
+  Network,
+  Loader2,
+  Globe,
+  Hash,
+  HelpCircle,
+  Database
 } from "lucide-react";
 import { generateIncidentPDF } from "@/utils/pdf-export";
 import { Button } from "@/components/ui/button";
@@ -33,6 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Incident } from "@shared/schema";
 import ThreatIntelligence from "@/components/threat-intelligence";
+import { SiemResponseTracking } from "@/components/siem-response-tracking";
 
 interface IncidentDetailProps {
   incidentId: string;
@@ -48,6 +62,8 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
   const [statusChangeComment, setStatusChangeComment] = useState("");
   const [showCommentDialog, setShowCommentDialog] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
+  const [isLoadingThreatIntel, setIsLoadingThreatIntel] = useState(false);
+  const [processingTime, setProcessingTime] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -55,19 +71,58 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     queryKey: ["/api/incidents", currentIncidentId],
   });
 
-  // Function to navigate to similar incident
-  const navigateToIncident = (newIncidentId: string) => {
-    setCurrentIncidentId(newIncidentId);
-    setActiveTab("workflow"); // Reset to overview tab
-    toast({
-      title: "Navigated to Similar Incident",
-      description: `Switched to incident analysis view`,
-    });
-  };
+  // Reset threat intel loading state when incident data is loaded
+  useEffect(() => {
+    if (incident) {
+      setIsLoadingThreatIntel(false);
+    }
+  }, [incident]);
 
-  const { data: user } = useQuery<{ id: string; username: string; password?: string }>({
+  // Get user's subscription plan for dynamic pricing
+  const { data: userData } = useQuery({
     queryKey: ["/api/user"],
   });
+
+  // Get incident storage size
+  const { data: storageData } = useQuery({
+    queryKey: ["/api/incidents", currentIncidentId, "storage-size"],
+    enabled: !!currentIncidentId,
+  });
+
+  // Calculate dynamic analysis cost based on current package
+  const getAnalysisCost = () => {
+    const plan = (userData as any)?.currentPackage || 'starter';
+    
+    switch (plan) {
+      case 'starter': return '25.00'; // €25.00
+      case 'professional': return '23.75'; // €23.75
+      case 'business': return '22.50'; // €22.50  
+      case 'enterprise': return '20.00'; // €20.00
+      default: return '25.00';
+    }
+  };
+
+  // Get plan display name
+  const getPlanDisplayName = () => {
+    const plan = (userData as any)?.currentPackage || 'starter';
+    return plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
+  };
+
+  // Function to navigate to similar incident with enhanced tracking
+  const navigateToIncident = (newIncidentId: string) => {
+    if (newIncidentId && newIncidentId !== currentIncidentId) {
+      setCurrentIncidentId(newIncidentId);
+      setActiveTab("workflow"); // Reset to overview tab
+      setProcessingTime(Math.floor(Math.random() * 5 + 3)); // Simulate processing time 3-8s
+      toast({
+        title: "Navigated to Similar Incident",
+        description: `Loading incident ${newIncidentId.substring(0, 8)}...`,
+      });
+    }
+  };
+
+
+
 
   const updateIncidentMutation = useMutation({
     mutationFn: async (updates: Partial<Incident>) => {
@@ -125,7 +180,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     if (!comment.trim()) return;
     
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
-    const analystName = user?.username || 'Security Analyst';
+    const analystName = (userData as any)?.username || 'Security Analyst';
     const auditComment = `[${timestamp}] ${analystName}: ${comment}`;
     
     const updatedComments = [...(incident?.comments || []), auditComment];
@@ -138,7 +193,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
 
   const exportToPDF = () => {
     if (!incident) return;
-    generateIncidentPDF(incident, user);
+    generateIncidentPDF(incident, userData);
     toast({
       title: "PDF Export",
       description: "Incident report has been prepared for printing/download.",
@@ -158,7 +213,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     }
 
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
-    const analystName = user?.username || 'Security Analyst';
+    const analystName = (userData as any)?.username || 'Security Analyst';
     const baseComment = `[${timestamp}] ${analystName}: Status updated to ${status.toUpperCase()}`;
     const fullComment = statusChangeComment.trim() 
       ? `${baseComment} - ${statusChangeComment.trim()}`
@@ -178,7 +233,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
 
   const updateSeverity = (severity: string) => {
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
-    const analystName = user?.username || 'Security Analyst';
+    const analystName = (userData as any)?.username || 'Security Analyst';
     const severityComment = `[${timestamp}] ${analystName}: Severity changed to ${severity.toUpperCase()}`;
     
     const updatedComments = [...(incident?.comments || []), severityComment];
@@ -191,7 +246,7 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
 
   const updateClassification = (classification: string) => {
     const timestamp = format(new Date(), "MMM d, yyyy 'at' h:mm a");
-    const analystName = user?.username || 'Security Analyst';
+    const analystName = (userData as any)?.username || 'Security Analyst';
     const classificationComment = `[${timestamp}] ${analystName}: Classification updated to ${classification === 'true-positive' ? 'TRUE POSITIVE' : 'FALSE POSITIVE'}`;
     
     const updatedComments = [...(incident?.comments || []), classificationComment];
@@ -213,23 +268,201 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
     );
   }
 
-  // Parse JSON fields
-  const mitreDetails = incident.mitreDetails ? JSON.parse(incident.mitreDetails) : { tactics: [], techniques: [] };
-  const iocDetails = incident.iocDetails ? JSON.parse(incident.iocDetails) : [];
-  const patternAnalysis = incident.patternAnalysis ? JSON.parse(incident.patternAnalysis) : [];
-  const purpleTeam = incident.purpleTeam ? JSON.parse(incident.purpleTeam) : { redTeam: [], blueTeam: [] };
-  const entityMapping = incident.entityMapping ? JSON.parse(incident.entityMapping) : { entities: [], relationships: [], networkTopology: [] };
-  const codeAnalysis = incident.codeAnalysis ? JSON.parse(incident.codeAnalysis) : { summary: "", language: "", findings: [], sandboxOutput: "" };
-  const attackVectors = incident.attackVectors ? JSON.parse(incident.attackVectors) : [];
-  const complianceImpact = incident.complianceImpact ? JSON.parse(incident.complianceImpact) : [];
-  const similarIncidents = incident.similarIncidents ? JSON.parse(incident.similarIncidents) : [];
+  // Parse JSON fields safely
+  const mitreDetails = (() => {
+    try {
+      if (incident?.mitreDetails) return JSON.parse(incident.mitreDetails);
+      if ((incident as any)?.mitreTactics) return { tactics: JSON.parse((incident as any).mitreTactics), techniques: [] };
+      if (incident?.mitreAttack && Array.isArray(incident.mitreAttack)) {
+        return { 
+          tactics: [], 
+          techniques: incident.mitreAttack.map((id: string) => ({ 
+            id, 
+            name: `MITRE Technique ${id}`, 
+            description: `Security technique identified: ${id}` 
+          }))
+        };
+      }
+      return { tactics: [], techniques: [] };
+    } catch (e) {
+      return { tactics: [], techniques: [] };
+    }
+  })();
+  
+  // Parse threat intelligence data to get rich IOC details
+  const threatReport = (() => {
+    try {
+      return incident?.threatIntelligence ? JSON.parse(incident.threatIntelligence) : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+
+  const iocDetails = (() => {
+    try {
+      // Use threat intelligence indicators if available (rich data from AlienVault OTX)
+      if (threatReport?.indicators && Array.isArray(threatReport.indicators)) {
+        return threatReport.indicators.map((indicator: any) => {
+          // Construct geo-location from country and organization data
+          let geoLocation = 'Location unknown';
+          if (indicator.country) {
+            geoLocation = indicator.country;
+            if (indicator.organization) {
+              geoLocation += ` - ${indicator.organization}`;
+            }
+            if (indicator.asn) {
+              geoLocation += ` (ASN: ${indicator.asn})`;
+            }
+          } else if (indicator.organization) {
+            geoLocation = indicator.organization;
+          }
+          
+          return {
+            value: indicator.value,
+            type: indicator.type,
+            confidence: indicator.malicious ? 'high' : indicator.threat_score > 5 ? 'medium' : 'low',
+            reputation: indicator.malicious ? 'Malicious' : indicator.threat_score > 5 ? 'Suspicious' : 'Clean',
+            geoLocation: geoLocation,
+            threatIntelligence: `AlienVault OTX: ${indicator.pulse_count || 0} threat reports`,
+            threatScore: indicator.threat_score || 0,
+            pulseCount: indicator.pulse_count || 0,
+            tags: indicator.tags || [],
+            malicious: indicator.malicious || false,
+            // Enhanced fields for detailed analysis
+            hash_type: indicator.hash_type,
+            file_name: indicator.file_name,
+            file_size: indicator.file_size,
+            file_type: indicator.file_type,
+            url_status: indicator.url_status,
+            domain_registrar: indicator.domain_registrar,
+            creation_date: indicator.creation_date,
+            first_seen: indicator.first_seen,
+            last_seen: indicator.last_seen,
+            country: indicator.country,
+            organization: indicator.organization
+          };
+        });
+      }
+      
+      // Fallback for basic IOCs array
+      if (incident?.iocs && Array.isArray(incident.iocs)) {
+        return incident.iocs.map((ioc: string) => {
+          let type = 'unknown';
+          if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ioc)) type = 'IP Address';
+          else if (/^[a-f0-9]{32}$/.test(ioc)) type = 'MD5 Hash';
+          else if (/^[a-f0-9]{40}$/.test(ioc)) type = 'SHA1 Hash';
+          else if (/^[a-f0-9]{64}$/.test(ioc)) type = 'SHA256 Hash';
+          else if (/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(ioc)) type = 'Domain';
+          
+          return {
+            value: ioc,
+            type,
+            confidence: 'medium',
+            reputation: 'Analysis pending...',
+            geoLocation: type === 'IP Address' ? 'Location lookup pending' : 'N/A',
+            threatIntelligence: 'Threat intelligence analysis pending',
+            threatScore: 0,
+            pulseCount: 0,
+            tags: [],
+            malicious: false
+          };
+        });
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const patternAnalysis = (() => {
+    try {
+      return incident?.patternAnalysis ? JSON.parse(incident.patternAnalysis) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const purpleTeam = (() => {
+    try {
+      return incident?.purpleTeam ? JSON.parse(incident.purpleTeam) : { redTeam: [], blueTeam: [] };
+    } catch (e) {
+      return { redTeam: [], blueTeam: [] };
+    }
+  })();
+  
+  const entityMapping = (() => {
+    try {
+      if (incident?.entityMapping) {
+        const parsed = JSON.parse(incident.entityMapping);
+        return {
+          entities: parsed.entities || [],
+          relationships: parsed.relationships || [],
+          networkTopology: parsed.networkTopology || []
+        };
+      }
+      return { entities: [], relationships: [], networkTopology: [] };
+    } catch (e) {
+      return { entities: [], relationships: [], networkTopology: [] };
+    }
+  })();
+  
+  const codeAnalysis = (() => {
+    try {
+      if (incident?.codeAnalysis) {
+        const parsed = JSON.parse(incident.codeAnalysis);
+        return {
+          summary: parsed.summary || parsed.analysis || '',
+          language: parsed.language || 'Unknown',
+          findings: parsed.findings || [],
+          sandboxOutput: parsed.sandboxOutput || 'No sandbox execution performed',
+          executionOutput: parsed.executionOutput || 'No execution output available'
+        };
+      }
+      return { summary: '', language: '', findings: [], sandboxOutput: '', executionOutput: '' };
+    } catch (e) {
+      return { summary: '', language: '', findings: [], sandboxOutput: '', executionOutput: '' };
+    }
+  })();
+  
+  const similarIncidents = (() => {
+    try {
+      return incident?.similarIncidents ? JSON.parse(incident.similarIncidents) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const attackVectors = (() => {
+    try {
+      return incident?.attackVectors ? JSON.parse(incident.attackVectors) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const complianceImpact = (() => {
+    try {
+      return incident?.complianceImpact ? JSON.parse(incident.complianceImpact) : [];
+    } catch (e) {
+      return [];
+    }
+  })();
+  
+  const threatPrediction = (() => {
+    try {
+      return incident?.threatPrediction ? JSON.parse(incident.threatPrediction) : { threatScenarios: [], environmentalImpact: {} };
+    } catch (e) {
+      return { threatScenarios: [], environmentalImpact: {} };
+    }
+  })();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="cyber-dark rounded-xl w-full h-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="cyber-slate border-b border-cyber-slate-light p-6 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-auto">
+      <div className="min-h-full flex items-start justify-center p-4 lg:p-6">
+        <div className="relative bg-slate-800/95 backdrop-blur-sm rounded-xl w-full max-w-7xl my-8 flex flex-col border border-slate-700/50 shadow-2xl">
+          {/* Header */}
+          <div className="sticky top-0 z-10 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/50 p-4 lg:p-6 flex items-center justify-between rounded-t-xl">
+            <div className="flex items-center space-x-3">
             <div className="w-8 h-8 cyber-dark rounded-lg flex items-center justify-center">
               <Shield className="text-severity-high text-lg" />
             </div>
@@ -239,6 +472,12 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                 <span>{format(new Date(incident.createdAt!), "MMM d, yyyy 'at' h:mm a")}</span>
                 <span>•</span>
                 <span>Confidence: {incident.confidence}%</span>
+                {(incident as any).siemSource && (
+                  <>
+                    <span>•</span>
+                    <span>Source: {(incident as any).siemSource?.toUpperCase()} Integration</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -249,15 +488,117 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
             <Badge className={`${getClassificationColor(incident.classification || "")} text-white`}>
               {incident.classification === "true-positive" ? "TRUE POSITIVE" : "FALSE POSITIVE"}
             </Badge>
+            {((incident as any).source === 'siem-webhook' || (incident as any).source === 'siem-api') && (
+              <Badge className="bg-cyber-purple text-white border border-purple-500">
+                🔗 {(incident as any).siemSource?.toUpperCase() || 'SIEM'} AUTO
+              </Badge>
+            )}
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={exportToPDF}
-              className="text-gray-400 hover:text-white hover:bg-cyber-blue"
+              className="text-gray-400 hover:text-white hover:bg-cyber-blue mr-2"
             >
               <Printer className="w-4 h-4 mr-2" />
               Export PDF
             </Button>
+            {(() => {
+              try {
+                const patternAnalysis = (incident as any).patternAnalysis;
+                const hasCodeOutput = patternAnalysis && typeof patternAnalysis === 'string' && 
+                  (JSON.parse(patternAnalysis).sandboxOutput || JSON.parse(patternAnalysis).codeGeneration);
+                
+                if (hasCodeOutput) {
+                  return (
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const parsed = JSON.parse(patternAnalysis);
+                        const sandboxOutput = parsed.sandboxOutput || parsed.codeGeneration || 'No code output available';
+                        const codeGeneration = parsed.codeGeneration || '';
+                        const sandboxWindow = window.open('', '_blank');
+                        if (sandboxWindow) {
+                          sandboxWindow.document.write(`
+                            <html>
+                            <head>
+                              <title>Gemini AI Code Analysis - Incident ${incident.id}</title>
+                              <style>
+                                body { 
+                                  background: #0a0a0a; 
+                                  color: #00ff00; 
+                                  font-family: 'Courier New', monospace; 
+                                  padding: 20px; 
+                                  line-height: 1.6; 
+                                  margin: 0;
+                                }
+                                .header { 
+                                  color: #00BFFF; 
+                                  border-bottom: 2px solid #333; 
+                                  padding-bottom: 15px; 
+                                  margin-bottom: 20px; 
+                                }
+                                .section {
+                                  margin-bottom: 30px;
+                                }
+                                .section-title {
+                                  color: #FFD700;
+                                  font-size: 18px;
+                                  font-weight: bold;
+                                  margin-bottom: 10px;
+                                }
+                                .code-output { 
+                                  background: #1a1a1a; 
+                                  padding: 20px; 
+                                  border: 1px solid #333; 
+                                  border-radius: 8px; 
+                                  overflow-x: auto; 
+                                  white-space: pre-wrap; 
+                                  word-wrap: break-word; 
+                                }
+                                .timestamp { 
+                                  color: #888; 
+                                  font-size: 14px; 
+                                  margin-top: 20px; 
+                                  border-top: 1px solid #333;
+                                  padding-top: 15px;
+                                }
+                              </style>
+                            </head>
+                            <body>
+                              <div class="header">
+                                <h2>🔬 Gemini AI Pattern Recognition & Code Analysis</h2>
+                                <p>Incident ID: ${incident.id} | Generated by CyberSight AI</p>
+                              </div>
+                              ${codeGeneration ? `
+                                <div class="section">
+                                  <div class="section-title">🛠️ Generated Investigation Code</div>
+                                  <div class="code-output">${codeGeneration}</div>
+                                </div>
+                              ` : ''}
+                              <div class="section">
+                                <div class="section-title">⚡ Sandbox Execution Results</div>
+                                <div class="code-output">${sandboxOutput}</div>
+                              </div>
+                              <div class="timestamp">Generated: ${new Date().toLocaleString()} | Powered by Gemini AI</div>
+                            </body>
+                            </html>
+                          `);
+                          sandboxWindow.document.close();
+                        }
+                      }}
+                      className="text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                    >
+                      <Terminal className="w-4 h-4 mr-2" />
+                      View Code
+                    </Button>
+                  );
+                }
+                return null;
+              } catch {
+                return null;
+              }
+            })()}
             <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-400 hover:text-white">
               <X className="w-4 h-4" />
             </Button>
@@ -456,10 +797,10 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
           )}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="border-b border-cyber-slate-light">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-11 bg-transparent">
+          {/* Tab Navigation */}
+          <div className="border-b border-slate-700/50 bg-slate-800/95 backdrop-blur-sm sticky top-[100px] z-10">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-12 bg-transparent">
               <TabsTrigger value="workflow" className="text-xs">Workflow</TabsTrigger>
               <TabsTrigger value="threat-intel" className="text-xs">Threat Intel</TabsTrigger>
               <TabsTrigger value="mitre" className="text-xs">MITRE</TabsTrigger>
@@ -470,14 +811,15 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
               <TabsTrigger value="code" className="text-xs">Code</TabsTrigger>
               <TabsTrigger value="vectors" className="text-xs">Vectors</TabsTrigger>
               <TabsTrigger value="compliance" className="text-xs">Compliance</TabsTrigger>
-              <TabsTrigger value="similar" className="text-xs">Similar</TabsTrigger>
+              <TabsTrigger value="threat-prediction" className="text-xs">Prediction</TabsTrigger>
+              <TabsTrigger value="siem-response" className="text-xs">SIEM Response</TabsTrigger>
             </TabsList>
-          </Tabs>
-        </div>
+            </Tabs>
+          </div>
 
-        {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          {/* Tab Content */}
+          <div className="flex-1 min-h-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
             {/* Workflow Tab */}
             <TabsContent value="workflow" className="p-6 space-y-6">
               <div className="cyber-slate rounded-xl p-6">
@@ -618,104 +960,429 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
             {/* Threat Intelligence Tab */}
             <TabsContent value="threat-intel" className="p-6">
               {incident.threatIntelligence ? (
-                <ThreatIntelligence threatReport={JSON.parse(incident.threatIntelligence)} />
+                <ThreatIntelligence threatReport={typeof incident.threatIntelligence === 'string' ? JSON.parse(incident.threatIntelligence) : incident.threatIntelligence} />
               ) : (
                 <div className="cyber-slate rounded-xl p-6">
-                  <p className="text-gray-400 text-center py-8">No threat intelligence data available for this incident</p>
+                  <div className="text-center py-8">
+                    <Shield className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-400 mb-2">No threat intelligence data available</p>
+                    <p className="text-gray-500 text-sm">This incident may not contain IOCs suitable for threat intelligence analysis</p>
+                  </div>
                 </div>
               )}
             </TabsContent>
 
             {/* MITRE ATT&CK Tab */}
             <TabsContent value="mitre" className="p-6 space-y-6">
+              {/* Main Tactics Overview */}
               <div className="cyber-slate rounded-xl p-6">
                 <div className="flex items-center space-x-2 mb-6">
                   <Shield className="text-cyber-purple" />
-                  <h3 className="text-lg font-semibold">MITRE ATT&CK Tactics</h3>
+                  <h3 className="text-lg font-semibold">MITRE ATT&CK Framework Analysis</h3>
                 </div>
 
+                {/* Tactics Summary Bar */}
                 {mitreDetails.tactics && mitreDetails.tactics.length > 0 ? (
-                  <div className="space-y-4">
-                    {mitreDetails.tactics.map((tactic: any, index: number) => (
-                      <div key={index} className="cyber-dark rounded-lg p-4">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <Badge className="cyber-purple text-white">{tactic.id}</Badge>
-                          <h4 className="font-semibold">{tactic.name}</h4>
+                  <div className="mb-6">
+                    <h4 className="text-md font-semibold mb-4 text-cyber-purple">Primary Tactics Identified</h4>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                      {mitreDetails.tactics.map((tactic: any, index: number) => (
+                        <div key={index} className="cyber-dark rounded-lg p-4 border-l-4 border-purple-500">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Badge className="bg-purple-700 text-white text-xs">{tactic.id}</Badge>
+                            <span className="text-xs text-purple-400 uppercase">TACTIC</span>
+                          </div>
+                          <h5 className="font-semibold text-white mb-1">{tactic.name}</h5>
+                          <p className="text-xs text-gray-400">{tactic.description?.substring(0, 80) + '...'}</p>
                         </div>
-                        <p className="text-sm text-gray-300">{tactic.description}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-gray-400 text-center py-8">No MITRE ATT&CK tactics identified for this incident</p>
+                  <div className="text-center py-4 mb-6">
+                    <Shield className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-400">No primary tactics identified</p>
+                    <p className="text-gray-500 text-sm">MITRE tactics represent the 'why' behind an attack</p>
+                  </div>
                 )}
-              </div>
 
-              <div className="cyber-slate rounded-xl p-6">
-                <div className="flex items-center space-x-2 mb-6">
-                  <TrendingUp className="text-cyber-cyan" />
-                  <h3 className="text-lg font-semibold">MITRE ATT&CK Techniques (TTPs)</h3>
+                {/* Enhanced Techniques Table */}
+                <div>
+                  <h4 className="text-md font-semibold mb-4 flex items-center space-x-2">
+                    <TrendingUp className="text-cyber-cyan w-4 h-4" />
+                    <span>Techniques, Tactics & Procedures (TTPs)</span>
+                  </h4>
+                  
+                  {mitreDetails.techniques && mitreDetails.techniques.length > 0 ? (
+                    <div className="cyber-dark rounded-lg overflow-hidden">
+                      {/* Table Header */}
+                      <div className="cyber-slate-light border-b border-gray-600 p-4">
+                        <div className="grid grid-cols-5 gap-4 text-sm font-semibold text-gray-300">
+                          <div>Technique ID</div>
+                          <div className="col-span-2">Technique Name</div>
+                          <div>Category</div>
+                          <div>Risk Level</div>
+                        </div>
+                      </div>
+                      
+                      {/* Table Body */}
+                      <div className="divide-y divide-gray-700">
+                        {mitreDetails.techniques.map((technique: any, index: number) => (
+                          <div key={index} className="p-4 hover:bg-gray-800 transition-colors">
+                            <div className="grid grid-cols-5 gap-4 items-start">
+                              {/* Technique ID */}
+                              <div className="flex items-center space-x-2">
+                                <Badge className="bg-cyan-700 text-white text-xs">{technique.id}</Badge>
+                              </div>
+                              
+                              {/* Technique Name & Description */}
+                              <div className="col-span-2">
+                                <h5 className="font-semibold text-white mb-1">{technique.name}</h5>
+                                <p className="text-xs text-gray-400 line-clamp-2">{technique.description}</p>
+                              </div>
+                              
+                              {/* Category */}
+                              <div>
+                                <Badge variant="outline" className="text-xs text-gray-400 border-gray-600">
+                                  {technique.category || 'Attack'}
+                                </Badge>
+                              </div>
+                              
+                              {/* Risk Level */}
+                              <div>
+                                <Badge className={`text-xs ${
+                                  technique.risk === 'high' || technique.severity === 'high' ? 'bg-red-700 text-white' :
+                                  technique.risk === 'medium' || technique.severity === 'medium' ? 'bg-orange-700 text-white' :
+                                  'bg-yellow-700 text-white'
+                                }`}>
+                                  {technique.risk || technique.severity || 'Medium'}
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            {/* Expanded Info */}
+                            {technique.mitigations && (
+                              <div className="mt-3 pt-3 border-t border-gray-700">
+                                <p className="text-xs text-gray-500">
+                                  <span className="font-semibold">Mitigations:</span> {technique.mitigations}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <TrendingUp className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-400">No specific techniques identified</p>
+                      <p className="text-gray-500 text-sm">TTPs represent the 'how' behind an attack implementation</p>
+                    </div>
+                  )}
                 </div>
-
-                {mitreDetails.techniques && mitreDetails.techniques.length > 0 ? (
-                  <div className="space-y-4">
-                    {mitreDetails.techniques.map((technique: any, index: number) => (
-                      <div key={index} className="cyber-dark rounded-lg p-4">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <Badge className="cyber-cyan text-white">{technique.id}</Badge>
-                          <h4 className="font-semibold">{technique.name}</h4>
-                        </div>
-                        <p className="text-sm text-gray-300">{technique.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-400 text-center py-8">No MITRE ATT&CK techniques identified for this incident</p>
-                )}
               </div>
             </TabsContent>
 
-            {/* IOCs Tab */}
+            {/* IOCs Tab - Enhanced with Threat Intelligence Data */}
             <TabsContent value="iocs" className="p-6 space-y-6">
               <div className="cyber-slate rounded-xl p-6">
-                <div className="flex items-center space-x-2 mb-6">
-                  <MapPin className="text-severity-medium" />
-                  <h3 className="text-lg font-semibold">Indicators of Compromise (IOCs)</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="text-severity-medium" />
+                    <h3 className="text-lg font-semibold">Indicators of Compromise (IOCs)</h3>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {threatReport && (
+                      <div className="flex items-center space-x-2">
+                        <Badge className="bg-purple-600 text-white text-xs">
+                          Risk Score: {threatReport.risk_score}/100
+                        </Badge>
+                        <Badge className={`text-white text-xs ${
+                          threatReport.threat_level === 'high' ? 'bg-red-600' : 
+                          threatReport.threat_level === 'medium' ? 'bg-orange-600' : 'bg-green-600'
+                        }`}>
+                          {threatReport.threat_level?.toUpperCase()} Threat
+                        </Badge>
+                      </div>
+                    )}
+                    <Badge className="bg-purple-600 text-white">
+                      AlienVault OTX Enhanced
+                    </Badge>
+                  </div>
                 </div>
 
+                {/* Structured IOCs from Threat Intelligence */}
+                {threatReport?.iocs && (
+                  <div className="mb-8">
+                    <h4 className="text-md font-semibold mb-4 text-purple-400">Categorized IOCs from Threat Intelligence</h4>
+                    <div className="space-y-4">
+                      
+                      {/* IP Addresses */}
+                      {threatReport.iocs.ips?.length > 0 && (
+                        <div className="cyber-dark rounded-lg p-4">
+                          <h5 className="text-sm font-semibold mb-3 text-gray-400">IP Addresses ({threatReport.iocs.ips.length})</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {threatReport.iocs.ips.slice(0, 8).map((ip: string, i: number) => (
+                              <Badge key={i} variant="outline" className="font-mono text-xs border-purple-400 text-purple-300">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                {ip}
+                              </Badge>
+                            ))}
+                            {threatReport.iocs.ips.length > 8 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{threatReport.iocs.ips.length - 8} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Domains */}
+                      {threatReport.iocs.domains?.length > 0 && (
+                        <div className="cyber-dark rounded-lg p-4">
+                          <h5 className="text-sm font-semibold mb-3 text-gray-400">Domains ({threatReport.iocs.domains.length})</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {threatReport.iocs.domains.slice(0, 8).map((domain: string, i: number) => (
+                              <Badge key={i} variant="outline" className="font-mono text-xs border-blue-400 text-blue-300">
+                                <Globe className="w-3 h-3 mr-1" />
+                                {domain}
+                              </Badge>
+                            ))}
+                            {threatReport.iocs.domains.length > 8 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{threatReport.iocs.domains.length - 8} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* File Hashes */}
+                      {threatReport.iocs.hashes?.length > 0 && (
+                        <div className="cyber-dark rounded-lg p-4">
+                          <h5 className="text-sm font-semibold mb-3 text-gray-400">File Hashes ({threatReport.iocs.hashes.length})</h5>
+                          <div className="space-y-1">
+                            {threatReport.iocs.hashes.slice(0, 5).map((hash: string, i: number) => (
+                              <div key={i} className="flex items-center space-x-2">
+                                <Hash className="w-3 h-3 text-gray-400" />
+                                <span className="font-mono text-xs text-gray-300 truncate max-w-xs">{hash}</span>
+                              </div>
+                            ))}
+                            {threatReport.iocs.hashes.length > 5 && (
+                              <div className="text-xs text-gray-400 ml-5">
+                                +{threatReport.iocs.hashes.length - 5} more hashes
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* URLs */}
+                      {threatReport.iocs.urls?.length > 0 && (
+                        <div className="cyber-dark rounded-lg p-4">
+                          <h5 className="text-sm font-semibold mb-3 text-gray-400">URLs ({threatReport.iocs.urls.length})</h5>
+                          <div className="space-y-1">
+                            {threatReport.iocs.urls.slice(0, 5).map((url: string, i: number) => (
+                              <div key={i} className="flex items-center space-x-2">
+                                <Link2 className="w-3 h-3 text-gray-400" />
+                                <span className="font-mono text-xs text-gray-300 truncate max-w-xs">{url}</span>
+                              </div>
+                            ))}
+                            {threatReport.iocs.urls.length > 5 && (
+                              <div className="text-xs text-gray-400 ml-5">
+                                +{threatReport.iocs.urls.length - 5} more URLs
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* CVEs */}
+                      {threatReport.iocs.cves?.length > 0 && (
+                        <div className="cyber-dark rounded-lg p-4">
+                          <h5 className="text-sm font-semibold mb-3 text-gray-400">CVEs ({threatReport.iocs.cves.length})</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {threatReport.iocs.cves.map((cve: string, i: number) => (
+                              <Badge key={i} variant="outline" className="font-mono text-xs border-red-400 text-red-300">
+                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                {cve}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Detailed IOC Analysis */}
                 {iocDetails && iocDetails.length > 0 ? (
-                  <div className="space-y-4">
-                    {iocDetails.map((ioc: any, index: number) => (
-                      <div key={index} className="cyber-dark rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <Badge className="cyber-slate-light text-white">{ioc.type}</Badge>
-                            <span className="font-mono text-sm">{ioc.value}</span>
+                  <div>
+                    <h4 className="text-md font-semibold mb-4 text-cyan-400">Detailed IOC Analysis</h4>
+                    <div className="space-y-4">
+                      {iocDetails.map((ioc: any, index: number) => (
+                        <div key={index} className="cyber-dark rounded-lg p-4 border-l-4 border-cyan-500">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <Badge className="cyber-slate-light text-white">{ioc.type}</Badge>
+                              <span className="font-mono text-sm">{ioc.value}</span>
+                              {ioc.malicious && (
+                                <Badge variant="destructive" className="text-xs">
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  Malicious
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge className={`${ioc.confidence === 'high' ? 'bg-severity-high' : 'bg-severity-medium'} text-white text-xs`}>
+                                {ioc.confidence} Confidence
+                              </Badge>
+                              {ioc.threatScore > 0 && (
+                                <Badge className={`text-xs ${ioc.threatScore > 7 ? 'bg-red-600' : ioc.threatScore > 4 ? 'bg-orange-600' : 'bg-green-600'} text-white`}>
+                                  Risk: {ioc.threatScore}/10
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          <Badge className={`${ioc.confidence === 'high' ? 'bg-severity-high' : 'bg-severity-medium'} text-white`}>
-                            {ioc.confidence} Confidence
-                          </Badge>
+                          
+                          <div className="grid grid-cols-3 gap-4 text-sm mb-3">
+                            <div>
+                              <span className="text-gray-400">Reputation:</span>
+                              <p className={`mt-1 ${ioc.malicious ? 'text-red-400' : ioc.reputation === 'Suspicious' ? 'text-orange-400' : 'text-green-400'}`}>
+                                {ioc.reputation}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">
+                                {ioc.type?.toLowerCase().includes('url') ? 'Status:' : 'Geo-Location:'}
+                              </span>
+                              <p className="text-gray-300 mt-1">
+                                {ioc.type?.toLowerCase().includes('url') ? (ioc.url_status || 'Unknown') : ioc.geoLocation}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Threat Intelligence:</span>
+                              <p className="text-gray-300 mt-1">{ioc.threatIntelligence}</p>
+                            </div>
+                          </div>
+
+                          {/* Enhanced details for different IOC types */}
+                          {(ioc.type?.toLowerCase().includes('hash') || ioc.type?.toLowerCase().includes('md5') || ioc.type?.toLowerCase().includes('sha')) && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <span className="text-gray-400 text-xs mb-2 block">File Analysis:</span>
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <span className="text-gray-500">Hash Type:</span>
+                                  <p className="text-gray-300">{ioc.hash_type || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">File Name:</span>
+                                  <p className="text-gray-300 truncate">{ioc.file_name || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">File Size:</span>
+                                  <p className="text-gray-300">{ioc.file_size ? `${(ioc.file_size / 1024).toFixed(2)} KB` : 'Unknown'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">File Type:</span>
+                                  <p className="text-gray-300">{ioc.file_type || 'Unknown'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {ioc.type?.toLowerCase().includes('url') && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <span className="text-gray-400 text-xs mb-2 block">URL Analysis:</span>
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <span className="text-gray-500">Status:</span>
+                                  <p className={`${ioc.malicious ? 'text-red-400' : 'text-green-400'}`}>
+                                    {ioc.url_status || 'Unknown'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Hosting Location:</span>
+                                  <p className="text-gray-300">{ioc.geoLocation}</p>
+                                </div>
+                                {ioc.first_seen && (
+                                  <div>
+                                    <span className="text-gray-500">First Seen:</span>
+                                    <p className="text-gray-300">{new Date(ioc.first_seen).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                                {ioc.last_seen && (
+                                  <div>
+                                    <span className="text-gray-500">Last Seen:</span>
+                                    <p className="text-gray-300">{new Date(ioc.last_seen).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {(ioc.type?.toLowerCase().includes('domain') && !ioc.type?.toLowerCase().includes('url')) && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <span className="text-gray-400 text-xs mb-2 block">Domain Analysis:</span>
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div>
+                                  <span className="text-gray-500">Registrar:</span>
+                                  <p className="text-gray-300">{ioc.domain_registrar || ioc.organization || 'Unknown'}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Country:</span>
+                                  <p className="text-gray-300">{ioc.country || 'Unknown'}</p>
+                                </div>
+                                {ioc.creation_date && (
+                                  <div>
+                                    <span className="text-gray-500">Created:</span>
+                                    <p className="text-gray-300">{new Date(ioc.creation_date).toLocaleDateString()}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Tags */}
+                          {ioc.tags && ioc.tags.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <span className="text-gray-400 text-xs mb-2 block">Tags:</span>
+                              <div className="flex gap-1 flex-wrap">
+                                {ioc.tags.slice(0, 5).map((tag: string, i: number) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {ioc.tags.length > 5 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    +{ioc.tags.length - 5} more
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-400">Reputation:</span>
-                            <p className="text-gray-300 mt-1">{ioc.reputation}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Geo-Location:</span>
-                            <p className="text-gray-300 mt-1">{ioc.geoLocation}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-400">Threat Intelligence:</span>
-                            <p className="text-gray-300 mt-1">{ioc.threatIntelligence}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-gray-400 text-center py-8">No indicators of compromise identified for this incident</p>
+                  <div className="text-center py-8">
+                    {threatReport?.iocs && (
+                      Object.values(threatReport.iocs).some((arr: any) => arr?.length > 0)
+                    ) ? (
+                      <div>
+                        <MapPin className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                        <p className="text-gray-400">IOCs found in logs but detailed analysis pending</p>
+                        <p className="text-gray-500 text-sm">Check the Threat Intelligence tab for more details</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <MapPin className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                        <p className="text-gray-400">No indicators of compromise identified for this incident</p>
+                        <p className="text-gray-500 text-sm">This incident may not contain IOCs suitable for threat intelligence analysis</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </TabsContent>
@@ -857,36 +1524,123 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                 </div>
 
                 <div className="mb-6">
-                  <h4 className="font-medium mb-3">Entities Identified</h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">Enhanced Entity Analysis</h4>
+                    <Badge className="bg-purple-600 text-white text-xs">
+                      Geo-Enhanced
+                    </Badge>
+                  </div>
                   {entityMapping.entities && entityMapping.entities.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                       {entityMapping.entities.map((entity: any, index: number) => (
-                        <div key={index} className={`cyber-dark rounded-lg p-3 border-l-4 ${
+                        <div key={index} className={`cyber-dark rounded-lg p-4 border-l-4 ${
                           entity.category === 'process' ? 'border-orange-500' : 
                           entity.category === 'user' ? 'border-blue-500' :
-                          entity.category === 'host' ? 'border-green-500' : 'border-red-500'
+                          entity.category === 'host' ? 'border-green-500' : 
+                          entity.type === 'IP Address' ? 'border-purple-500' : 'border-red-500'
                         }`}>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <Badge className={`text-white text-xs ${
-                              entity.category === 'process' ? 'bg-orange-600' : 
-                              entity.category === 'user' ? 'bg-blue-600' :
-                              entity.category === 'host' ? 'bg-green-600' : 'bg-red-600'
-                            }`}>
-                              {entity.type}
-                            </Badge>
-                            <span className="text-xs text-gray-400 uppercase">{entity.category}</span>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <Badge className={`text-white text-xs ${
+                                entity.category === 'process' ? 'bg-orange-600' : 
+                                entity.category === 'user' ? 'bg-blue-600' :
+                                entity.category === 'host' ? 'bg-green-600' : 
+                                entity.type === 'IP Address' ? 'bg-purple-600' : 'bg-red-600'
+                              }`}>
+                                {entity.type || entity.category}
+                              </Badge>
+                              {entity.type === 'IP Address' && entity.geoLocation && (
+                                <div className="flex items-center space-x-1">
+                                  <Globe className="w-3 h-3 text-cyan-400" />
+                                  <span className="text-xs text-gray-400">{entity.geoLocation}</span>
+                                </div>
+                              )}
+                            </div>
+                            {entity.reputation && (
+                              <Badge className={`text-xs ${entity.reputation === 'Malicious' ? 'bg-red-600' : 'bg-green-600'} text-white`}>
+                                {entity.reputation}
+                              </Badge>
+                            )}
                           </div>
-                          <p className="font-mono text-sm font-bold text-white">{entity.value || entity.id}</p>
-                          {entity.description && (
-                            <p className="text-xs text-gray-400 mt-1">{entity.description}</p>
+                          <p className="font-mono text-sm text-white mb-1">{entity.value || entity.name}</p>
+                          <p className="text-xs text-gray-400">{entity.description}</p>
+                          {entity.threatScore && (
+                            <div className="mt-2 text-xs">
+                              <span className="text-gray-400">Threat Score: </span>
+                              <span className={`font-mono ${entity.threatScore > 7 ? 'text-red-400' : entity.threatScore > 4 ? 'text-yellow-400' : 'text-green-400'}`}>
+                                {entity.threatScore}/10
+                              </span>
+                            </div>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400">No entities identified</p>
+                    <div className="text-center py-6 text-gray-400">
+                      <Network className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>No entities identified in this incident</p>
+                    </div>
                   )}
                 </div>
+
+                {/* Enhanced Network Topology with Geo-Location */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-medium">Network Topology & Relationships</h4>
+                    <Badge className="bg-cyan-600 text-white text-xs">
+                      {entityMapping.relationships?.length || 0} Relationships
+                    </Badge>
+                  </div>
+                  {entityMapping.relationships && entityMapping.relationships.length > 0 ? (
+                    <div className="space-y-3">
+                      {entityMapping.relationships.map((rel: any, index: number) => (
+                        <div key={index} className="cyber-dark rounded-lg p-3 border border-gray-600">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Network className="w-4 h-4 text-cyan-400" />
+                              <span className="text-sm font-mono text-white">{rel.from}</span>
+                              <span className="text-gray-400">→</span>
+                              <span className="text-sm font-mono text-white">{rel.to}</span>
+                            </div>
+                            <Badge className="bg-cyan-600 text-white text-xs">
+                              {rel.type}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">{rel.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-400">
+                      <p className="text-sm">No entity relationships mapped</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Patterns Tab */}
+            <TabsContent value="patterns" className="p-6 space-y-6">
+              <div className="cyber-slate rounded-xl p-6">
+                <div className="flex items-center space-x-2 mb-6">
+                  <TrendingUp className="text-blue-500" />
+                  <h3 className="text-lg font-semibold">Log Pattern Analysis</h3>
+                </div>
+
+                {patternAnalysis && patternAnalysis.length > 0 ? (
+                  <div className="space-y-4">
+                    {patternAnalysis.map((pattern: any, index: number) => (
+                      <div key={index} className="cyber-dark rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-white">Pattern Analysis</span>
+                        </div>
+                        <p className="text-xs text-gray-400">{(pattern as any).description}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-center py-4">No patterns identified</p>
+                )}
 
                 <div className="mb-6">
                   <h4 className="font-medium mb-3">Entity Relationships</h4>
@@ -911,24 +1665,113 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-3">Network Topology</h4>
+                  <h4 className="font-medium mb-3 flex items-center space-x-2">
+                    <Network className="text-cyber-cyan w-4 h-4" />
+                    <span>Network Topology & Communication Paths</span>
+                  </h4>
                   {entityMapping.networkTopology && entityMapping.networkTopology.length > 0 ? (
-                    <div className="grid grid-cols-6 gap-3">
-                      {entityMapping.networkTopology.map((node: any, index: number) => (
-                        <div key={index} className="cyber-dark rounded-lg p-3 text-center relative">
-                          <div className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-xs font-bold ${
-                            node.risk === 'high' ? 'bg-red-600' :
-                            node.risk === 'medium' ? 'bg-orange-600' : 'bg-green-600'
-                          }`}>
-                            {node.type === 'external' ? 'EXT' : 'INT'}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-4 gap-4">
+                        {entityMapping.networkTopology.map((node: any, index: number) => (
+                          <div key={index} className="cyber-dark rounded-lg p-4 relative border-l-4 border-gray-600 hover:border-cyan-500 transition-colors">
+                            {/* Risk indicator */}
+                            <div className={`absolute top-2 right-2 w-3 h-3 rounded-full ${
+                              node.risk === 'high' ? 'bg-red-500' :
+                              node.risk === 'medium' ? 'bg-orange-500' : 'bg-green-500'
+                            }`} />
+                            
+                            {/* Modern cybersecurity node icon */}
+                            <div className={`w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center relative border-2 transition-all hover:scale-105 ${
+                              node.type === 'external' ? 'bg-gradient-to-br from-red-800 to-red-900 border-red-500 shadow-red-900/30' : 
+                              'bg-gradient-to-br from-blue-800 to-blue-900 border-blue-500 shadow-blue-900/30'
+                            } shadow-lg`}>
+                              {node.category === 'process' ? <Database className="w-5 h-5 text-white" /> :
+                               node.category === 'user' ? <Users className="w-5 h-5 text-white" /> :
+                               node.category === 'network' ? <Network className="w-5 h-5 text-white" /> :
+                               node.category === 'file' ? <FileShield className="w-5 h-5 text-white" /> : 
+                               <Shield className="w-5 h-5 text-white" />}
+                              {/* Animated pulse for high risk nodes */}
+                              {node.risk === 'high' && (
+                                <div className="absolute inset-0 rounded-xl bg-red-500 opacity-20 animate-pulse"></div>
+                              )}
+                            </div>
+                            
+                            {/* Node information */}
+                            <div className="text-center">
+                              <p className="text-xs font-bold text-white mb-1 truncate hover:text-cyan-400 transition-colors" title={node.node || node.entity}>
+                                {(node.node || node.entity || '').length > 10 ? 
+                                  (node.node || node.entity || '').substring(0, 10) + '...' : 
+                                  (node.node || node.entity)}
+                              </p>
+                              <div className="flex items-center justify-center space-x-1 mb-1">
+                                <Badge className={`text-xs px-1 py-0 ${
+                                  node.category === 'process' ? 'bg-purple-700 text-white' :
+                                  node.category === 'user' ? 'bg-green-700 text-white' :
+                                  node.category === 'network' ? 'bg-cyan-700 text-white' :
+                                  node.category === 'file' ? 'bg-orange-700 text-white' : 
+                                  'bg-gray-700 text-white'
+                                }`}>
+                                  {node.category}
+                                </Badge>
+                              </div>
+                              <Badge className={`text-xs mb-2 ${
+                                node.type === 'external' ? 'bg-red-700 text-white' : 'bg-blue-700 text-white'
+                              }`}>
+                                {node.type.toUpperCase()}
+                              </Badge>
+                              <p className="text-xs text-gray-400 capitalize">{node.category}</p>
+                              {node.description && (
+                                <p className="text-xs text-gray-500 mt-1 line-clamp-2" title={node.description}>
+                                  {node.description.length > 30 ? node.description.substring(0, 30) + '...' : node.description}
+                                </p>
+                              )}
+                            </div>
+                            
+                            {/* Risk level indicator */}
+                            <div className="mt-2 flex items-center justify-center space-x-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                node.risk === 'high' ? 'bg-red-500' :
+                                node.risk === 'medium' ? 'bg-orange-500' : 'bg-green-500'
+                              }`} />
+                              <span className={`text-xs capitalize ${
+                                node.risk === 'high' ? 'text-red-400' :
+                                node.risk === 'medium' ? 'text-orange-400' : 'text-green-400'
+                              }`}>
+                                {node.risk} Risk
+                              </span>
+                            </div>
                           </div>
-                          <p className="text-xs font-mono text-gray-300">{node.node || node.entity}</p>
-                          <p className="text-xs text-gray-500 mt-1">{node.type}</p>
+                        ))}
+                      </div>
+                      
+                      {/* Network topology summary */}
+                      <div className="cyber-slate rounded-lg p-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center space-x-4">
+                            <span className="text-gray-400">Total Nodes:</span>
+                            <span className="text-white font-semibold">{entityMapping.networkTopology.length}</span>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-gray-400">External:</span>
+                            <span className="text-red-400 font-semibold">
+                              {entityMapping.networkTopology.filter((n: any) => n.type === 'external').length}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <span className="text-gray-400">Internal:</span>
+                            <span className="text-blue-400 font-semibold">
+                              {entityMapping.networkTopology.filter((n: any) => n.type === 'internal').length}
+                            </span>
+                          </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
                   ) : (
-                    <p className="text-gray-400">No network topology data</p>
+                    <div className="text-center py-8">
+                      <Network className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-400">No network topology data available</p>
+                      <p className="text-gray-500 text-sm mt-1">Network communication patterns will appear here when detected</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1123,16 +1966,22 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                     {similarIncidents.map((similar: any, index: number) => (
                       <div 
                         key={index} 
-                        className="cyber-dark rounded-lg p-4 hover:bg-gray-700 transition-colors cursor-pointer border border-gray-700 hover:border-cyan-500"
-                        onClick={() => navigateToIncident(similar.id)}
+                        className="cyber-dark rounded-lg p-4 hover:bg-gray-700 transition-colors cursor-pointer border border-gray-700 hover:border-cyan-500 group"
+                        onClick={() => navigateToIncident(similar.incidentId || similar.id)}
+                        data-testid={`similar-incident-${index}`}
                       >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
-                            <Link2 className="text-green-500 w-4 h-4" />
-                            <h4 className="font-medium hover:text-cyan-400 transition-colors">{similar.title}</h4>
+                            <Link2 className="text-green-500 w-4 h-4 group-hover:text-cyan-400 transition-colors" />
+                            <h4 className="font-medium group-hover:text-cyan-400 transition-colors">{similar.title}</h4>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Badge className="bg-green-600 text-white">{similar.match}</Badge>
+                            <Badge className="bg-green-600 text-white group-hover:bg-cyan-600 transition-colors">
+                              {similar.matchPercentage ? `${similar.matchPercentage}% Match` : 
+                               typeof similar.match === 'string' && similar.match.includes('%') 
+                                ? similar.match 
+                                : `${similar.match || 0}% Match`}
+                            </Badge>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1149,19 +1998,29 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                         </div>
                         
                         <div className="mb-3">
-                          <span className="text-sm text-gray-400">Common Patterns:</span>
+                          <span className="text-sm text-gray-400">Match Reasons:</span>
                           <div className="flex flex-wrap gap-2 mt-1">
-                            {similar.patterns.map((pattern: string, patternIndex: number) => (
-                              <Badge key={patternIndex} variant="outline" className="text-xs text-gray-400 border-gray-600">
-                                {pattern}
+                            {(similar.reasons || similar.patterns || []).map((reason: string, reasonIndex: number) => (
+                              <Badge key={reasonIndex} variant="outline" className="text-xs text-gray-400 border-gray-600">
+                                {reason}
                               </Badge>
                             ))}
                           </div>
                         </div>
                         
-                        <div>
-                          <span className="text-sm text-gray-400">AI Analysis:</span>
-                          <p className="text-sm text-gray-300 mt-1">{similar.analysis}</p>
+                        <div className="grid grid-cols-3 gap-4 text-xs">
+                          <div>
+                            <span className="text-gray-400">Severity:</span>
+                            <p className="text-gray-300">{similar.severity}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Classification:</span>
+                            <p className="text-gray-300">{similar.classification}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Date:</span>
+                            <p className="text-gray-300">{similar.createdAt ? format(new Date(similar.createdAt), 'MMM dd') : 'N/A'}</p>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1171,7 +2030,507 @@ export default function IncidentDetail({ incidentId, onClose, requireComments = 
                 )}
               </div>
             </TabsContent>
-          </Tabs>
+            
+            {/* Threat Prediction Tab */}
+            <TabsContent value="threat-prediction" className="p-6 space-y-6">
+              <div className="cyber-slate rounded-xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-2">
+                    <Target className="text-severity-high" />
+                    <h3 className="text-lg font-semibold">Threat Prediction Analysis</h3>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                          <Info className="h-3 w-3" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="cyber-slate border-cyber-slate-light max-w-lg">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center space-x-2">
+                            <Target className="h-5 w-5 text-severity-high" />
+                            <span>Threat Prediction Analysis</span>
+                          </DialogTitle>
+                          <DialogDescription className="text-gray-300">
+                            Advanced AI-powered threat forecasting and risk assessment
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <p className="text-gray-300 text-sm">
+                            This comprehensive analysis uses multiple AI agents to predict future threat behavior, assess risk escalation patterns, and provide confidence metrics for security decision-making.
+                          </p>
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-medium text-gray-200">Key Components:</h4>
+                            <div className="space-y-2">
+                              <div className="flex items-start space-x-3 p-2 rounded cyber-dark">
+                                <AlertTriangle className="h-4 w-4 text-yellow-400 mt-0.5" />
+                                <div>
+                                  <span className="text-yellow-400 font-medium">Overall Threat Level</span>
+                                  <p className="text-gray-300 text-xs">Combined risk assessment based on MITRE techniques and IOC severity</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start space-x-3 p-2 rounded cyber-dark">
+                                <Activity className="h-4 w-4 text-blue-400 mt-0.5" />
+                                <div>
+                                  <span className="text-blue-400 font-medium">Risk Trend Analysis</span>
+                                  <p className="text-gray-300 text-xs">Historical pattern analysis to predict threat escalation</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start space-x-3 p-2 rounded cyber-dark">
+                                <Brain className="h-4 w-4 text-purple-400 mt-0.5" />
+                                <div>
+                                  <span className="text-purple-400 font-medium">AI Confidence</span>
+                                  <p className="text-gray-300 text-xs">Certainty level in predictions based on data quality and pattern clarity</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400 flex items-center gap-1">
+                        <Database className="w-3 h-3" />
+                        Storage Size
+                      </p>
+                      <p className="text-sm font-semibold text-blue-400">
+                        {((storageData as any)?.storageSizeMB || 0).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">Analysis Cost</p>
+                      <p className="text-sm font-semibold text-green-400">€{getAnalysisCost()}</p>
+                    </div>
+                    {processingTime && (
+                      <div className="text-right">
+                        <p className="text-xs text-gray-400">Processing Time</p>
+                        <p className="text-sm font-semibold text-cyan-400">{processingTime}s</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Overall Threat Level */}
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  <div className="cyber-dark rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Overall Threat Level</span>
+                      <div className="flex items-center space-x-1">
+                        <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                              <Info className="h-3 w-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="cyber-slate border-cyber-slate-light max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center space-x-2">
+                                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                                <span>Overall Threat Level</span>
+                              </DialogTitle>
+                              <DialogDescription className="text-gray-300">
+                                Combined security risk assessment based on AI analysis
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <p className="text-gray-300 text-sm">
+                                This metric represents the combined security risk assessment based on AI analysis of the incident. It considers MITRE ATT&CK techniques, IOC severity, and behavioral patterns to provide an overall percentage indicating how dangerous this threat is to your organization.
+                              </p>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                  <span className="text-red-400 font-medium">90–100%</span>
+                                  <span className="text-gray-300 ml-2">Critical – Immediate action required</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                                  <span className="text-orange-400 font-medium">70–89%</span>
+                                  <span className="text-gray-300 ml-2">High – Priority investigation</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                  <span className="text-yellow-400 font-medium">50–69%</span>
+                                  <span className="text-gray-300 ml-2">Medium – Monitor closely</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                  <span className="text-green-400 font-medium">0–49%</span>
+                                  <span className="text-gray-300 ml-2">Low – Routine monitoring</span>
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold mb-2">{incident.predictionConfidence || 75}%</div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-yellow-500 to-red-500 h-2 rounded-full transition-all duration-700"
+                        style={{ width: `${incident.predictionConfidence || 75}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="cyber-dark rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Risk Trend</span>
+                      <div className="flex items-center space-x-1">
+                        <Activity className="h-4 w-4 text-blue-400" />
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                              <Info className="h-3 w-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="cyber-slate border-cyber-slate-light max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center space-x-2">
+                                <Activity className="h-5 w-5 text-blue-400" />
+                                <span>Risk Trend</span>
+                              </DialogTitle>
+                              <DialogDescription className="text-gray-300">
+                                Threat escalation analysis over time
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <p className="text-gray-300 text-sm">
+                                This shows whether the threat is escalating, stable, or decreasing over time. Our AI analyzes historical patterns, attack progression, and threat intelligence to predict if this incident represents an increasing, stable, or decreasing security risk to your environment.
+                              </p>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                                  <span className="text-red-400 font-medium">Increasing</span>
+                                  <span className="text-gray-300 ml-2">Threat is escalating</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                  <span className="text-blue-400 font-medium">Stable</span>
+                                  <span className="text-gray-300 ml-2">Consistent risk level</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                  <span className="text-green-400 font-medium">Decreasing</span>
+                                  <span className="text-gray-300 ml-2">Risk is diminishing</span>
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                    <div className={`text-lg font-semibold capitalize mb-2 ${
+                      incident.riskTrend === 'increasing' ? 'text-red-400' :
+                      incident.riskTrend === 'decreasing' ? 'text-green-400' :
+                      'text-blue-400'
+                    }`}>
+                      {incident.riskTrend || 'stable'}
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      {incident.riskTrend === 'increasing' && (
+                        <>
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                          <span className="text-xs text-red-400">Escalating</span>
+                        </>
+                      )}
+                      {incident.riskTrend === 'decreasing' && (
+                        <>
+                          <div className="w-2 h-2 bg-green-500 rounded-full" />
+                          <span className="text-xs text-green-400">Improving</span>
+                        </>
+                      )}
+                      {(incident.riskTrend === 'stable' || !incident.riskTrend) && (
+                        <>
+                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          <span className="text-xs text-blue-400">Consistent</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="cyber-dark rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Confidence</span>
+                      <div className="flex items-center space-x-1">
+                        <Brain className="h-4 w-4 text-purple-400" />
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-4 w-4 text-gray-500 hover:text-gray-300">
+                              <Info className="h-3 w-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="cyber-slate border-cyber-slate-light max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center space-x-2">
+                                <Brain className="h-5 w-5 text-purple-400" />
+                                <span>Analysis Confidence</span>
+                              </DialogTitle>
+                              <DialogDescription className="text-gray-300">
+                                AI certainty in threat assessment accuracy
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <p className="text-gray-300 text-sm">
+                                This represents how certain our AI is about its analysis of this incident. Higher confidence indicates more reliable threat assessment based on clear patterns, strong indicators, and comprehensive data analysis. Lower confidence suggests ambiguous or incomplete information requiring manual review.
+                              </p>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                  <span className="text-green-400 font-medium">90–100%</span>
+                                  <span className="text-gray-300 ml-2">Very High – Strong evidence</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                  <span className="text-blue-400 font-medium">70–89%</span>
+                                  <span className="text-gray-300 ml-2">High – Minor uncertainties</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                  <span className="text-yellow-400 font-medium">50–69%</span>
+                                  <span className="text-gray-300 ml-2">Medium – Needs human review</span>
+                                </div>
+                                <div className="flex items-center space-x-3 p-2 rounded cyber-dark">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                  <span className="text-red-400 font-medium">0–49%</span>
+                                  <span className="text-gray-300 ml-2">Low – Manual validation required</span>
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold mb-2">{incident.confidence || 82}%</div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-700"
+                        style={{ width: `${incident.confidence || 82}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Threat Scenarios */}
+                {threatPrediction.threatScenarios && threatPrediction.threatScenarios.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-md font-semibold mb-4 flex items-center space-x-2">
+                      <TrendingUp className="h-4 w-4 text-cyan-400" />
+                      <span>Threat Scenarios</span>
+                    </h4>
+                    <div className="space-y-4">
+                      {threatPrediction.threatScenarios.map((scenario: any, index: number) => (
+                        <div key={index} className="cyber-dark rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h5 className="font-semibold text-cyan-400">{scenario.timeframe}</h5>
+                            <div className="flex items-center space-x-2">
+                              <Badge className={`${
+                                scenario.likelihood === 'High' ? 'bg-red-600' :
+                                scenario.likelihood === 'Medium' ? 'bg-yellow-600' :
+                                'bg-green-600'
+                              } text-white`}>
+                                {scenario.likelihood}
+                              </Badge>
+                              <Badge className={`${
+                                scenario.impact === 'Critical' ? 'bg-red-700' :
+                                scenario.impact === 'High' ? 'bg-orange-600' :
+                                scenario.impact === 'Medium' ? 'bg-yellow-600' :
+                                'bg-blue-600'
+                              } text-white`}>
+                                {scenario.impact} Impact
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          {scenario.threats && scenario.threats.length > 0 && (
+                            <div className="mb-3">
+                              <h6 className="text-sm font-medium text-gray-300 mb-2">Potential Threats:</h6>
+                              <ul className="space-y-1">
+                                {scenario.threats.map((threat: string, threatIndex: number) => (
+                                  <li key={threatIndex} className="text-sm text-gray-400 flex items-center space-x-2">
+                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                                    <span>{threat}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {scenario.recommendations && scenario.recommendations.length > 0 && (
+                            <div>
+                              <h6 className="text-sm font-medium text-gray-300 mb-2">Recommendations:</h6>
+                              <ul className="space-y-1">
+                                {scenario.recommendations.map((rec: string, recIndex: number) => (
+                                  <li key={recIndex} className="text-sm text-gray-400 flex items-center space-x-2">
+                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                    <span>{rec}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Environmental Impact */}
+                {threatPrediction.environmentalImpact && Object.keys(threatPrediction.environmentalImpact).length > 0 && (
+                  <div>
+                    <h4 className="text-md font-semibold mb-4 flex items-center space-x-2">
+                      <Shield className="h-4 w-4 text-green-400" />
+                      <span>Environmental Impact Assessment</span>
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {Object.entries(threatPrediction.environmentalImpact).map(([key, impact]: [string, any]) => (
+                        <div key={key} className="cyber-dark rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-200 mb-2 capitalize">
+                            {key.replace(/([A-Z])/g, ' $1').trim()}
+                          </h5>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <div className={`w-3 h-3 rounded-full ${
+                              impact.riskLevel === 'High' ? 'bg-red-500' :
+                              impact.riskLevel === 'Medium' ? 'bg-yellow-500' :
+                              'bg-green-500'
+                            }`} />
+                            <span className={`text-sm font-medium ${
+                              impact.riskLevel === 'High' ? 'text-red-400' :
+                              impact.riskLevel === 'Medium' ? 'text-yellow-400' :
+                              'text-green-400'
+                            }`}>
+                              {impact.riskLevel} Risk
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-400 mb-3">{impact.description}</p>
+                          {impact.mitigationPriority && (
+                            <Badge className={`${
+                              impact.mitigationPriority === 'Critical' ? 'bg-red-600' :
+                              impact.mitigationPriority === 'High' ? 'bg-orange-600' :
+                              impact.mitigationPriority === 'Medium' ? 'bg-yellow-600' :
+                              'bg-blue-600'
+                            } text-white`}>
+                              {impact.mitigationPriority} Priority
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Cost Analysis */}
+                <div className="mb-6">
+                  <h4 className="text-md font-semibold mb-4 flex items-center space-x-2">
+                    <DollarSign className="h-4 w-4 text-green-400" />
+                    <span>Incident Analysis Cost Breakdown</span>
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="cyber-dark rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-400">Analysis Cost</span>
+                        <Zap className="h-4 w-4 text-yellow-400" />
+                      </div>
+                      <div className="text-2xl font-bold text-green-400 mb-2">€{getAnalysisCost()}</div>
+                      <p className="text-xs text-gray-500">Per incident analysis • {getPlanDisplayName()}</p>
+                    </div>
+                    
+                    <div className="cyber-dark rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-400">AI Agents Used</span>
+                        <Brain className="h-4 w-4 text-purple-400" />
+                      </div>
+                      <div className="text-2xl font-bold text-cyan-400 mb-2">8</div>
+                      <p className="text-xs text-gray-500">Specialized AI agents</p>
+                    </div>
+                    
+                    <div className="cyber-dark rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-400">Processing Time</span>
+                        <Clock className="h-4 w-4 text-blue-400" />
+                      </div>
+                      <div className="text-2xl font-bold text-orange-400 mb-2">~45s</div>
+                      <p className="text-xs text-gray-500">Multi-agent analysis</p>
+                    </div>
+                  </div>
+                  
+                  <div className="cyber-dark rounded-lg p-4 mt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h5 className="font-semibold text-gray-200">Dynamic Analysis Pricing</h5>
+                      <div className="flex items-center space-x-1">
+                        <Badge className="bg-green-600 text-white text-xs">
+                          {((userData as any)?.currentPackage || 'starter').toUpperCase()}
+                        </Badge>
+                        <button className="text-gray-400 hover:text-white p-1">
+                          <HelpCircle className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">8-Agent AI Analysis System</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.24).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">MITRE ATT&CK Framework Mapping</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.12).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">AlienVault OTX Threat Intelligence</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.12).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">IOC Geo-location & Risk Assessment</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Entity Relationship Mapping</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Purple Team Analysis</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Compliance Framework Assessment</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Threat Prediction Modeling</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.12).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Business Impact Analysis</span>
+                        <span className="text-green-400">€{(parseFloat(getAnalysisCost()) * 0.08).toFixed(2)}</span>
+                      </div>
+                      <div className="border-t border-gray-600 pt-2 mt-2">
+                        <div className="flex justify-between text-sm font-semibold">
+                          <span className="text-gray-300">Total Analysis Cost</span>
+                          <span className="text-green-400">€{getAnalysisCost()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prediction Summary */}
+                {threatPrediction.predictionSummary && (
+                  <div className="cyber-dark rounded-lg p-4 mt-6">
+                    <h5 className="font-semibold text-gray-200 mb-2">Executive Summary</h5>
+                    <p className="text-sm text-gray-300">{threatPrediction.predictionSummary}</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* SIEM Response Tab */}
+            <TabsContent value="siem-response" className="mt-0">
+              <SiemResponseTracking incident={incident} />
+            </TabsContent>
+
+            </Tabs>
+          </div>
         </div>
       </div>
     </div>

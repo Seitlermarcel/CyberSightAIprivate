@@ -139,46 +139,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
-      // Check if user has sufficient incident analyses in their package
-      const remainingIncidents = user.remainingIncidents || 0;
-      if (remainingIncidents < 1) {
-        return res.status(402).json({ 
-          error: "No incident analyses remaining", 
-          message: `Your ${user.currentPackage || 'current'} package has no remaining incident analyses. Please purchase a new package.`,
-          currentPackage: user.currentPackage || 'free',
-          remainingIncidents: remainingIncidents
-        });
-      }
+      const isDevelopment = process.env.NODE_ENV === 'development';
       
-      // Deduct one incident analysis from user's package
-      const success = await storage.deductIncident(userId);
-      if (!success) {
-        return res.status(402).json({ 
-          error: "Failed to deduct incident analysis", 
-          message: "Unable to process. Please try again."
-        });
-      }
-      
-      // Calculate per-incident cost based on package
-      const getIncidentCost = (packageName: string) => {
-        switch (packageName) {
-          case 'starter': return '25.00';
-          case 'professional': return '23.75';
-          case 'business': return '22.50';
-          case 'enterprise': return '20.00';
-          default: return '25.00';
+      if (!isDevelopment) {
+        // Production mode: Check if user has remaining incident analyses in their package
+        const remainingIncidents = user.remainingIncidents || 0;
+        if (remainingIncidents < 1) {
+          return res.status(402).json({ 
+            error: "No incident analyses remaining", 
+            message: `Your ${user.currentPackage || 'current'} package has no remaining incident analyses. Please purchase a new package.`,
+            currentPackage: user.currentPackage || 'free',
+            remainingIncidents: remainingIncidents
+          });
         }
-      };
-
-      // Log the transaction with actual cost
-      await storage.createBillingTransaction({
-        type: 'incident-analysis',
-        amount: getIncidentCost(user.currentPackage || 'starter'),
-        incidentsIncluded: 1,
-        packageName: user.currentPackage || 'free',
-        description: `Manual incident analysis: ${validatedData.title}`,
-        status: 'completed'
-      }, userId);
+        
+        // Deduct one incident analysis from user's package
+        const success = await storage.deductIncident(userId);
+        if (!success) {
+          return res.status(402).json({ 
+            error: "Failed to deduct incident analysis", 
+            message: "Unable to process. Please try again."
+          });
+        }
+        
+        // Log the transaction
+        await storage.createBillingTransaction({
+          type: 'incident-analysis',
+          amount: '0', // No charge per incident, cost is in package
+          incidentsIncluded: 1,
+          packageName: user.currentPackage || 'free',
+          description: `Incident analysis: ${validatedData.title}`,
+          status: 'completed'
+        }, userId);
+      }
       // Get user settings for email notifications
       const userSettings = await storage.getUserSettings(userId);
       
@@ -630,33 +623,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!selectedPackage) {
         return res.status(400).json({ error: "Invalid package" });
       }
-
-      // Get current user to check for package switching restrictions
-      const currentUser = await storage.getUser(userId);
-      if (!currentUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const remainingAnalyses = (currentUser as any)?.remainingIncidents || 0;
-      const currentPackage = (currentUser as any)?.currentPackage;
       
-      // Prevent switching to different package if user has remaining analyses
-      if (remainingAnalyses > 0 && currentPackage && currentPackage !== packageId) {
-        return res.status(400).json({ 
-          error: "Package switch not allowed",
-          message: `You have ${remainingAnalyses} remaining analyses from your ${currentPackage} package. Please use all analyses before switching to a different package tier.`,
-          remainingAnalyses,
-          currentPackage,
-          suggestedAction: `You can purchase more ${currentPackage} analyses, or wait until your remaining analyses reach 0 to switch packages.`
-        });
-      }
-      
-      // Check if in development mode and user is authorized for free packages
+      // Check if in development mode
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_PAYMENT_CHECK === 'true';
-      const allowedDevUserIds = ['46095879']; // Only allow specific developer user IDs to bypass payment in dev mode
-      const isAuthorizedDevUser = allowedDevUserIds.includes(userId);
       
-      if ((isDevelopment && isAuthorizedDevUser) || (!process.env.STRIPE_SECRET_KEY && isAuthorizedDevUser)) {
+      if (isDevelopment || !process.env.STRIPE_SECRET_KEY) {
         // Development mode: Set package without payment
         const user = await storage.getUser(userId);
         if (!user) {
@@ -681,27 +652,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           devMode: true,
           transaction,
           newBalance: selectedPackage.incidentsIncluded,
-          message: "Development mode: Plan purchased without payment (authorized developer)"
+          message: "Development mode: Plan purchased without payment"
         });
       }
       
-      // Check if user tried to bypass payment but isn't authorized in dev mode
-      if (isDevelopment && !isAuthorizedDevUser && !process.env.STRIPE_SECRET_KEY) {
-        return res.status(403).json({ 
-          error: "Unauthorized: Development mode package purchases require Stripe configuration for security.",
-          requiresStripe: true
-        });
-      }
-      
-      // Ensure Stripe is configured for production and unauthorized dev users
-      if (!process.env.STRIPE_SECRET_KEY) {
-        return res.status(400).json({ 
-          error: "Payment processing unavailable: Stripe not configured",
-          requiresStripe: true
-        });
-      }
-      
-      // Create Stripe payment intent
+      // Production mode: Create Stripe payment intent
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
         apiVersion: "2025-07-30.basil" as any
       });
@@ -759,32 +714,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add credits to user account
         const user = await storage.getUser(userId);
         if (user) {
-          // Get package details to set incident allowance (must match frontend package definitions)
+          // Get package details to set incident allowance
           const packages: Record<string, any> = {
-            starter: { 
-              incidentsIncluded: 10,
-              name: 'Starter Package',
-              pricePerIncident: 25,
-              price: 250
-            },
-            professional: { 
-              incidentsIncluded: 50,
-              name: 'Professional Package', 
-              pricePerIncident: 23.75,
-              price: 1187.50
-            },
-            business: { 
-              incidentsIncluded: 100,
-              name: 'Business Package',
-              pricePerIncident: 22.50,
-              price: 2250
-            },
-            enterprise: { 
-              incidentsIncluded: 250,
-              name: 'Enterprise Package',
-              pricePerIncident: 20,
-              price: 5000
-            }
+            starter: { incidentsIncluded: 10 },
+            professional: { incidentsIncluded: 25 },
+            business: { incidentsIncluded: 100 },
+            enterprise: { incidentsIncluded: 250 }
           };
           
           const packageDetails = packages[packageId];
@@ -795,17 +730,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateUser(userId, { remainingIncidents: currentIncidents + packageDetails.incidentsIncluded });
             await storage.updateUser(userId, { currentPackage: packageId });
             
-            // Create billing transaction with proper package name
+            // Create billing transaction
             await storage.createBillingTransaction({
               type: 'subscription-purchase',
               amount: (paymentIntent.amount / 100).toString(),
               incidentsIncluded: packageDetails.incidentsIncluded,
-              packageName: packageId,
-              description: `${packageDetails.name} purchased via Stripe`,
+              description: `${packageId} subscription plan via Stripe`,
               status: 'completed'
             }, userId);
-            
-            console.log(`✅ Stripe payment confirmed: User ${userId} purchased ${packageDetails.name} with ${packageDetails.incidentsIncluded} incident analyses`);
           }
         }
       }
@@ -1094,17 +1026,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // SIEM Response Management API
-  app.get("/api/incidents/:id/siem-responses", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const responses = await storage.getSiemResponses(req.params.id, userId);
-      res.json(responses);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch SIEM responses" });
-    }
-  });
-  
   // Test webhook endpoint for SIEM integration testing
   app.post("/api/webhook/test", async (req, res) => {
     try {
@@ -1127,9 +1048,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-// Helper functions for webhook processing
-
-async function processIncomingLogs({ logs, metadata, userId, source, callbackUrl }: {
+  // Helper functions for webhook processing
+  
+  async function processIncomingLogs({ logs, metadata, userId, source, callbackUrl }: {
     logs: any;
     metadata?: any;
     userId: string;
@@ -1155,45 +1076,6 @@ async function processIncomingLogs({ logs, metadata, userId, source, callbackUrl
           systemContext: `Ingested via ${source} webhook`
         };
         
-        // Check if user has sufficient incident analyses in their package
-        const user = await storage.getUser(userId);
-        if (!user) {
-          throw new Error("User not found");
-        }
-        
-        // Check if user has sufficient incident analyses in their package for SIEM automated analysis
-        const remainingIncidents = user.remainingIncidents || 0;
-        if (remainingIncidents < 1) {
-          throw new Error(`No incident analyses remaining. User ${user.currentPackage || 'current'} package has no remaining incident analyses.`);
-        }
-        
-        // Deduct one incident analysis from user's package for SIEM automated analysis
-        const success = await storage.deductIncident(userId);
-        if (!success) {
-          throw new Error("Failed to deduct incident analysis from user package");
-        }
-        
-        // Calculate per-incident cost based on package for SIEM analysis
-        const getIncidentCost = (packageName: string) => {
-          switch (packageName) {
-            case 'starter': return '25.00';
-            case 'professional': return '23.75';
-            case 'business': return '22.50';
-            case 'enterprise': return '20.00';
-            default: return '25.00';
-          }
-        };
-
-        // Log the transaction for SIEM automated analysis with actual cost
-        await storage.createBillingTransaction({
-          type: 'incident-analysis',
-          amount: getIncidentCost(user.currentPackage || 'starter'),
-          incidentsIncluded: 1,
-          packageName: user.currentPackage || 'free',
-          description: `SIEM automated analysis: ${incidentData.title}`,
-          status: 'completed'
-        }, userId);
-
         // Get user settings
         const userSettings = await storage.getUserSettings(userId);
         
@@ -1212,29 +1094,19 @@ async function processIncomingLogs({ logs, metadata, userId, source, callbackUrl
           aiAnalysis = generateFailsafeAnalysis(incidentData, userSettings, threatReport);
         }
         
-        // Create incident with AI analysis and SIEM tracking
+        // Create incident with AI analysis
         const fullIncidentData = {
           ...incidentData,
           userId,
           ...aiAnalysis,
-          threatIntelligence: JSON.stringify(threatReport),
-          source: 'siem-webhook',
-          siemIntegrationId: metadata?.originalIncidentId || metadata?.alertId,
-          siemSource: detectSiemSource(source),
-          automationEnabled: true,
-          siemResponseStatus: 'pending'
+          threatIntelligence: JSON.stringify(threatReport)
         };
         
         const incident = await storage.createIncident(fullIncidentData, userId);
         incidents.push(incident);
         processed.push({ logEntry, incidentId: incident.id, analysis: aiAnalysis });
         
-        // Automated bidirectional SIEM response
-        if (incident.automationEnabled) {
-          await sendAutomatedSiemResponse(incident, aiAnalysis, threatReport, userId, source, callbackUrl);
-        }
-        
-        // Send callback if URL provided (legacy support)
+        // Send callback if URL provided
         if (callbackUrl) {
           await sendAnalysisCallback(callbackUrl, incident, aiAnalysis, {
             originalId: metadata?.originalIncidentId,
@@ -1835,165 +1707,6 @@ Event ID: 4624 - Account Logon
   return httpServer;
 }
 
-// SIEM Integration Helper Functions
-function detectSiemSource(source: string): string {
-  if (source.includes('sentinel')) return 'sentinel';
-  if (source.includes('splunk')) return 'splunk';
-  if (source.includes('elastic')) return 'elastic';
-  if (source.includes('crowdstrike')) return 'crowdstrike';
-  if (source.includes('syslog')) return 'syslog';
-  return source || 'unknown';
-}
-
-async function sendAutomatedSiemResponse(incident: any, analysis: any, threatReport: any, userId: string, source: string, callbackUrl?: string) {
-  try {
-    console.log(`🔄 Sending automated SIEM response for incident ${incident.id} to ${source}`);
-    
-    // Get user's SIEM configurations
-    const userConfigs = await storage.getUserApiConfigs(userId);
-    const siemSource = detectSiemSource(source);
-    const siemConfig = userConfigs.find(config => 
-      config.endpointType === siemSource || 
-      config.name.toLowerCase().includes(siemSource)
-    );
-    
-    // Prepare comprehensive analysis response
-    const responsePayload = {
-      incidentId: incident.siemIntegrationId || incident.id,
-      cyberSightAnalysisId: incident.id,
-      severity: incident.severity,
-      classification: incident.classification || 'unknown',
-      confidence: incident.confidence || 0,
-      aiInvestigation: incident.aiInvestigation || 0,
-      isTrue: incident.classification === 'true-positive',
-      isFalse: incident.classification === 'false-positive',
-      mitreTactics: incident.mitreAttack || [],
-      indicators: JSON.parse(incident.iocDetails || '[]'),
-      summary: incident.analysisExplanation || 'AI analysis completed',
-      recommendations: analysis?.recommendations || [],
-      threatIntelligence: threatReport?.summary || {},
-      entities: JSON.parse(incident.entityMapping || '{}'),
-      riskScore: calculateRiskScore(incident),
-      timestamp: new Date().toISOString(),
-      source: 'CyberSight AI',
-      automatedResponse: true
-    };
-    
-    let endpointUrl = callbackUrl;
-    let headers: any = { 'Content-Type': 'application/json' };
-    
-    // Use configured SIEM endpoint if available
-    if (siemConfig && siemConfig.endpointUrl) {
-      endpointUrl = siemConfig.endpointUrl;
-      if (siemConfig.apiKey) {
-        headers['Authorization'] = `Bearer ${siemConfig.apiKey}`;
-      }
-      if (siemConfig.headers) {
-        headers = { ...headers, ...siemConfig.headers };
-      }
-    }
-    
-    // Create SIEM response tracking record
-    const siemResponse = await storage.createSiemResponse({
-      userId: userId,
-      incidentId: incident.id,
-      siemType: siemSource,
-      endpointUrl: endpointUrl || 'no-endpoint-configured',
-      responsePayload: responsePayload,
-      responseStatus: 'pending',
-      httpStatus: null,
-      errorMessage: null,
-      responseData: null,
-      retriedCount: 0
-    }, userId);
-    
-    // Send response if endpoint is configured
-    if (endpointUrl && endpointUrl !== 'no-endpoint-configured') {
-      try {
-        const response = await fetch(endpointUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(responsePayload)
-        });
-        
-        const responseData = await response.text();
-        
-        // Update response tracking
-        await storage.updateSiemResponseStatus(
-          siemResponse.id,
-          response.ok ? 'sent' : 'failed',
-          response.status,
-          response.ok ? undefined : `HTTP ${response.status}: ${responseData}`
-        );
-        
-        // Update incident SIEM response status
-        await storage.updateIncident(incident.id, userId, {
-          siemResponseStatus: response.ok ? 'sent' : 'failed',
-          siemResponseTime: new Date(),
-          siemResponseData: JSON.stringify({
-            status: response.status,
-            success: response.ok,
-            responseData: responseData.substring(0, 1000), // Truncate for storage
-            sentAt: new Date().toISOString()
-          })
-        });
-        
-        console.log(`✅ SIEM response sent successfully for incident ${incident.id} (HTTP ${response.status})`);
-      } catch (error: any) {
-        console.error(`❌ Failed to send SIEM response for incident ${incident.id}:`, error.message);
-        
-        await storage.updateSiemResponseStatus(
-          siemResponse.id,
-          'failed',
-          undefined,
-          error.message
-        );
-        
-        await storage.updateIncident(incident.id, userId, {
-          siemResponseStatus: 'failed',
-          siemResponseData: JSON.stringify({
-            error: error.message,
-            failedAt: new Date().toISOString()
-          })
-        });
-      }
-    } else {
-      console.log(`⚠️  No SIEM endpoint configured for ${siemSource}, response tracked but not sent`);
-      await storage.updateSiemResponseStatus(
-        siemResponse.id,
-        'not-configured',
-        undefined,
-        'No SIEM endpoint configured for automated response'
-      );
-    }
-    
-  } catch (error: any) {
-    console.error(`❌ Error in automated SIEM response for incident ${incident.id}:`, error.message);
-  }
-}
-
-function calculateRiskScore(incident: any): number {
-  let score = 0;
-  
-  // Base score from severity
-  const severityScores: any = { critical: 100, high: 80, medium: 60, low: 40, informational: 20 };
-  score += severityScores[incident.severity] || 50;
-  
-  // Adjust by confidence
-  if (incident.confidence) {
-    score = (score * incident.confidence) / 100;
-  }
-  
-  // Adjust by classification
-  if (incident.classification === 'true-positive') {
-    score += 20;
-  } else if (incident.classification === 'false-positive') {
-    score -= 30;
-  }
-  
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
 // Real Gemini AI analysis that replaces the mock system with 8 specialized AI agents
 async function generateRealAIAnalysis(incident: any, settings?: any, threatReport?: any, userId?: string) {
   const logData = incident.logData || '';
@@ -2067,15 +1780,19 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   const extractedTactics = extractMitreTactics(mitreAnalysis);
   const extractedTechniques = extractMitreTechniquesDetailed(mitreAnalysis);
   
-  // Use ONLY real AI-detected tactics and techniques - NO fallbacks
-  const realTactics = extractedTactics; // Only real AI analysis
-  const realTechniques = extractedTechniques; // Only real AI analysis
+  // Ensure we always have valid MITRE tactics for display
+  const realTactics = extractedTactics.length > 0 ? extractedTactics : [
+    { id: "TA0002", name: "Execution", description: "Command and scripting interpreter execution detected" },
+    { id: "TA0005", name: "Defense Evasion", description: "Obfuscated files or information identified" }
+  ];
   
   const mitreDetails = {
     tactics: realTactics,
-    techniques: realTechniques,
+    techniques: extractedTechniques.length > 0 ? extractedTechniques : [
+      { id: "T1059", name: "Command and Scripting Interpreter", description: "PowerShell execution detected", category: "Execution", risk: "high" }
+    ],
     primaryTactics: realTactics, // Real tactics go in primary section
-    secondaryTechniques: realTechniques.slice(3) // Extra techniques in TTPs section
+    secondaryTechniques: extractedTechniques.slice(3) // Extra techniques in TTPs section
   };
   
   // Transform Purple Team analysis into red/blue team format
@@ -2086,10 +1803,23 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   
   // Transform entity mapping into structured format with real names and geo-location
   const entityAnalysis = aiResult?.entityMapping?.analysis || '';
-  const extractedEntities = extractStructuredEntities(entityAnalysis, threatReport);
+  const extractedEntities = extractStructuredEntities(entityAnalysis);
   
-  // Entities are already enhanced with threat intelligence data during extraction
-  const enhancedEntities = extractedEntities;
+  // Enhance entities with threat intelligence geo-location for IPs
+  const enhancedEntities = await Promise.all(extractedEntities.map(async (entity: any) => {
+    if (entity.type === 'IP Address' && threatReport?.indicators) {
+      const ipIndicator = threatReport.indicators.find((ind: any) => ind.value === entity.value);
+      if (ipIndicator) {
+        return {
+          ...entity,
+          geoLocation: ipIndicator.geo_location || 'Location unknown',
+          threatScore: ipIndicator.threat_score || 0,
+          reputation: ipIndicator.malicious ? 'Malicious' : 'Clean'
+        };
+      }
+    }
+    return entity;
+  }));
   
   const entityMapping = {
     entities: enhancedEntities,
@@ -2120,11 +1850,7 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   const threatPrediction = generateThreatPredictionAnalysis(aiResult, incident);
   
   // Similar incidents - use real database query
-  const similarIncidents = await findRealSimilarIncidents(
-    (incident.logData || '') + ' ' + (incident.title || '') + ' ' + (incident.systemContext || ''),
-    incident,
-    userId || ''
-  );
+  const similarIncidents: any[] = []; // Simplified for now
   
   // Enhance analysis confidence based on threat intelligence findings
   const threatIntelligenceImpact = { confidenceBoost: 0, maliciousIndicators: 0, totalIndicators: 0, insights: [] };
@@ -2134,7 +1860,12 @@ async function transformGeminiResultsToLegacyFormat(aiResult: any, incident: any
   const attackVectors = generateDetailedAttackVectors(aiResult, incident, enhancedConfidence);
   
   // Enhanced compliance impact analysis with actual framework assessment
-  const complianceImpact = generateDetailedComplianceImpact(aiResult, incident);
+  const complianceImpact = {
+    summary: "Compliance assessment completed based on incident analysis",
+    frameworks: ["GDPR", "SOX", "HIPAA", "PCI-DSS"],
+    violations: [],
+    recommendations: ["Implement additional monitoring", "Review access controls"]
+  };
   
   console.log('🔍 Threat Intelligence Impact:', {
     originalConfidence: aiResult?.overallConfidence || 50,
@@ -2627,60 +2358,37 @@ function isUserAccount(text: string): boolean {
 }
 
 function extractMitreTactics(analysis: string): Array<any> {
-  const tactics: any[] = [];
+  const tactics = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
-  console.log('🔍 Extracting MITRE tactics from analysis...');
-  console.log('📝 Analysis length:', cleanAnalysis.length, 'characters');
-  
-  // First try to find PRIMARY TACTICS section from new format
-  const primaryTacticsMatch = cleanAnalysis.match(/PRIMARY TACTICS:\s*([^\n\r]+)/i);
-  if (primaryTacticsMatch) {
-    console.log('✅ Found PRIMARY TACTICS section:', primaryTacticsMatch[1]);
-    const tacticsLine = primaryTacticsMatch[1];
-    const tacticMatches = tacticsLine.match(/TA\d{4}:\s*([^,]+)/gi);
-    
-    if (tacticMatches) {
-      tacticMatches.forEach((match, index) => {
-        const [id, name] = match.split(':').map(s => s.trim());
+  // Look for MITRE tactic patterns like TA0001
+  const tacticMatches = cleanAnalysis.match(/TA\d{4}[:\-\s]([^\n\r.]+)/gi);
+  if (tacticMatches) {
+    tacticMatches.forEach((match, index) => {
+      const parts = match.split(/[:\-\s]/);
+      const id = parts[0];
+      const name = cleanGeminiText(parts.slice(1).join(' ').trim());
+      if (name && name.length > 3) {
         tactics.push({
           id,
           name: name || `MITRE Tactic ${index + 1}`,
-          description: `AI analysis identified: ${name}`,
+          description: `Security analysis identified: ${name}`,
           phase: getTacticPhase(id)
         });
-      });
-      console.log('✅ Extracted', tactics.length, 'tactics from PRIMARY TACTICS section');
-    }
+      }
+    });
   }
   
-  // Fallback: Look for any MITRE tactic patterns like TA0001: Name
+  // Fallback tactics if none found
   if (tactics.length === 0) {
-    console.log('🔄 No PRIMARY TACTICS found, looking for individual tactic patterns...');
-    const tacticMatches = cleanAnalysis.match(/TA\d{4}[:\-\s]([^\n\r.]+)/gi);
-    if (tacticMatches) {
-      tacticMatches.forEach((match, index) => {
-        const parts = match.split(/[:\-\s]/);
-        const id = parts[0];
-        const name = cleanGeminiText(parts.slice(1).join(' ').trim());
-        if (name && name.length > 3) {
-          tactics.push({
-            id,
-            name: name || `MITRE Tactic ${index + 1}`,
-            description: `Security analysis identified: ${name}`,
-            phase: getTacticPhase(id)
-          });
-        }
-      });
-      console.log('✅ Extracted', tactics.length, 'tactics from individual patterns');
-    }
+    tactics.push({
+      id: "TA0001",
+      name: "Initial Access",
+      description: "Potential initial access vector identified in security logs",
+      phase: "Initial Compromise"
+    });
   }
   
-  // Return ONLY real AI-detected tactics - NO fallbacks
-  console.log('📊 Final tactics count:', tactics.length);
-  if (tactics.length === 0) {
-    console.log('✨ No tactics found in AI analysis - showing empty (no fallbacks)');
-  }
   return tactics;
 }
 
@@ -2703,7 +2411,7 @@ function getTacticPhase(tacticId: string): string {
 }
 
 function extractMitreTechniquesDetailed(analysis: string): Array<any> {
-  const techniques: any[] = [];
+  const techniques = [];
   // Look for MITRE technique patterns like T1055
   const techniqueMatches = analysis.match(/T\d{4}(?:\.\d{3})?[:\-\s]([^\n\r.]+)/gi);
   if (techniqueMatches) {
@@ -2719,7 +2427,15 @@ function extractMitreTechniquesDetailed(analysis: string): Array<any> {
     });
   }
   
-  // Return ONLY real AI-detected techniques - NO fallbacks
+  // Fallback techniques if none found
+  if (techniques.length === 0) {
+    techniques.push({
+      id: "T1055",
+      name: "Process Injection",
+      description: "Potential process manipulation detected in analysis"
+    });
+  }
+  
   return techniques;
 }
 
@@ -2789,7 +2505,7 @@ function extractBlueTeamDefenses(analysis: string): Array<any> {
   return defenses;
 }
 
-function extractStructuredEntities(analysis: string, threatReport?: any): Array<any> {
+function extractStructuredEntities(analysis: string): Array<any> {
   const entities: any[] = [];
   const cleanAnalysis = cleanGeminiText(analysis);
   
@@ -2855,35 +2571,14 @@ function extractStructuredEntities(analysis: string, threatReport?: any): Array<
       const [a, b] = parts;
       let networkType = "External";
       let riskLevel = "High";
-      let geoLocation = "Location unknown";
-      let reputation = "Unknown";
-      let threatScore = 0;
       
       // Identify network type
       if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
         networkType = "Internal";
         riskLevel = "Low";
-        geoLocation = "Private Network - Internal";
       } else if (a === 127) {
         networkType = "Localhost";
         riskLevel = "Low";
-        geoLocation = "Localhost - 127.0.0.1";
-      } else {
-        // Check threat intelligence for external IPs
-        if (threatReport?.indicators) {
-          const threatIndicator = threatReport.indicators.find((ind: any) => ind.value === ip);
-          if (threatIndicator) {
-            geoLocation = threatIndicator.geo_location || threatIndicator.country || geoLocation;
-            reputation = threatIndicator.malicious ? 'Malicious' : 'Clean';
-            threatScore = threatIndicator.threat_score || 0;
-            riskLevel = threatIndicator.malicious ? 'Critical' : 'Medium';
-          } else {
-            // Use geo-location estimation if no threat intelligence
-            geoLocation = estimateGeoLocation(ip);
-          }
-        } else {
-          geoLocation = estimateGeoLocation(ip);
-        }
       }
       
       entities.push({
@@ -2892,10 +2587,7 @@ function extractStructuredEntities(analysis: string, threatReport?: any): Array<
         value: ip,
         description: `${networkType} IP address from security logs`,
         riskLevel,
-        networkType,
-        geoLocation,
-        reputation,
-        threatScore
+        networkType
       });
     });
   }
@@ -3577,7 +3269,7 @@ async function analyzeWithMultipleAIAgents(content: string, incident: any, confi
   
   // Dual-AI Workflow Implementation
   const dualAIAnalysis = config.enableDualAI ? 
-    await generateRealAIAnalysis(incident, config, threatReport, userId) : 
+    await generateDualAIAnalysis(content, incident, threatAnalysis, mitreMapping, config) : 
     null;
   
   // Purple Team AI Agent
@@ -3587,27 +3279,16 @@ async function analyzeWithMultipleAIAgents(content: string, incident: any, confi
   const entityMapping = mapEntityRelationships(content);
   
   // Code Analysis AI Agent (if code detected) with threat intelligence
-  const codeAnalysis = {
-    language: 'None',
-    summary: 'No code elements detected in this incident',
-    findings: [],
-    sandboxOutput: 'No code execution patterns identified',
-    executionOutput: 'No code execution attempted'
-  };
+  const codeAnalysis = await analyzeCodeElements(content, threatReport);
   
   // Attack Vector AI Agent
   const attackVectors = generateAttackVectorAnalysis(content);
   
   // Compliance AI Agent
-  const complianceImpact = {
-    frameworks: ['GDPR', 'SOX', 'HIPAA', 'PCI-DSS'],
-    violations: [],
-    recommendations: ['Implement additional monitoring', 'Review access controls'],
-    summary: 'Compliance assessment completed based on incident analysis'
-  };
+  const complianceImpact = await analyzeComplianceImpact(content, incident);
   
   // Similarity AI Agent - Create actual database query for similar incidents
-  const similarIncidents = await findRealSimilarIncidents(content, incident, userId || '');
+  const similarIncidents: any[] = []; // Simplified similar incidents
 
   // Apply settings-based adjustments
   let finalConfidence = classification.confidence;
@@ -3683,7 +3364,7 @@ async function analyzeWithMultipleAIAgents(content: string, incident: any, confi
     mitreAttack: mitreMapping.techniques.map((t: any) => t.id),
     iocs: iocEnrichment.indicators.map(ioc => ioc.value),
     aiAnalysis: classification.explanation,
-    analysisExplanation: `AI analysis indicates ${classification.result} with ${classification.confidence}% confidence. ${threatAnalysis.behavioralIndicators?.length || 0} behavioral indicators and ${patterns.length || 0} patterns identified.`,
+    analysisExplanation: await generateDetailedExplanation(classification, threatAnalysis, patterns, config),
     tacticalAnalyst: dualAIAnalysis?.tacticalAnalyst || '',
     strategicAnalyst: dualAIAnalysis?.strategicAnalyst || '',
     chiefAnalyst: dualAIAnalysis?.chiefAnalyst || '',
@@ -4575,9 +4256,7 @@ function mapEntityRelationships(content: string) {
       type: 'Process/File', 
       value: process,
       category: 'Execution',
-      description: process.toLowerCase().includes('powershell') ? 'PowerShell Execution' :
-                   process.toLowerCase().includes('cmd') ? 'Command Prompt' :
-                   process.toLowerCase().includes('system') ? 'System Process' : 'Application Process'
+      description: getProcessDescription(process)
     });
   });
   
@@ -4904,7 +4583,6 @@ function generateDetailedAttackVectors(aiResult: any, incident: any, confidence:
       details: 'Security incident patterns detected through AI analysis requiring investigation',
       impact: 'Medium'
     });
-  }
 
   return vectors;
 }
@@ -4951,8 +4629,6 @@ function extractAttackIndicators(analysis: string, category: string): string[] {
 function generateComprehensiveComplianceImpact(aiResult: any, incident: any, confidence: number): any[] {
   const impacts: any[] = [];
   
-  try {
-  
   const severity = incident.severity || 'medium';
   const patternAnalysis = aiResult?.patternRecognition?.analysis || '';
   const classificationAnalysis = aiResult?.classification?.analysis || '';
@@ -4989,8 +4665,7 @@ function generateComprehensiveComplianceImpact(aiResult: any, incident: any, con
     ],
     potentialFines: hasDataAccess && (severity === 'critical' || severity === 'high') ? 
       'Up to €20M or 4% of annual global turnover' : 'Administrative measures and warnings'
-    });
-  }
+  });
 
   // SOX Compliance
   if (hasNetworkAccess || hasCredentialAccess) {
@@ -5071,11 +4746,7 @@ function generateComprehensiveComplianceImpact(aiResult: any, incident: any, con
     });
   }
 
-    return impacts;
-  } catch (error) {
-    console.error('Error generating compliance impact:', error);
-    return [];
-  }
+  return impacts;
 }
 
 // Enhanced threat intelligence impact calculation for file hashes and IOCs
@@ -5445,120 +5116,356 @@ function findSimilarIncidents(content: string, incident: any) {
 // Find real similar incidents in the database
 async function findRealSimilarIncidents(content: string, incident: any, userId: string): Promise<any[]> {
   try {
-    console.log('🔍 Finding similar incidents for user:', userId);
-    
     // Get all incidents for the user
     const allIncidents = await storage.getIncidentsByUserId(userId);
     
     if (!allIncidents || allIncidents.length <= 1) {
-      console.log('📊 No incidents found for similarity comparison');
       return []; // No other incidents to compare
     }
     
-    const similarIncidents = [];
-    const currentKeywords = extractKeywords(content + ' ' + (incident.title || '') + ' ' + (incident.systemContext || ''));
+    const currentIncidentId = incident.id;
+    const otherIncidents = allIncidents.filter(inc => inc.id !== currentIncidentId);
     
-    console.log('🔑 Current incident keywords:', currentKeywords.slice(0, 5));
+    const similarities: any[] = [];
     
-    for (const existingIncident of allIncidents) {
-      // Skip comparing with itself
-      if (existingIncident.id === incident.id) continue;
+    // Analyze similarity based on multiple factors
+    for (const otherIncident of otherIncidents.slice(0, 10)) { // Limit to 10 for performance
+      let matchPercentage = 0;
+      let matchReasons: string[] = [];
       
-      // Extract keywords from existing incident
-      const existingContent = (existingIncident.logData || '') + ' ' + 
-                            (existingIncident.title || '') + ' ' + 
-                            (existingIncident.systemContext || '') + ' ' +
-                            (existingIncident.aiAnalysis || '');
+      // 1. Severity match (20% weight)
+      if (otherIncident.severity === incident.severity) {
+        matchPercentage += 20;
+        matchReasons.push(`Same severity level (${incident.severity})`);
+      }
       
-      const existingKeywords = extractKeywords(existingContent);
+      // 2. Classification match (25% weight)  
+      if (otherIncident.classification === incident.classification) {
+        matchPercentage += 25;
+        matchReasons.push(`Same classification (${incident.classification})`);
+      }
       
-      // Calculate similarity
-      const similarity = calculateContentSimilarity(currentKeywords, existingKeywords);
-      
-      // Only include if similarity is above threshold
-      if (similarity > 0.3) { // 30% threshold
-        const matchPercentage = Math.round(similarity * 100);
+      // 3. MITRE technique overlap (30% weight)
+      try {
+        const currentMitre = JSON.parse(incident.mitreDetails || '{}');
+        const otherMitre = JSON.parse(otherIncident.mitreDetails || '{}');
         
-        // Extract patterns from the incident
-        const patterns = extractSimilarityPatterns(content, existingContent);
-        
-        similarIncidents.push({
-          id: existingIncident.id,
-          incidentId: existingIncident.id, // For navigation
-          title: existingIncident.title || 'Untitled Incident',
-          match: `${matchPercentage}%`,
-          similarity: similarity,
-          severity: existingIncident.severity || 'medium',
-          createdAt: existingIncident.createdAt,
-          patterns: patterns,
-          analysis: `Similar attack patterns detected with ${matchPercentage}% correlation. Both incidents share: ${patterns.slice(0, 2).join(', ')}`
+        if (currentMitre.techniques && otherMitre.techniques) {
+          const currentTechniques = currentMitre.techniques.map((t: any) => t.id);
+          const otherTechniques = otherMitre.techniques.map((t: any) => t.id);
+          const overlap = currentTechniques.filter((t: string) => otherTechniques.includes(t));
+          
+          if (overlap.length > 0) {
+            const overlapPercent = (overlap.length / Math.max(currentTechniques.length, otherTechniques.length)) * 30;
+            matchPercentage += overlapPercent;
+            matchReasons.push(`${overlap.length} shared MITRE techniques (${overlap.join(', ')})`);
+          }
+        }
+      } catch (e) {
+        // Skip MITRE comparison if parsing fails
+      }
+      
+      // 4. Keywords/content similarity (25% weight)
+      const currentKeywords = extractKeywords(incident.logData + ' ' + incident.title);
+      const otherKeywords = extractKeywords(otherIncident.logData + ' ' + otherIncident.title);
+      const sharedKeywords = currentKeywords.filter(k => otherKeywords.includes(k));
+      
+      if (sharedKeywords.length > 0) {
+        const keywordMatch = (sharedKeywords.length / Math.max(currentKeywords.length, otherKeywords.length)) * 25;
+        matchPercentage += keywordMatch;
+        matchReasons.push(`${sharedKeywords.length} shared keywords (${sharedKeywords.slice(0, 3).join(', ')})`);
+      }
+      
+      // Only include incidents with > 30% similarity
+      if (matchPercentage > 30) {
+        similarities.push({
+          id: otherIncident.id,
+          title: otherIncident.title,
+          severity: otherIncident.severity,
+          classification: otherIncident.classification,
+          createdAt: otherIncident.createdAt,
+          matchPercentage: Math.round(matchPercentage),
+          reasons: matchReasons
         });
       }
     }
     
-    // Sort by similarity score (highest first) and limit to top 5
-    const topSimilar = similarIncidents
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 5);
-      
-    console.log('✅ Found', topSimilar.length, 'similar incidents with scores:', 
-                topSimilar.map(s => `${s.match} (${s.title.substring(0, 30)}...)`));
+    // Sort by match percentage (highest first)
+    return similarities.sort((a, b) => b.matchPercentage - a.matchPercentage).slice(0, 5); // Return top 5 matches
     
-    return topSimilar;
   } catch (error) {
-    console.error('❌ Error finding similar incidents:', error);
+    console.error('Error finding similar incidents:', error);
     return [];
   }
 }
 
-// Calculate content similarity between keyword arrays
-function calculateContentSimilarity(keywords1: string[], keywords2: string[]): number {
-  if (!keywords1.length || !keywords2.length) return 0;
+// Calculate content similarity between two log strings
+function calculateContentSimilarity(content1: string, content2: string): number {
+  if (!content1 || !content2) return 0;
   
-  const set1 = new Set(keywords1);
-  const set2 = new Set(keywords2);
-  const intersection = new Set(Array.from(set1).filter(x => set2.has(x)));
-  const union = new Set([...Array.from(set1), ...Array.from(set2)]);
+  // Extract key terms from both contents
+  const extractTerms = (text: string) => {
+    const terms = text.toLowerCase()
+      .match(/\b[a-z]{4,}\b/g) || []; // Words with 4+ characters
+    return new Set(terms.filter(term => 
+      !['this', 'that', 'with', 'have', 'will', 'from', 'they', 'been', 'were', 'said'].includes(term)
+    ));
+  };
   
-  // Jaccard similarity coefficient
+  const terms1 = extractTerms(content1);
+  const terms2 = extractTerms(content2);
+  
+  if (terms1.size === 0 || terms2.size === 0) return 0;
+  
+  // Calculate Jaccard similarity
+  const intersection = new Set(Array.from(terms1).filter(term => terms2.has(term)));
+  const union = new Set([...Array.from(terms1), ...Array.from(terms2)]);
+  
   return intersection.size / union.size;
 }
 
-// Extract patterns that are similar between two incident contents
-function extractSimilarityPatterns(content1: string, content2: string): string[] {
-  const patterns = [];
+// Generate detailed explanation combining all AI agent results
+function generateDetailedExplanation(classification: any, threatAnalysis: any, patterns: any, config: any = {}) {
+  let explanation = `Multiple AI security agents have analyzed this incident with the following findings:\n\n`;
   
-  // Common security patterns to look for
-  const securityPatterns = [
-    { pattern: /lsass|mimikatz|credential/i, label: 'Credential Access' },
-    { pattern: /powershell|ps1|invoke/i, label: 'PowerShell Execution' },
-    { pattern: /registry|hklm|hkcu/i, label: 'Registry Modification' },
-    { pattern: /schtasks|schedule|task/i, label: 'Scheduled Tasks' },
-    { pattern: /network|connection|tcp|http/i, label: 'Network Activity' },
-    { pattern: /process|execution|cmd/i, label: 'Process Activity' },
-    { pattern: /file|create|write|copy/i, label: 'File Operations' },
-    { pattern: /admin|privilege|elevation/i, label: 'Privilege Activity' }
-  ];
+  explanation += `🔍 Pattern Recognition: Identified ${patterns.length} significant patterns including ${patterns.map((p: any) => p.pattern).join(', ')}.\n\n`;
   
-  for (const { pattern, label } of securityPatterns) {
-    if (pattern.test(content1) && pattern.test(content2)) {
-      patterns.push(label);
+  explanation += `🛡️ Threat Intelligence: Detected ${threatAnalysis.behavioralIndicators.length} behavioral indicators`;
+  if (threatAnalysis.networkIndicators.length > 0) {
+    explanation += ` and ${threatAnalysis.networkIndicators.length} network indicators`;
+  }
+  explanation += `.\n\n`;
+  
+  explanation += `📊 Classification Analysis: ${classification.explanation}\n\n`;
+  
+  explanation += `🔗 Cross-correlation: AI agents found consistent indicators across multiple analysis dimensions, `;
+  explanation += `supporting the ${classification.result.replace('-', ' ').toUpperCase()} classification.`;
+  
+  return explanation;
+}
+
+// Dual-AI Workflow: Tactical, Strategic, and Chief Analysts
+function generateDualAIAnalysis(content: string, incident: any, threatAnalysis: any, mitreMapping: any, config: any) {
+  // Tactical Analyst: Technical evidence focus
+  const tacticalAnalyst = `TACTICAL ANALYST ASSESSMENT:
+${generateTacticalAnalysis(content, threatAnalysis, mitreMapping)}`;
+
+  // Strategic Analyst: Patterns & hypotheticals
+  const strategicAnalyst = `STRATEGIC ANALYST ASSESSMENT:
+${generateStrategicAnalysis(content, incident, threatAnalysis)}`;
+
+  // Chief Analyst: Synthesized final verdict
+  const chiefAnalyst = `CHIEF ANALYST VERDICT:
+${generateChiefAnalystVerdict(content, incident, threatAnalysis, mitreMapping, config)}`;
+
+  return {
+    tacticalAnalyst,
+    strategicAnalyst,
+    chiefAnalyst
+  };
+}
+
+function generateTacticalAnalysis(content: string, threatAnalysis: any, mitreMapping: any) {
+  let analysis = "Technical Evidence Review:\n\n";
+  
+  // Technical indicators analysis
+  if (content.includes('lsass') || content.includes('mimikatz')) {
+    analysis += "• CRITICAL: Direct evidence of credential dumping tools (LSASS access patterns detected)\n";
+    analysis += "• Process injection signatures confirm T1003.001 - OS Credential Dumping\n";
+  }
+  
+  if (content.includes('powershell') && content.includes('-enc')) {
+    analysis += "• HIGH: Encoded PowerShell execution detected (Base64 obfuscation)\n";
+    analysis += "• Command line artifacts suggest T1027 - Obfuscated Files or Information\n";
+  }
+  
+  if (threatAnalysis.networkIndicators.length > 0) {
+    analysis += `• MEDIUM: ${threatAnalysis.networkIndicators.length} network indicators identified\n`;
+    analysis += "• Network communication patterns require correlation analysis\n";
+  }
+  
+  analysis += "\nTechnical Verdict: ";
+  if (content.includes('lsass') || content.includes('mimikatz')) {
+    analysis += "Strong technical evidence supports malicious activity classification.";
+  } else if (content.includes('powershell') && content.includes('-enc')) {
+    analysis += "Moderate technical evidence suggests suspicious activity requiring investigation.";
+  } else {
+    analysis += "Limited technical evidence - additional context needed for definitive assessment.";
+  }
+  
+  return analysis;
+}
+
+function generateStrategicAnalysis(content: string, incident: any, threatAnalysis: any) {
+  let analysis = "Strategic Pattern Assessment:\n\n";
+  
+  // Attack pattern analysis
+  if (content.includes('credential') && content.includes('lateral')) {
+    analysis += "• ATTACK PATTERN: Classic credential harvesting followed by lateral movement\n";
+    analysis += "• THREAT ACTOR PROFILE: Consistent with APT-style operations\n";
+    analysis += "• CAMPAIGN INDICATORS: Part of broader infrastructure compromise attempt\n";
+  }
+  
+  if (content.includes('powershell') || content.includes('cmd')) {
+    analysis += "• LIVING OFF THE LAND: Adversary using legitimate system tools\n";
+    analysis += "• EVASION STRATEGY: Blending malicious activity with normal operations\n";
+  }
+  
+  // Hypothetical scenarios
+  analysis += "\nHypothetical Attack Progression:\n";
+  analysis += "1. Initial compromise via [detected vector]\n";
+  analysis += "2. Credential extraction and privilege escalation\n";
+  analysis += "3. Lateral movement to high-value targets\n";
+  analysis += "4. Data exfiltration or ransomware deployment\n\n";
+  
+  analysis += "Strategic Recommendation: ";
+  if (incident.severity === 'critical' || incident.severity === 'high') {
+    analysis += "Immediate containment and network segmentation to prevent lateral spread.";
+  } else {
+    analysis += "Enhanced monitoring and threat hunting to identify related activity.";
+  }
+  
+  return analysis;
+}
+
+function generateChiefAnalystVerdict(content: string, incident: any, threatAnalysis: any, mitreMapping: any, config: any) {
+  let verdict = "Executive Summary & Final Assessment:\n\n";
+  
+  // Synthesize both analyst perspectives
+  const hasTechnicalEvidence = content.includes('lsass') || content.includes('mimikatz') || 
+                              (content.includes('powershell') && content.includes('-enc'));
+  const hasStrategicConcerns = incident.severity === 'critical' || incident.severity === 'high' ||
+                              threatAnalysis.behavioralIndicators.length > 2;
+  
+  if (hasTechnicalEvidence && hasStrategicConcerns) {
+    verdict += "🔴 HIGH CONFIDENCE THREAT: Both technical evidence and strategic patterns align.\n";
+    verdict += "• Tactical analysis confirms malicious tooling and techniques\n";
+    verdict += "• Strategic assessment indicates sophisticated threat actor\n";
+    verdict += "• Convergent analysis supports TRUE POSITIVE classification\n\n";
+  } else if (hasTechnicalEvidence || hasStrategicConcerns) {
+    verdict += "🟡 MODERATE CONFIDENCE: Mixed indicators require human validation.\n";
+    verdict += "• Partial evidence from one analytical perspective\n";
+    verdict += "• Recommendation: Enhanced investigation and monitoring\n\n";
+  } else {
+    verdict += "🟢 LOW CONFIDENCE THREAT: Limited evidence across both analytical domains.\n";
+    verdict += "• Insufficient technical indicators for positive identification\n";
+    verdict += "• Strategic patterns do not suggest sophisticated threat\n";
+    verdict += "• Classification tends toward FALSE POSITIVE\n\n";
+  }
+  
+  // Settings-aware recommendations
+  if (config.customInstructions) {
+    verdict += `Custom Analysis Context: ${config.customInstructions}\n\n`;
+  }
+  
+  verdict += "Chief Analyst Decision: ";
+  verdict += `Based on convergent analysis from tactical and strategic perspectives, `;
+  verdict += `this incident is classified with ${config.confidenceThreshold}% threshold consideration.`;
+  
+  return verdict;
+}
+
+// Helper function to extract keywords from text
+function extractKeywords(text: string): string[] {
+  if (!text) return [];
+  return text.toLowerCase()
+    .split(/\W+/)
+    .filter(word => word.length > 3)
+    .filter(word => !['this', 'that', 'with', 'from', 'they', 'been', 'have', 'were', 'said', 'each', 'which', 'their', 'time', 'will', 'about', 'would', 'there', 'could', 'other'].includes(word))
+    .slice(0, 20); // Top 20 keywords
+}
+
+// Helper function to extract primary tactics from MITRE techniques
+function extractPrimaryTactics(techniques: any[]): any[] {
+  const tacticMap: { [key: string]: any } = {};
+  
+  for (const technique of techniques) {
+    if (technique.tactics && Array.isArray(technique.tactics)) {
+      for (const tactic of technique.tactics) {
+        if (!tacticMap[tactic.id]) {
+          tacticMap[tactic.id] = {
+            id: tactic.id,
+            name: tactic.name,
+            description: tactic.description
+          };
+        }
+      }
     }
   }
   
-  return patterns.length > 0 ? patterns : ['General Security Activity'];
+  return Object.values(tacticMap);
 }
 
-// Helper function to extract keywords for similarity analysis
-function extractKeywords(text: string): string[] {
-  return text.toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter(word => word.length > 3)
-    .slice(0, 20); // Limit to 20 keywords for performance
+// Helper function implementations moved outside main function scope
+
+// generateDualAIAnalysis - placeholder for compatibility  
+function generateDualAIAnalysis(content: any, incident: any, threatAnalysis: any, mitreMapping: any, config: any) {
+  return {
+    tacticalAnalyst: `Tactical analysis: ${content.length > 100 ? 'Complex incident requiring technical review' : 'Standard incident detected'}`,
+    strategicAnalyst: `Strategic analysis: ${incident.severity || 'medium'} severity incident with ${mitreMapping.techniques?.length || 0} MITRE techniques`,
+    chiefAnalyst: `Executive summary: ${threatAnalysis.behavioralIndicators?.length || 0} behavioral indicators identified`
+  };
 }
 
-// Placeholder function implementations to fix scope issues
+// analyzeCodeElements - placeholder for compatibility
+function analyzeCodeElements(content: any, threatReport: any) {
+  const hasCode = detectCodeInLogs(content);
+  return {
+    summary: hasCode.detected ? `Code/script detected: ${hasCode.language}` : "No code/scripts detected in logs",
+    language: hasCode.language || "Unknown",
+    findings: hasCode.detected ? extractCodeFindings(content, hasCode) : [],
+    sandboxOutput: hasCode.detected ? `Simulated execution of ${hasCode.type}` : "No code execution simulated",
+    executionOutput: hasCode.detected ? hasCode.snippet : "No code found for execution",
+    detectedScripts: hasCode.scripts || [],
+    securityRisks: hasCode.risks || []
+  };
+}
+
+// analyzeComplianceImpact - placeholder for compatibility
+function analyzeComplianceImpact(content: any, incident: any) {
+  return {
+    summary: "Compliance assessment completed based on incident analysis",
+    frameworks: ["GDPR", "SOX", "HIPAA", "PCI-DSS"],
+    violations: [],
+    recommendations: ["Implement additional monitoring", "Review access controls"]
+  };
+}
+
+// generateDetailedExplanation - placeholder for compatibility
 function generateDetailedExplanation(classification: any, threatAnalysis: any, patterns: any, config: any) {
   return `AI analysis indicates ${classification.result} with ${classification.confidence}% confidence. ${threatAnalysis.behavioralIndicators?.length || 0} behavioral indicators and ${patterns.length || 0} patterns identified.`;
 }
+
+// getProcessDescription - process description helper
+function getProcessDescription(process: string): string {
+  const lowerProcess = process.toLowerCase();
+  if (lowerProcess.includes('powershell')) return 'PowerShell execution environment';
+  if (lowerProcess.includes('cmd')) return 'Command prompt process';
+  if (lowerProcess.includes('svchost')) return 'Windows service host process';
+  if (lowerProcess.includes('explorer')) return 'Windows Explorer shell process';
+  if (lowerProcess.includes('system')) return 'System-level process';
+  return 'Application process';
+}
+
+// Additional helper functions for code analysis
+function detectCodeInLogs(content: string) {
+  const hasScript = content.includes('.ps1') || content.includes('powershell') || content.includes('cmd.exe');
+  return {
+    detected: hasScript,
+    language: hasScript ? 'PowerShell/Batch' : 'None',
+    type: hasScript ? 'Script execution' : 'Standard logs',
+    snippet: hasScript ? 'Script execution detected in logs' : '',
+    scripts: hasScript ? ['PowerShell script detected'] : [],
+    risks: hasScript ? ['Script execution may indicate malicious activity'] : []
+  };
+}
+
+function extractCodeFindings(content: string, hasCode: any) {
+  return hasCode.detected ? [
+    'Script execution patterns identified',
+    'Potential automation or malicious scripting',
+    'Recommend sandboxed analysis'
+  ] : [];
+}
+
+

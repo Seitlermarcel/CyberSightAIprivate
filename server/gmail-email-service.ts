@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { Incident } from '../shared/schema';
+import { generateIncidentPDF } from './pdf-service';
 
 // Create reusable transporter object using Gmail SMTP
 let transporter: nodemailer.Transporter | null = null;
@@ -33,6 +34,20 @@ export async function sendIncidentNotification(data: EmailNotificationData): Pro
   }
 
   const { recipientEmail: to, incident, isHighSeverityAlert: isHighSeverity } = data;
+  
+  // Generate PDF attachment
+  let pdfAttachment = null;
+  try {
+    const pdfBuffer = await generateIncidentPDF({ incident });
+    pdfAttachment = {
+      filename: `incident-report-${incident.id.substring(0, 8)}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf'
+    };
+    console.log(`Generated PDF attachment: ${pdfAttachment.filename}`);
+  } catch (error) {
+    console.error('Failed to generate PDF attachment:', error);
+  }
   
   // Determine email priority and subject
   const priority = isHighSeverity ? 'URGENT' : 'NEW';
@@ -182,17 +197,31 @@ export async function sendIncidentNotification(data: EmailNotificationData): Pro
             }
           })() : ''}
           
-          <!-- Call to Action -->
-          <div style="margin: 30px 0; padding: 20px; background-color: #0d1117; border-radius: 8px; text-align: center;">
-            <p style="color: #ccc; margin: 0 0 15px;">
-              ${isHighSeverity ? 
-                'This incident requires immediate attention. Please review and respond promptly.' : 
-                'Please review this incident in the CyberSight AI dashboard.'}
+          <!-- Business Impact Analysis -->
+          <div style="background: linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%); padding: 20px; margin: 20px 0; border-radius: 8px; border: 1px solid #dc2626;">
+            <h3 style="color: #fff; margin: 0 0 15px; font-size: 16px; font-weight: bold;">⚡ BUSINESS IMPACT ASSESSMENT</h3>
+            <div style="color: #fecaca;">
+              <p style="margin: 8px 0;"><strong>Risk Level:</strong> ${incident.severity === 'critical' ? 'EXTREME' : incident.severity === 'high' ? 'HIGH' : 'MODERATE'} Financial & Operational Impact</p>
+              <p style="margin: 8px 0;"><strong>Potential Losses:</strong> ${incident.severity === 'critical' ? '$50K-500K+ in downtime, compliance fines' : incident.severity === 'high' ? '$10K-50K in productivity loss' : '$1K-10K in investigation costs'}</p>
+              <p style="margin: 8px 0;"><strong>Compliance:</strong> ${incident.severity === 'critical' ? 'GDPR/SOX/HIPAA violations likely' : 'Regulatory review required'}</p>
+              <p style="margin: 8px 0;"><strong>Reputation:</strong> ${incident.severity === 'critical' ? 'Major brand damage risk' : 'Minor reputation impact'}</p>
+            </div>
+          </div>
+
+          <!-- PDF Report Notice -->
+          <div style="padding: 25px 0; text-align: center; background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border-radius: 12px; margin: 20px 0; border: 2px solid #00BFFF;">
+            <h3 style="color: #00BFFF; margin: 0 0 15px; font-size: 18px; font-weight: bold;">📊 COMPREHENSIVE ANALYSIS REPORT</h3>
+            <p style="color: #d1d5db; margin: 0 0 20px; font-size: 14px;">Complete incident analysis with AI insights, threat intelligence, and visual analytics</p>
+            <div style="background: linear-gradient(135deg, #00BFFF 0%, #0080FF 100%); 
+                       color: white; padding: 18px 40px; border-radius: 10px; 
+                       font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; 
+                       box-shadow: 0 6px 20px rgba(0, 191, 255, 0.4); 
+                       border: 2px solid #00BFFF; font-size: 16px; display: inline-block;">
+              📎 ATTACHED: FULL PDF REPORT
+            </div>
+            <p style="color: #9ca3af; margin: 15px 0 0; font-size: 12px;">
+              Includes: AI Analysis • Threat Intel • MITRE Mapping • Visual Charts • Executive Summary
             </p>
-            <a href="${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${incident.id}" 
-               style="display: inline-block; background: linear-gradient(135deg, #00BFFF, #0080FF); color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
-              View Incident Details
-            </a>
           </div>
         </div>
         
@@ -242,6 +271,12 @@ View Details: ${process.env.REPLIT_URL || 'http://localhost:5000'}/incidents/${i
 This is an automated alert from CyberSight AI
   `.trim();
   
+  // Add PDF attachment if generated successfully
+  const attachments: any[] = [];
+  if (pdfAttachment) {
+    attachments.push(pdfAttachment);
+  }
+
   try {
     const mailOptions = {
       from: `CyberSight AI <${process.env.GMAIL_EMAIL}>`,
@@ -249,6 +284,7 @@ This is an automated alert from CyberSight AI
       subject,
       text: textContent,
       html: htmlContent,
+      attachments,
       priority: (isHighSeverity ? 'high' : 'normal') as 'high' | 'normal'
     };
     
